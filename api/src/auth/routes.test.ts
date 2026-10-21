@@ -76,6 +76,11 @@ describe('auth routes', () => {
     });
     expect(tooLong.statusCode).toBe(400);
     expect(tooLong.json<ErrorBody>().error.code).toBe('validation_error');
+    const seventyThree = await post('/auth/register', {
+      ...credentials,
+      password: 'a'.repeat(71) + 'é',
+    });
+    expect(seventyThree.statusCode).toBe(400);
     const ok = await post('/auth/register', {
       ...credentials,
       password: 'é'.repeat(36),

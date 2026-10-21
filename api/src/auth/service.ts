@@ -154,9 +154,21 @@ export async function googleLogin(
     const byEmail = await prisma.user.findUnique({ where: { email } });
     if (byEmail) {
       // Only a verified address may claim an existing account.
-      const linked = await prisma.user.update({
-        where: { id: byEmail.id },
-        data: { googleId: profile.googleId },
+      if (byEmail.googleId !== null) {
+        throw new AppError(
+          409,
+          'google_account_conflict',
+          'This email is linked to a different Google account',
+        );
+      }
+      // Password sign-up never proved ownership of the email, so the password
+      // and every session issued with it are revoked when Google proves it.
+      const linked = await prisma.$transaction(async (tx) => {
+        await tx.refreshToken.deleteMany({ where: { userId: byEmail.id } });
+        return tx.user.update({
+          where: { id: byEmail.id },
+          data: { googleId: profile.googleId, passwordHash: null },
+        });
       });
       return authResult(prisma, linked);
     }

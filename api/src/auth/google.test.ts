@@ -97,15 +97,52 @@ describe('POST /auth/google', () => {
     expect(await prisma.user.count()).toBe(1);
   });
 
-  it('links a verified email to an existing password user', async () => {
-    const existing = await prisma.user.create({
-      data: { name: 'Ana', email: 'ana@example.com', passwordHash: 'x' },
+  it('links a verified email to a password user and drops the password', async () => {
+    const registered = await app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: {
+        name: 'Ana',
+        email: 'ana@example.com',
+        password: 'correct horse',
+      },
     });
+    const before = registered.json<AuthBody>();
     const res = await google({ idToken: 'valid' });
     const body = res.json<AuthBody>();
-    expect(body.user.id).toBe(existing.id);
-    expect(body.user).toMatchObject({ hasPassword: true, hasGoogle: true });
+    expect(body.user.id).toBe(before.user.id);
+    expect(body.user).toMatchObject({ hasPassword: false, hasGoogle: true });
     expect(await prisma.user.count()).toBe(1);
+
+    const refresh = await app.inject({
+      method: 'POST',
+      url: '/auth/refresh',
+      payload: { refreshToken: before.refreshToken },
+    });
+    expect(refresh.statusCode).toBe(401);
+    expect(refresh.json<ErrorBody>().error.code).toBe('invalid_refresh_token');
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: 'ana@example.com', password: 'correct horse' },
+    });
+    expect(login.statusCode).toBe(401);
+    expect(login.json<ErrorBody>().error.code).toBe('invalid_credentials');
+  });
+
+  it('rejects a second Google subject with the same verified email', async () => {
+    const existing = await prisma.user.create({
+      data: { name: 'Ana', email: 'ana@example.com', googleId: 'G1' },
+    });
+    current = { ...profile, googleId: 'G2' };
+    const res = await google({ idToken: 'valid' });
+    expect(res.statusCode).toBe(409);
+    expect(res.json<ErrorBody>().error.code).toBe('google_account_conflict');
+    const row = await prisma.user.findUniqueOrThrow({
+      where: { id: existing.id },
+    });
+    expect(row.googleId).toBe('G1');
   });
 
   it('does not link an unverified matching email', async () => {
