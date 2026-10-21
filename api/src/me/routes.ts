@@ -17,7 +17,7 @@ export function meRoutes(app: FastifyInstance): void {
   typed.get(
     '/me',
     {
-      preHandler: app.authenticate,
+      onRequest: app.authenticate,
       schema: {
         tags: ['me'],
         summary: 'Get the signed-in user',
@@ -37,7 +37,7 @@ export function meRoutes(app: FastifyInstance): void {
   typed.patch(
     '/me',
     {
-      preHandler: app.authenticate,
+      onRequest: app.authenticate,
       schema: {
         tags: ['me'],
         summary: 'Update the signed-in user',

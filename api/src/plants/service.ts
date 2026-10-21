@@ -29,10 +29,20 @@ function findRows(prisma: PrismaClient, where: object) {
   return prisma.plant.findMany({ where, include });
 }
 
+/** The translation in the locale, else the English one, else null. */
+export function pickTranslation<T extends { locale: string }>(
+  translations: T[],
+  locale: Locale,
+): T | null {
+  return (
+    translations.find((t) => t.locale === locale) ??
+    translations.find((t) => t.locale === 'en') ??
+    null
+  );
+}
+
 function toCatalogPlant(row: PlantRow, locale: Locale): CatalogPlant | null {
-  const text =
-    row.translations.find((t) => t.locale === locale) ??
-    row.translations.find((t) => t.locale === 'en');
+  const text = pickTranslation(row.translations, locale);
   if (!text) return null;
   return {
     id: row.id,
