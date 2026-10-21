@@ -14,6 +14,15 @@ export async function createTestApp(
 export async function resetDb(
   prisma: PrismaClient = testPrisma,
 ): Promise<void> {
+  const rows = await prisma.$queryRaw<
+    { name: string }[]
+  >`SELECT current_database() AS name`;
+  const name = rows[0]?.name ?? '';
+  if (!name.endsWith('_test')) {
+    throw new Error(
+      `resetDb refuses to truncate "${name}": database name must end in _test`,
+    );
+  }
   await prisma.$executeRawUnsafe(
     'TRUNCATE TABLE "UserPlant", "RefreshToken", "PlantAlias", "PlantTranslation", "Plant", "User" RESTART IDENTITY CASCADE',
   );
