@@ -1,21 +1,19 @@
 # 🌱 PlantCare
 
-## ↪ Tecnologias
-
-Esse projeto foi desenvolvido com as seguintes tecnologias:
+## ↪ Tech stack
 
 - [React Native](https://reactnative.dev/)
 - [Expo](https://expo.io/)
 - [TypeScript](https://www.typescriptlang.org/)
 
-## ↪ Projeto
+## ↪ About
 
-Aplicativo para lhe ajudar a lembrar de cuidar de suas plantas de forma fácil de acordo com cada tipo de plantinha!
+A mobile app that reminds you to water your plants, with a schedule that fits each species.
 
-## ↪ Como executar
+## ↪ Running it
 
-- Clone o repositório
-- Instale as dependências com `yarn install` ou `npm install`
-- Inicie seu app com `expo start` (Obs:. faz-se necessário expo-cli)
-- Caso não o tenha: `npm install --global expo-cli`
-- Inicie a fake api com json-server ./src/services server.json --host 192.168.1.4 --port 3333 --delay 700. Substitua o host pelo seu endereço IP local. Faça o mesmo no arquivo API dentro de services.
+- Clone the repository
+- Install dependencies with `yarn install` or `npm install`
+- Install the Expo CLI if you don't have it: `npm install --global expo-cli`
+- Start the app with `expo start`
+- Start the fake API with `npx json-server ./src/services/server.json --host <your-local-ip> --port 3333 --delay 700`, and set the same IP as `baseURL` in `src/services/api.ts`
