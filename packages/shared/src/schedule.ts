@@ -1,4 +1,4 @@
-import type { Frequency } from './schemas';
+import { reminderTimeSchema, type Frequency } from './schemas';
 
 export type ReminderSlot = {
   /** Expo convention: 1 = Sunday ... 7 = Saturday; null for daily. */
@@ -29,6 +29,9 @@ export function reminderSlots(
   frequency: Frequency,
   reminderTime: string,
 ): ReminderSlot[] {
+  if (!reminderTimeSchema.safeParse(reminderTime).success) {
+    throw new Error(`Invalid reminder time: ${reminderTime}`);
+  }
   const [hourText = '', minuteText = ''] = reminderTime.split(':');
   const hour = Number(hourText);
   const minute = Number(minuteText);

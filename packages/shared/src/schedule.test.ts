@@ -29,4 +29,13 @@ describe('reminderSlots', () => {
       { weekday: null, hour: 21, minute: 5 },
     ]);
   });
+
+  it.each(['9:5', '25:00', ''])(
+    'rejects malformed reminder time %j',
+    (time) => {
+      expect(() => reminderSlots({ times: 1, per: 'day' }, time)).toThrow(
+        'Invalid reminder time',
+      );
+    },
+  );
 });

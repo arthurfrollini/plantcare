@@ -2,7 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestApp, resetDb } from '../../test/helpers';
 import type { PrismaClient } from '../generated/prisma/client';
-import type { GoogleProfile, GoogleVerifier } from './google';
+import {
+  GoogleUnavailableError,
+  type GoogleProfile,
+  type GoogleVerifier,
+} from './google';
 
 type AuthBody = {
   accessToken: string;
@@ -30,6 +34,12 @@ describe('POST /auth/google', () => {
   let prisma: PrismaClient;
   let current: GoogleProfile;
   const verifier: GoogleVerifier = (idToken) => {
+    if (idToken === 'outage') {
+      return Promise.reject(new GoogleUnavailableError('certs unreachable'));
+    }
+    if (idToken === 'outage') {
+      return Promise.reject(new GoogleUnavailableError('certs unreachable'));
+    }
     if (idToken !== 'valid') return Promise.reject(new Error('bad token'));
     return Promise.resolve(current);
   };
@@ -173,6 +183,12 @@ describe('POST /auth/google', () => {
     const res = await google({ idToken: 'forged' });
     expect(res.statusCode).toBe(401);
     expect(res.json<ErrorBody>().error.code).toBe('invalid_google_token');
+  });
+
+  it('returns 502 google_unavailable when Google cannot be reached', async () => {
+    const res = await google({ idToken: 'outage' });
+    expect(res.statusCode).toBe(502);
+    expect(res.json<ErrorBody>().error.code).toBe('google_unavailable');
   });
 
   it('returns 400 for a missing idToken', async () => {
