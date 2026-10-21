@@ -1,13 +1,37 @@
 {
   "name": "plantcare",
   "private": true,
-  "workspaces": ["app", "api", "packages/*"],
-  "engines": { "node": ">=22" },
+  "workspaces": [
+    "app",
+    "api",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "app": "npm run start -w @plantcare/app",
     "api": "npm run dev -w @plantcare/api",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0"
+  },
+  "lint-staged": {
+    "api/**/*.{ts,mjs,js}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "packages/**/*.{ts,mjs,js}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "{api,packages}/**/*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }
