@@ -44,6 +44,13 @@ export function MyPlants() {
   useEffect(() => {
     async function loadStoragedData() {
       const plantsStoraged = await loadPlant();
+
+      if (plantsStoraged.length === 0) {
+        setNextWatering('Você ainda não cadastrou nenhuma planta.');
+        setLoading(false);
+        return;
+      }
+
       const nextTime = formatDistance(
         new Date(plantsStoraged[0].dateTimeNotification).getTime(),
         new Date().getTime(),
