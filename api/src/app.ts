@@ -21,6 +21,7 @@ import { prisma as defaultPrisma } from './db';
 import { env } from './env';
 import { AppError, errorBody } from './errors';
 import type { PrismaClient } from './generated/prisma/client';
+import { meRoutes } from './me/routes';
 import { plantRoutes } from './plants/routes';
 import { healthRoutes } from './routes/health';
 
@@ -136,6 +137,7 @@ export async function buildApp(
   healthRoutes(app);
   plantRoutes(app);
   authRoutes(app);
+  meRoutes(app);
   options.extraRoutes?.(app);
 
   await app.ready();
