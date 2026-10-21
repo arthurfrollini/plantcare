@@ -16,6 +16,7 @@ type Page = { items: Item[]; nextPage: number | null };
 describe('catalog routes', () => {
   let app: FastifyInstance;
   let close: () => Promise<void>;
+  let created: Awaited<ReturnType<typeof createTestApp>>;
 
   async function list(query: string, language?: string) {
     const res = await app.inject({
@@ -32,7 +33,7 @@ describe('catalog routes', () => {
   }
 
   beforeAll(async () => {
-    const created = await createTestApp();
+    created = await createTestApp();
     app = created.app;
     close = async () => {
       await app.close();
@@ -81,6 +82,13 @@ describe('catalog routes', () => {
     ]);
   });
 
+  it.each(['_', '%', '\\'])(
+    'treats %s in a search as a literal',
+    async (term) => {
+      expect(await names(`?search=${encodeURIComponent(term)}`)).toEqual([]);
+    },
+  );
+
   it('searches aliases and scientific names', async () => {
     expect(await names('?search=lingua de sogra')).toEqual(['Snake plant']);
     expect(await names('?search=sansevieria')).toEqual(['Snake plant']);
@@ -117,6 +125,25 @@ describe('catalog routes', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json<Item>().slug).toBe(first?.slug);
     expect(res.json<Item>().name).not.toBe(first?.name);
+  });
+
+  it('falls back to English when the locale translation is missing', async () => {
+    const first = (await list('')).json<Page>().items[0];
+    const prisma = created.prisma;
+    await prisma.plantTranslation.deleteMany({
+      where: { plantId: first?.id ?? '', locale: 'pt-BR' },
+    });
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/plants/${first?.id}`,
+        headers: { 'accept-language': 'pt-BR' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json<Item>().name).toBe(first?.name);
+    } finally {
+      await seed(prisma);
+    }
   });
 
   it('returns 404 for an unknown plant', async () => {

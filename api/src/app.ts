@@ -51,6 +51,12 @@ declare module 'fastify' {
   }
 }
 
+function clientErrorCode(statusCode: number): string {
+  if (statusCode === 413) return 'payload_too_large';
+  if (statusCode === 415) return 'unsupported_media_type';
+  return 'bad_request';
+}
+
 export async function buildApp(
   options: BuildAppOptions = {},
 ): Promise<FastifyInstance> {
@@ -109,9 +115,21 @@ export async function buildApp(
         .send(errorBody(error.code, error.message));
     }
     if (hasZodFastifySchemaValidationErrors(error)) {
+      const issue = error.validation[0];
+      const where = [
+        error.validationContext,
+        ...(issue?.instancePath.split('/').filter(Boolean) ?? []),
+      ]
+        .filter((part) => part !== undefined)
+        .join('.');
       return reply
         .code(400)
-        .send(errorBody('validation_error', 'Request validation failed'));
+        .send(
+          errorBody(
+            'validation_error',
+            where ? `Invalid request: ${where}` : 'Invalid request',
+          ),
+        );
     }
     if (isResponseSerializationError(error)) {
       request.log.error(error);
@@ -133,7 +151,7 @@ export async function buildApp(
     if (error instanceof Error && statusCode >= 400 && statusCode < 500) {
       return reply
         .code(statusCode)
-        .send(errorBody('bad_request', error.message));
+        .send(errorBody(clientErrorCode(statusCode), error.message));
     }
     request.log.error(error);
     return reply

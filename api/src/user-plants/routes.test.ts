@@ -132,6 +132,34 @@ describe('user plants routes', () => {
     });
   });
 
+  it('rejects an offset time zone and stores a canonical name', async () => {
+    const offset = await call('POST', '/me/plants', tokenA, {
+      ...valid(),
+      timeZone: '+03:00',
+    });
+    expect(offset.statusCode).toBe(400);
+    expect(offset.json<ErrorBody>().error.code).toBe('validation_error');
+
+    const lower = await call('POST', '/me/plants', tokenA, {
+      ...valid(),
+      timeZone: 'america/sao_paulo',
+    });
+    expect(lower.statusCode).toBe(201);
+    expect(lower.json<UserPlant>().timeZone).toBe('America/Sao_Paulo');
+    const row = await prisma.userPlant.findFirstOrThrow();
+    expect(row.timeZone).toBe('America/Sao_Paulo');
+  });
+
+  it('answers 401 when the token user no longer exists', async () => {
+    const user = await prisma.user.findFirstOrThrow({
+      where: { email: 'ana@example.com' },
+    });
+    await prisma.user.delete({ where: { id: user.id } });
+    const res = await call('POST', '/me/plants', tokenA, valid());
+    expect(res.statusCode).toBe(401);
+    expect(res.json<ErrorBody>().error.code).toBe('unauthorized');
+  });
+
   it('rejects a create without catalogPlantId', async () => {
     const { catalogPlantId: _omit, ...body } = valid();
     const res = await call('POST', '/me/plants', tokenA, body);

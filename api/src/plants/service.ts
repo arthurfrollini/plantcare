@@ -62,12 +62,17 @@ function toCatalogPlant(row: PlantRow, locale: Locale): CatalogPlant | null {
   };
 }
 
+/** Escapes LIKE wildcards so user input matches literally. */
+function escapeLike(term: string): string {
+  return term.replace(/[\\%_]/g, '\\$&');
+}
+
 export async function listCatalog(
   prisma: PrismaClient,
   locale: Locale,
   query: CatalogQuery,
 ): Promise<CatalogPage> {
-  const term = query.search ? toSearchName(query.search) : '';
+  const term = query.search ? escapeLike(toSearchName(query.search)) : '';
   const rows = await findRows(prisma, {
     ...(query.light ? { light: query.light } : {}),
     ...(query.difficulty ? { difficulty: query.difficulty } : {}),

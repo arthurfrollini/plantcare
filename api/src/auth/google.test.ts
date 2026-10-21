@@ -158,6 +158,17 @@ describe('POST /auth/google', () => {
     expect(await prisma.user.count()).toBe(2);
   });
 
+  it('creates a new user with email null when the Google email is unverified', async () => {
+    current = { ...profile, emailVerified: false };
+    const res = await google({ idToken: 'valid' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<AuthBody>().user.email).toBeNull();
+    const row = await prisma.user.findFirstOrThrow({
+      where: { googleId: profile.googleId },
+    });
+    expect(row.email).toBeNull();
+  });
+
   it('returns 401 invalid_google_token when verification fails', async () => {
     const res = await google({ idToken: 'forged' });
     expect(res.statusCode).toBe(401);

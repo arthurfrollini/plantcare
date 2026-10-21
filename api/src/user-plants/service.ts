@@ -48,6 +48,7 @@ export function toUserPlantDto(
       ? `/static/plants/${row.catalogPlant.imageFile}`
       : null,
     hasPhoto: row.photoPath !== null,
+    photoVersion: row.photoUpdatedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -85,6 +86,10 @@ export async function listUserPlants(
     );
 }
 
+function isForeignKeyViolation(error: unknown): boolean {
+  return error instanceof Error && 'code' in error && error.code === 'P2003';
+}
+
 export async function createUserPlant(
   prisma: PrismaClient,
   userId: string,
@@ -101,20 +106,32 @@ export async function createUserPlant(
     times: species.frequencyTimes,
     per: species.frequencyPer,
   };
-  const row = await prisma.userPlant.create({
-    data: {
-      userId,
-      catalogPlantId: species.id,
-      nickname: input.nickname ?? null,
-      frequencyTimes: frequency.times,
-      frequencyPer: frequency.per,
-      reminderTime: input.reminderTime,
-      timeZone: input.timeZone,
-      light: input.light ?? species.light,
-      notes: input.notes ?? null,
-    },
-    include,
-  });
+  const row = await prisma.userPlant
+    .create({
+      data: {
+        userId,
+        catalogPlantId: species.id,
+        nickname: input.nickname ?? null,
+        frequencyTimes: frequency.times,
+        frequencyPer: frequency.per,
+        reminderTime: input.reminderTime,
+        timeZone: input.timeZone,
+        light: input.light ?? species.light,
+        notes: input.notes ?? null,
+      },
+      include,
+    })
+    .catch((error: unknown) => {
+      // The token outlived its user: the owner row is gone.
+      if (isForeignKeyViolation(error)) {
+        throw new AppError(
+          401,
+          'unauthorized',
+          'Missing or invalid access token',
+        );
+      }
+      throw error;
+    });
   return present(row, locale);
 }
 
@@ -176,7 +193,7 @@ export async function setUserPlantPhoto(
   await storage.save(key, data);
   const row = await prisma.userPlant.update({
     where: { id },
-    data: { photoPath: key },
+    data: { photoPath: key, photoUpdatedAt: new Date() },
     include,
   });
   if (previous !== null && previous !== key) await storage.remove(previous);
