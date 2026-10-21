@@ -1,8 +1,19 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { OAuth2Client } from 'google-auth-library';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { createTestApp, resetDb } from '../../test/helpers';
 import type { PrismaClient } from '../generated/prisma/client';
 import {
+  createGoogleVerifier,
   GoogleUnavailableError,
   type GoogleProfile,
   type GoogleVerifier,
@@ -34,9 +45,6 @@ describe('POST /auth/google', () => {
   let prisma: PrismaClient;
   let current: GoogleProfile;
   const verifier: GoogleVerifier = (idToken) => {
-    if (idToken === 'outage') {
-      return Promise.reject(new GoogleUnavailableError('certs unreachable'));
-    }
     if (idToken === 'outage') {
       return Promise.reject(new GoogleUnavailableError('certs unreachable'));
     }
@@ -207,5 +215,22 @@ describe('POST /auth/google', () => {
     } finally {
       await unconfigured.app.close();
     }
+  });
+});
+
+describe('createGoogleVerifier', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('wraps a certificate fetch failure in GoogleUnavailableError', async () => {
+    vi.spyOn(
+      OAuth2Client.prototype,
+      'getFederatedSignonCertsAsync',
+    ).mockRejectedValue(new Error('network down'));
+    const verify = createGoogleVerifier(['client-id']);
+    await expect(verify('any-token')).rejects.toBeInstanceOf(
+      GoogleUnavailableError,
+    );
   });
 });
