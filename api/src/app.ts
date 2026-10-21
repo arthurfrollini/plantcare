@@ -1,4 +1,5 @@
 import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import fastifyStatic from '@fastify/static';
@@ -12,7 +13,9 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
+import { authenticateDecorator } from './auth/authenticate';
 import type { GoogleVerifier } from './auth/google';
+import { authRoutes } from './auth/routes';
 import { prisma as defaultPrisma } from './db';
 import { env } from './env';
 import { AppError, errorBody } from './errors';
@@ -26,6 +29,8 @@ export type BuildAppOptions = {
   logger?: boolean;
   /** Requests per minute per client on the auth routes. */
   authRateLimitMax?: number;
+  /** Test hook: register extra routes before the app is ready. */
+  extraRoutes?: (app: FastifyInstance) => void;
 };
 
 declare module 'fastify' {
@@ -50,6 +55,11 @@ export async function buildApp(
 
   await app.register(cors, { origin: env.CORS_ORIGIN });
   await app.register(rateLimit, { global: false });
+  await app.register(jwt, {
+    secret: env.JWT_SECRET,
+    sign: { expiresIn: env.ACCESS_TOKEN_TTL },
+  });
+  authenticateDecorator(app);
   await app.register(swagger, {
     openapi: {
       info: { title: 'PlantCare API', version: '0.0.0' },
@@ -112,6 +122,8 @@ export async function buildApp(
 
   healthRoutes(app);
   plantRoutes(app);
+  authRoutes(app);
+  options.extraRoutes?.(app);
 
   await app.ready();
   return app;
