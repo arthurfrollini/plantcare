@@ -1,7 +1,7 @@
 # PlantCare backend and monorepo: design
 
 Date: 2026-10-21
-Status: reviewed, awaiting approval
+Status: approved 2026-10-21
 
 ## Intent
 
