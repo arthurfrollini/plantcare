@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlantSource {
+  curated
+  ai
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String?        @unique // stored trimmed and lowercased
+  passwordHash  String?
+  googleId      String?        @unique
+  language      String         @default("en") // "en" | "pt-BR", validated by zod
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+  plants        UserPlant[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Plant {
+  id             String             @id @default(cuid())
+  slug           String             @unique
+  scientificName String             @unique
+  source         PlantSource        @default(curated)
+  light          String
+  difficulty     String
+  frequencyTimes Int
+  frequencyPer   String
+  imageFile      String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  translations   PlantTranslation[]
+  aliases        PlantAlias[]
+  userPlants     UserPlant[]
+}
+
+model PlantTranslation {
+  id         String @id @default(cuid())
+  plantId    String
+  plant      Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  locale     String // "en" | "pt-BR"
+  name       String
+  searchName String // lowercased, accents removed
+  about      String
+  waterTips  String
+
+  @@unique([plantId, locale])
+  @@index([searchName])
+}
+
+model PlantAlias {
+  id         String @id @default(cuid())
+  plantId    String
+  plant      Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  name       String
+  searchName String
+
+  @@index([searchName])
+  @@index([plantId])
+}
+
+model UserPlant {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  catalogPlantId String
+  catalogPlant   Plant    @relation(fields: [catalogPlantId], references: [id])
+  nickname       String?
+  frequencyTimes Int
+  frequencyPer   String
+  reminderTime   String
+  timeZone       String
+  light          String?
+  notes          String?
+  photoPath      String?
+  photoUpdatedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
