@@ -14,7 +14,7 @@ From the repo root, install once with `npm install`, then:
 ```sh
 cd api
 cp .env.example .env
-docker compose up -d db   # run from the repo root (docker-compose.yml lives there)
+docker compose up -d db
 npm run db:migrate
 npm run db:seed
 npm run dev
