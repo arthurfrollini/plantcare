@@ -22,17 +22,29 @@ export const reminderTimeSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:mm (24h)');
 
+const AREA_LOCATION = /^[A-Za-z][A-Za-z_]*(\/[A-Za-z0-9_+-]+)+$/;
+
 // Constructing a formatter throws RangeError for unknown zones. This works
-// in Node and Hermes alike, unlike Intl.supportedValuesOf.
-export const timeZoneSchema = z.string().refine((value) => {
-  if (value === 'UTC') return true;
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
-}, 'Unknown time zone');
+// in Node and Hermes alike, unlike Intl.supportedValuesOf. Offsets (+03:00)
+// and abbreviations (EST, GMT) are valid for Intl but not canonical IANA
+// names, so only UTC and Area/Location shapes pass; the stored value is the
+// canonical casing reported by Intl.
+export const timeZoneSchema = z
+  .string()
+  .refine(
+    (value) => /^utc$/i.test(value) || AREA_LOCATION.test(value),
+    'Expected an IANA time zone such as America/Sao_Paulo',
+  )
+  .transform((value, ctx) => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: value,
+      }).resolvedOptions().timeZone;
+    } catch {
+      ctx.addIssue({ code: 'custom', message: 'Unknown time zone' });
+      return z.NEVER;
+    }
+  });
 
 export const plantSourceSchema = z.enum(['curated', 'ai']);
 export type PlantSource = z.infer<typeof plantSourceSchema>;
@@ -91,6 +103,8 @@ export const userPlantSchema = z.object({
   // Species illustration; the user's own photo is fetched separately.
   imageUrl: z.string().nullable(),
   hasPhoto: z.boolean(),
+  // ISO time of the last photo save; use it to bust image caches.
+  photoVersion: z.string().nullable(),
   createdAt: z.string(),
 });
 export type UserPlant = z.infer<typeof userPlantSchema>;
@@ -104,7 +118,7 @@ export const createUserPlantSchema = z.object({
   frequency: frequencySchema.optional(),
   reminderTime: reminderTimeSchema,
   timeZone: timeZoneSchema,
-  light: lightSchema.optional(),
+  light: lightSchema.nullable().optional(),
   notes: notesSchema.optional(),
 });
 export type CreateUserPlant = z.infer<typeof createUserPlantSchema>;

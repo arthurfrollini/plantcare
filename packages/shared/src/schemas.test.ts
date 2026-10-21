@@ -45,12 +45,26 @@ describe('timeZoneSchema', () => {
   it.each(['America/Sao_Paulo', 'UTC'])('accepts %s', (value) => {
     expect(timeZoneSchema.safeParse(value).success).toBe(true);
   });
+  it.each(['+03:00', '-0300', 'EST', 'GMT'])('rejects %s', (value) => {
+    expect(timeZoneSchema.safeParse(value).success).toBe(false);
+  });
+  it('stores the canonical name', () => {
+    expect(timeZoneSchema.parse('america/sao_paulo')).toBe('America/Sao_Paulo');
+    expect(timeZoneSchema.parse('UTC')).toBe('UTC');
+    expect(timeZoneSchema.parse('America/Sao_Paulo')).toBe('America/Sao_Paulo');
+  });
   it.each(['Mars/Olympus', ''])('rejects %j', (value) => {
     expect(timeZoneSchema.safeParse(value).success).toBe(false);
   });
 });
 
 describe('createUserPlantSchema', () => {
+  it('accepts a null light', () => {
+    expect(
+      createUserPlantSchema.safeParse({ ...valid, light: null }).success,
+    ).toBe(true);
+  });
+
   it('rejects a body without catalogPlantId', () => {
     const { catalogPlantId: _omit, ...rest } = valid;
     expect(createUserPlantSchema.safeParse(rest).success).toBe(false);

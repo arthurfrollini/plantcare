@@ -92,6 +92,7 @@ model UserPlant {
   light          String?
   notes          String?
   photoPath      String?
+  photoUpdatedAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

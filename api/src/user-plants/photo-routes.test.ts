@@ -142,6 +142,25 @@ describe('plant photo routes', () => {
     expect(got.rawPayload.equals(png)).toBe(true);
   });
 
+  it('exposes photoVersion: null without a photo, new on every upload', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/me/plants',
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+    expect(list.json<UserPlant[]>()[0]?.photoVersion).toBeNull();
+
+    const file = { data: png, filename: 'a.png', type: 'image/png' };
+    const first = (await upload(plantId, tokenA, file)).json<UserPlant>();
+    expect(first.photoVersion).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(first.photoVersion ?? ''))).toBe(false);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const second = (await upload(plantId, tokenA, file)).json<UserPlant>();
+    expect(second.photoVersion).toEqual(expect.any(String));
+    expect(second.photoVersion).not.toBe(first.photoVersion);
+  });
+
   it('detects JPEG and WebP from the bytes, not the client type', async () => {
     await upload(plantId, tokenA, {
       data: jpeg,
