@@ -1,13 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Image, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import userImg from '../assets/arthur.jpeg';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
+
+/** Up to two initials from the name the user typed, e.g. "Ana Clara Souza" -> "AC". */
+function initials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
+}
 
 export function Header() {
   const [username, setUsername] = useState<string>();
@@ -36,7 +45,9 @@ export function Header() {
         accessibilityLabel={t('header.openProfile')}
         onPress={() => navigation.navigate('Profile')}
       >
-        <Image source={userImg} style={styles.image} />
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -50,10 +61,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
   },
-  image: {
+  avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.green_light,
+  },
+  avatarText: {
+    fontSize: 28,
+    fontFamily: fonts.heading,
+    color: colors.green_dark,
   },
   greeting: {
     fontSize: 32,

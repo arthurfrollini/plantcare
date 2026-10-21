@@ -3,7 +3,3 @@ declare module '*.png' {
   export default content;
 }
 
-declare module '*.jpeg' {
-  const content: number;
-  export default content;
-}
