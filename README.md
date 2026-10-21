@@ -2,7 +2,7 @@
 
 ## ↪ Tech stack
 
-- [React Native](https://reactnative.dev/) 0.88 with [Expo](https://expo.dev/) SDK 58
+- [React Native](https://reactnative.dev/) 0.86 with [Expo](https://expo.dev/) SDK 57
 - [TypeScript](https://www.typescriptlang.org/)
 - [React Navigation](https://reactnavigation.org/) 7
 - [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications/) for the watering reminders
