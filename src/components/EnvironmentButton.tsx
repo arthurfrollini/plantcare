@@ -1,11 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
-import { RectButton, RectButtonProps } from 'react-native-gesture-handler';
+import { Pressable, PressableProps, StyleSheet, Text } from 'react-native';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface EnvironmentButtonProps extends RectButtonProps {
+interface EnvironmentButtonProps extends PressableProps {
   title: string;
   active?: boolean;
 }
@@ -16,14 +15,12 @@ export function EnvironmentButton({
   ...rest
 }: EnvironmentButtonProps) {
   return (
-    <RectButton
+    <Pressable
       style={[styles.container, active && styles.containerActive]}
       {...rest}
     >
-      <Text style={[styles.text, active && styles.textActive]} {...rest}>
-        {title}
-      </Text>
-    </RectButton>
+      <Text style={[styles.text, active && styles.textActive]}>{title}</Text>
+    </Pressable>
   );
 }
 
@@ -47,6 +44,5 @@ const styles = StyleSheet.create({
   textActive: {
     color: colors.green_dark,
     fontFamily: fonts.heading,
-    color: colors.green_dark,
   },
 });

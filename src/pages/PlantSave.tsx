@@ -10,10 +10,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SvgFromUri } from 'react-native-svg';
-import { useRoute, useNavigation } from '@react-navigation/core';
-import DateTimePicker, { Event } from '@react-native-community/datetimepicker';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { isBefore, format } from 'date-fns';
-import { getBottomSpace } from 'react-native-iphone-x-helper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PlantProps, savePlant } from '../libs/storage';
 
 import { Button } from '../components/Button';
@@ -22,20 +24,22 @@ import waterdrop from '../assets/waterdrop.png';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface Params {
-  plant: PlantProps;
-}
+type PlantSaveRoute = RouteProp<{ PlantSave: { plant: PlantProps } }, 'PlantSave'>;
 
 export function PlantSave() {
   const [selectedDateTime, setSelectedDateTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(Platform.OS === 'ios');
 
-  const route = useRoute();
-  const { plant } = route.params as Params;
+  const route = useRoute<PlantSaveRoute>();
+  const { plant } = route.params;
+  const { bottom } = useSafeAreaInsets();
 
   const navigation = useNavigation();
 
-  function handleChangeTime(event: Event, dateTime: Date | undefined) {
+  function handleChangeTime(
+    _event: DateTimePickerEvent,
+    dateTime: Date | undefined
+  ) {
     if (Platform.OS === 'android') {
       setShowDatePicker((oldState) => !oldState);
     }
@@ -82,7 +86,7 @@ export function PlantSave() {
           <Text style={styles.plantName}>{plant.name}</Text>
           <Text style={styles.plantAbout}>{plant.about}</Text>
         </View>
-        <View style={styles.controller}>
+        <View style={[styles.controller, { paddingBottom: bottom || 20 }]}>
           <View style={styles.tipContainer}>
             <Image source={waterdrop} style={styles.tipImage} />
             <Text style={styles.tipText}>{plant.water_tips}</Text>
@@ -138,7 +142,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: getBottomSpace() || 20,
   },
   plantName: {
     fontFamily: fonts.heading,

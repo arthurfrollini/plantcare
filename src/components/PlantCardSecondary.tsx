@@ -1,7 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text, View, Animated } from 'react-native';
-import { RectButton, RectButtonProps } from 'react-native-gesture-handler';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  TouchableOpacityProps,
+} from 'react-native';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Feather } from '@expo/vector-icons';
 
 import { SvgFromUri } from 'react-native-svg';
@@ -9,7 +14,7 @@ import { SvgFromUri } from 'react-native-svg';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface PlantProps extends RectButtonProps {
+interface PlantProps extends TouchableOpacityProps {
   data: {
     name: string;
     photo: string;
@@ -27,23 +32,21 @@ export const PlantCardSecondary = ({
     <Swipeable
       overshootRight={false}
       renderRightActions={() => (
-        <Animated.View>
-          <View>
-            <RectButton style={styles.buttonRemove} onPress={handleRemove}>
-              <Feather name="trash" size={32} color={colors.white} />
-            </RectButton>
-          </View>
-        </Animated.View>
+        <View>
+          <TouchableOpacity style={styles.buttonRemove} onPress={handleRemove}>
+            <Feather name="trash" size={32} color={colors.white} />
+          </TouchableOpacity>
+        </View>
       )}
     >
-      <RectButton style={styles.container} {...rest}>
+      <TouchableOpacity style={styles.container} activeOpacity={0.7} {...rest}>
         <SvgFromUri uri={data.photo} width={50} height={50} />
         <Text style={styles.title}>{data.name}</Text>
         <View style={styles.details}>
           <Text style={styles.timeLabel}>Regar às</Text>
           <Text style={styles.time}>{data.hour}</Text>
         </View>
-      </RectButton>
+      </TouchableOpacity>
     </Swipeable>
   );
 };

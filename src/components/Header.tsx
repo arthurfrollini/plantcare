@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Image, Text } from 'react-native';
-import { getStatusBarHeight } from 'react-native-iphone-x-helper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import userImg from '../assets/arthur.jpeg';
@@ -9,6 +9,7 @@ import fonts from '../styles/fonts';
 
 export function Header() {
   const [username, setUsername] = useState<string>();
+  const { top } = useSafeAreaInsets();
 
   useEffect(() => {
     async function loadStorageUsername() {
@@ -19,7 +20,7 @@ export function Header() {
   }, [username]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { marginTop: top }]}>
       <View>
         <Text style={styles.greeting}>Olá,</Text>
         <Text style={styles.userName}>{username}</Text>
@@ -37,7 +38,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 20,
-    marginTop: getStatusBarHeight(),
   },
   image: {
     width: 80,

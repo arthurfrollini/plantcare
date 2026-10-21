@@ -147,7 +147,12 @@ export function PlantSelect() {
           <FlatList
             data={filteredPlants}
             keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => <PlantCardPrimary data={item} />}
+            renderItem={({ item }) => (
+              <PlantCardPrimary
+                data={item}
+                onPress={() => handlePlantSelect(item)}
+              />
+            )}
             showsVerticalScrollIndicator={false}
             numColumns={2}
             onEndReachedThreshold={0.1}

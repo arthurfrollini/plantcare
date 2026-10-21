@@ -1,9 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  CalendarTriggerInput,
-  DailyTriggerInput,
-  WeeklyTriggerInput,
-} from 'expo-notifications';
+import { DailyTriggerInput, WeeklyTriggerInput } from 'expo-notifications';
 import { format, getHours, getMinutes, getDay } from 'date-fns';
 import * as Notifications from 'expo-notifications';
 
@@ -29,27 +25,38 @@ export interface StoragePlantProps {
   };
 }
 
+async function ensureNotificationPermission() {
+  const { granted } = await Notifications.getPermissionsAsync();
+  if (granted) return;
+
+  const request = await Notifications.requestPermissionsAsync();
+  if (!request.granted) throw new Error('Notification permission denied');
+}
+
 export async function savePlant(plant: PlantProps): Promise<void> {
   try {
+    await ensureNotificationPermission();
+
     const nextTime = new Date(plant.dateTimeNotification);
 
     const hour = getHours(nextTime);
     const minute = getMinutes(nextTime);
-    const weekday = getDay(nextTime);
+    // date-fns counts Sunday as 0; expo-notifications counts Sunday as 1.
+    const weekday = getDay(nextTime) + 1;
 
-    const { times, repeat_every } = plant.frequency;
+    const { repeat_every } = plant.frequency;
 
     const dailyTrigger: DailyTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
       minute,
-      repeats: true,
     };
 
     const weeklyTrigger: WeeklyTriggerInput = {
+      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
       hour,
       minute,
       weekday,
-      repeats: true,
     };
 
     const notificationId = await Notifications.scheduleNotificationAsync({
@@ -86,7 +93,7 @@ export async function savePlant(plant: PlantProps): Promise<void> {
       })
     );
   } catch (err) {
-    throw new Error(err);
+    throw err;
   }
 }
 
@@ -113,7 +120,7 @@ export async function loadPlant(): Promise<PlantProps[]> {
 
     return plantsSorted;
   } catch (err) {
-    throw new Error(err);
+    throw err;
   }
 }
 

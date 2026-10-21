@@ -1,22 +1,39 @@
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
 import Welcome from '../pages/Welcome';
 import { UserIdentification } from '../pages/UserIdentification';
-import { Confirmation } from '../pages/Confirmation';
+import { Confirmation, ConfirmationParams } from '../pages/Confirmation';
 import { PlantSave } from '../pages/PlantSave';
-import { MyPlants } from '../pages/MyPlants';
-import AuthRoutes from './tab.routes';
+import AuthRoutes, { TabParamList } from './tab.routes';
+import { PlantProps } from '../libs/storage';
 
 import colors from '../styles/colors';
 
-const stackRoutes = createStackNavigator();
+export type RootStackParamList = {
+  Welcome: undefined;
+  UserIdentification: undefined;
+  Confirmation: ConfirmationParams;
+  PlantSelect: NavigatorScreenParams<TabParamList> | undefined;
+  PlantSave: { plant: PlantProps };
+  MyPlants: NavigatorScreenParams<TabParamList> | undefined;
+};
 
-const AppRoutes: React.FC = () => (
+// Types every useNavigation() call against the routes above.
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
+}
+
+const stackRoutes = createNativeStackNavigator<RootStackParamList>();
+
+const AppRoutes = () => (
   <stackRoutes.Navigator
-    headerMode="none"
     screenOptions={{
-      cardStyle: {
+      headerShown: false,
+      contentStyle: {
         backgroundColor: colors.white,
       },
     }}

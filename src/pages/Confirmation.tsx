@@ -1,18 +1,19 @@
 import React from 'react';
-import { SafeAreaView, View, Text, StyleSheet } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 
 import { Button } from '../components/Button';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface Params {
+export interface ConfirmationParams {
   title: string;
   subtitle: string;
   buttonTitle: string;
   icon: 'smile' | 'hug';
-  nextScreen: string;
+  nextScreen: 'PlantSelect' | 'MyPlants';
 }
 
 const emojis = {
@@ -22,7 +23,8 @@ const emojis = {
 
 export function Confirmation() {
   const navigation = useNavigation();
-  const routes = useRoute();
+  const routes =
+    useRoute<RouteProp<{ Confirmation: ConfirmationParams }, 'Confirmation'>>();
 
   const {
     title,
@@ -30,7 +32,7 @@ export function Confirmation() {
     buttonTitle,
     icon,
     nextScreen,
-  } = routes.params as Params;
+  } = routes.params;
 
   function handleMoveOn() {
     navigation.navigate(nextScreen);

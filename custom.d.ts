@@ -1,4 +1,9 @@
 declare module '*.png' {
-  const content: any;
+  const content: number;
+  export default content;
+}
+
+declare module '*.jpeg' {
+  const content: number;
   export default content;
 }
