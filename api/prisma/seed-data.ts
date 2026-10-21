@@ -27,15 +27,13 @@ export const plantSeeds: PlantSeed[] = [
     en: {
       name: 'Aninga',
       about: 'A tropical species that grows fast and is easy to handle.',
-      waterTips:
-        'Keep the soil always moist without soaking it. Water 2 times a week.',
+      waterTips: 'Keep the soil always moist without soaking it.',
     },
     'pt-BR': {
       name: 'Aningapara',
       about:
         'É uma espécie tropical que tem crescimento rápido e fácil manuseio.',
-      waterTips:
-        'Mantenha a terra sempre úmida sem encharcar. Regue 2 vezes na semana.',
+      waterTips: 'Mantenha a terra sempre úmida sem encharcar.',
     },
     aliases: ['aninga', 'aninga-pará'],
   },
@@ -51,14 +49,14 @@ export const plantSeeds: PlantSeed[] = [
       about:
         'Even though it flowers in spring, it stays beautiful and green all year round.',
       waterTips:
-        'Use pots with drainage holes and stones at the bottom to help the water drain. Let the soil dry between waterings and water 1 time a week.',
+        'Use pots with drainage holes and stones at the bottom to help the water drain. Let the soil dry between waterings.',
     },
     'pt-BR': {
       name: 'Zamioculca',
       about:
         'Apesar de florescer na primavera, fica o ano todo bonita e verdinha.',
       waterTips:
-        'Utilize vasos com furos e pedras no fundo para facilitar a drenagem. Deixe a terra secar entre as regas e regue 1 vez na semana.',
+        'Utilize vasos com furos e pedras no fundo para facilitar a drenagem. Deixe a terra secar entre as regas.',
     },
     aliases: ['zamioculcas', 'zz', 'planta da fortuna'],
   },
@@ -73,15 +71,13 @@ export const plantSeeds: PlantSeed[] = [
       name: 'Baby rubber plant',
       about:
         'It adapts to both sun and shade, but prefers a cool corner without direct sunlight.',
-      waterTips:
-        'On hotter days, mist the leaves with water. Water 3 times a week.',
+      waterTips: 'On hotter days, mist the leaves with water.',
     },
     'pt-BR': {
       name: 'Peperomia',
       about:
         'Adapta-se tanto ao sol e sombra, mas prefere ficar num cantinho fresco, sem sol direto.',
-      waterTips:
-        'Nos dias mais quentes borrife água nas folhas. Regue 3 vezes na semana.',
+      waterTips: 'Nos dias mais quentes borrife água nas folhas.',
     },
     aliases: ['peperômia'],
   },
@@ -96,15 +92,13 @@ export const plantSeeds: PlantSeed[] = [
       name: 'Lacy tree philodendron',
       about:
         'A medium-sized plant that adapts to many regions and is very easy to grow. It wins over more people every day.',
-      waterTips:
-        'Keep the soil always moist without soaking it. Water 2 times a week.',
+      waterTips: 'Keep the soil always moist without soaking it.',
     },
     'pt-BR': {
       name: 'Imbé',
       about:
         'De médio porte, adapta-se a diversas regiões, além de ser bem fácil de cultivar. Conquista cada vez mais pessoas.',
-      waterTips:
-        'Mantenha a terra sempre úmida sem encharcar. Regue 2 vezes na semana.',
+      waterTips: 'Mantenha a terra sempre úmida sem encharcar.',
     },
     aliases: ['guaimbê', 'philodendron bipinnatifidum'],
   },
@@ -120,14 +114,13 @@ export const plantSeeds: PlantSeed[] = [
       about:
         'Its aroma is said to reduce anxiety and to help with sleep quality and productivity during the day.',
       waterTips:
-        'Water the soil around the plant, and let it dry between waterings. Water 1 time a week.',
+        'Water the soil around the plant, and let it dry between waterings.',
     },
     'pt-BR': {
       name: 'Espada São Jorge',
       about:
         'O aroma reduz os níveis de ansiedade e seu cheiro ajuda na qualidade do sono e na produtividade durante o dia.',
-      waterTips:
-        'Regue o solo ao redor e deixe a terra secar entre as regas. Regue 1 vez na semana.',
+      waterTips: 'Regue o solo ao redor e deixe a terra secar entre as regas.',
     },
     aliases: ['espada de são jorge', 'sansevieria', 'língua de sogra'],
   },
@@ -143,14 +136,14 @@ export const plantSeeds: PlantSeed[] = [
       about:
         'Recommended because they are easy to keep and care for. You can put them in small pots, or even in cups.',
       waterTips:
-        'Thanks to the water these green plants store, it is always better to water a little. Water 1 time a week.',
+        'Thanks to the water these green plants store, it is always better to water a little.',
     },
     'pt-BR': {
       name: 'Yucca',
       about:
         'São indicadas por serem fáceis de manter e cuidar. Você pode colocar em pequenos vasos, ou até mesmo em xícaras.',
       waterTips:
-        'Graças à reserva de água dessas verdinhas, é sempre melhor regar pouco. Regue 1 vez na semana.',
+        'Graças à reserva de água dessas verdinhas, é sempre melhor regar pouco.',
     },
     aliases: ['iúca', 'yuca'],
   },
@@ -165,13 +158,13 @@ export const plantSeeds: PlantSeed[] = [
       name: 'Moth orchid',
       about:
         'Brings a sense of calm and peace to the room. It needs little maintenance and is great for those with little space.',
-      waterTips: 'Water moderately. Water 4 times a week.',
+      waterTips: 'Water moderately and let the excess drain away.',
     },
     'pt-BR': {
       name: 'Orquídea',
       about:
         'Traz sensação de tranquilidade e paz ao ambiente. Requer pouca manutenção e é ótima para quem tem pouco espaço.',
-      waterTips: 'Regue moderadamente. Regue 4 vezes na semana.',
+      waterTips: 'Regue moderadamente e deixe o excesso de água escorrer.',
     },
     aliases: ['orquídea borboleta', 'phalaenopsis'],
   },
@@ -186,15 +179,13 @@ export const plantSeeds: PlantSeed[] = [
       name: 'African violet',
       about:
         'It has delicate flowers and is a great suggestion for decorating the bathroom.',
-      waterTips:
-        'Never wet the flowers or leaves. Water the soil 2 times a week.',
+      waterTips: 'Never wet the flowers or leaves. Water only the soil.',
     },
     'pt-BR': {
       name: 'Violeta',
       about:
         'Com flores delicadas, é uma ótima sugestão para decorar o banheiro.',
-      waterTips:
-        'Nada de molhar as flores e folhas. Regue o solo 2 vezes na semana.',
+      waterTips: 'Nada de molhar as flores e folhas. Regue apenas o solo.',
     },
     aliases: ['violeta africana', 'saintpaulia'],
   },
@@ -209,15 +200,13 @@ export const plantSeeds: PlantSeed[] = [
       name: 'Hydrangea',
       about:
         'The hydrangea is a hardy plant that adapts to different types of soil.',
-      waterTips:
-        'Keep the soil always moist without soaking it. Water 1 time a day.',
+      waterTips: 'Keep the soil always moist without soaking it.',
     },
     'pt-BR': {
       name: 'Hortênsia',
       about:
         'A hortênsia é uma planta rústica e se adapta a diferentes tipos de solos.',
-      waterTips:
-        'Mantenha a terra sempre úmida sem encharcar. Regue 1 vez no dia.',
+      waterTips: 'Mantenha a terra sempre úmida sem encharcar.',
     },
     aliases: ['hydrangea'],
   },

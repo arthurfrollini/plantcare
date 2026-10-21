@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseEnv } from './env';
 
@@ -17,5 +19,20 @@ describe('parseEnv', () => {
     expect(env.ACCESS_TOKEN_TTL).toBe('15m');
     expect(env.REFRESH_TOKEN_TTL_DAYS).toBe(30);
     expect(env.GOOGLE_CLIENT_IDS).toEqual(['a', 'b']);
+  });
+
+  it('resolves a relative UPLOADS_DIR against the api folder, not the cwd', () => {
+    const apiRoot = fileURLToPath(new URL('..', import.meta.url));
+    const base = {
+      DATABASE_URL: 'postgresql://u:p@localhost:5433/db',
+      JWT_SECRET: 'x'.repeat(32),
+    };
+    const relative = parseEnv({ ...base, UPLOADS_DIR: 'uploads-test' });
+    expect(path.isAbsolute(relative.UPLOADS_DIR)).toBe(true);
+    expect(relative.UPLOADS_DIR).toBe(path.join(apiRoot, 'uploads-test'));
+    expect(parseEnv(base).UPLOADS_DIR).toBe(path.join(apiRoot, 'uploads'));
+    expect(parseEnv({ ...base, UPLOADS_DIR: '/var/photos' }).UPLOADS_DIR).toBe(
+      '/var/photos',
+    );
   });
 });

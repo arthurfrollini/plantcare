@@ -56,10 +56,26 @@ describe('seed', () => {
         include: { translations: true },
       });
       expect([plant.frequencyTimes, plant.frequencyPer]).toEqual([1, 'week']);
-      for (const t of plant.translations) {
-        expect(t.waterTips).not.toMatch(/dia|day\b/i);
-      }
     }
+  });
+
+  it('keeps the watering frequency out of every water tip', async () => {
+    const translations = await prisma.plantTranslation.findMany();
+    expect(translations).toHaveLength(18);
+    for (const t of translations) {
+      expect(t.waterTips).not.toMatch(
+        /\d|\b(times?|once|twice|vez(es)?|week|day|semana|dia)\b/i,
+      );
+    }
+  });
+
+  it('overwrites edited translation rows on re-run', async () => {
+    await prisma.plantTranslation.updateMany({ data: { waterTips: 'stale' } });
+    await seed(prisma);
+    const stale = await prisma.plantTranslation.count({
+      where: { waterTips: 'stale' },
+    });
+    expect(stale).toBe(0);
   });
 
   it('references image files that exist in public/plants', async () => {

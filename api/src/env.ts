@@ -1,4 +1,9 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+
+// api/ (next to src/ and dist/), as in load-env.ts.
+const apiRoot = fileURLToPath(new URL('..', import.meta.url));
 
 const envSchema = z.object({
   NODE_ENV: z
@@ -17,7 +22,11 @@ const envSchema = z.object({
         .map((id) => id.trim())
         .filter((id) => id.length > 0),
     ),
-  UPLOADS_DIR: z.string().min(1).default('uploads'),
+  UPLOADS_DIR: z
+    .string()
+    .min(1)
+    .default('uploads')
+    .transform((dir) => path.resolve(apiRoot, dir)),
   PORT: z.coerce.number().int().positive().default(3333),
   CORS_ORIGIN: z.string().min(1).default('*'),
 });

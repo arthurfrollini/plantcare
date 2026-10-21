@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.22.1"
   },
   "scripts": {
     "app": "npm run start -w @plantcare/app",

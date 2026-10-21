@@ -1,4 +1,5 @@
 .env
 uploads/
+uploads-test/
 dist/
 src/generated/
