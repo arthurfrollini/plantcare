@@ -6,6 +6,7 @@ import {
   type PrismaClient,
   type User as UserRow,
 } from '../generated/prisma/client';
+import type { GoogleVerifier } from './google';
 import { hashRefreshToken, issueTokens } from './tokens';
 
 const BCRYPT_COST = 12;
@@ -129,4 +130,52 @@ export async function logout(
   await prisma.refreshToken.deleteMany({
     where: { tokenHash: hashRefreshToken(refreshToken) },
   });
+}
+
+export async function googleLogin(
+  prisma: PrismaClient,
+  verify: GoogleVerifier,
+  input: { idToken: string; name?: string; language?: string },
+): Promise<AuthResult> {
+  let profile;
+  try {
+    profile = await verify(input.idToken);
+  } catch {
+    throw new AppError(401, 'invalid_google_token', 'Invalid Google ID token');
+  }
+
+  const byGoogleId = await prisma.user.findUnique({
+    where: { googleId: profile.googleId },
+  });
+  if (byGoogleId) return authResult(prisma, byGoogleId);
+
+  const email = profile.email ? normalizeEmail(profile.email) : null;
+  if (email && profile.emailVerified) {
+    const byEmail = await prisma.user.findUnique({ where: { email } });
+    if (byEmail) {
+      // Only a verified address may claim an existing account.
+      const linked = await prisma.user.update({
+        where: { id: byEmail.id },
+        data: { googleId: profile.googleId },
+      });
+      return authResult(prisma, linked);
+    }
+  }
+
+  const name = (
+    input.name?.trim() ||
+    profile.name?.trim() ||
+    email?.split('@')[0] ||
+    'User'
+  ).slice(0, 60);
+  const user = await prisma.user.create({
+    data: {
+      name,
+      // An unverified address is not stored, so it cannot squat on the email.
+      email: email && profile.emailVerified ? email : null,
+      googleId: profile.googleId,
+      ...(input.language ? { language: input.language } : {}),
+    },
+  });
+  return authResult(prisma, user);
 }

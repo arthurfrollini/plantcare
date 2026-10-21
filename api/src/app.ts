@@ -14,7 +14,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
 import { authenticateDecorator } from './auth/authenticate';
-import type { GoogleVerifier } from './auth/google';
+import { createGoogleVerifier, type GoogleVerifier } from './auth/google';
 import { accessJwtConfig } from './auth/jwt-config';
 import { authRoutes } from './auth/routes';
 import { prisma as defaultPrisma } from './db';
@@ -27,6 +27,8 @@ import { healthRoutes } from './routes/health';
 export type BuildAppOptions = {
   prisma?: PrismaClient;
   googleVerifier?: GoogleVerifier;
+  /** Google OAuth client ids; defaults to GOOGLE_CLIENT_IDS. Empty disables Google sign-in. */
+  googleClientIds?: string[];
   logger?: boolean;
   /** Requests per minute per client on the auth routes. */
   authRateLimitMax?: number;
@@ -51,7 +53,13 @@ export async function buildApp(
   app.setSerializerCompiler(serializerCompiler);
 
   app.decorate('prisma', options.prisma ?? defaultPrisma);
-  app.decorate('googleVerifier', options.googleVerifier);
+  const googleClientIds = options.googleClientIds ?? env.GOOGLE_CLIENT_IDS;
+  app.decorate(
+    'googleVerifier',
+    googleClientIds.length === 0
+      ? undefined
+      : (options.googleVerifier ?? createGoogleVerifier(googleClientIds)),
+  );
   app.decorate('authRateLimitMax', options.authRateLimitMax ?? 10);
 
   await app.register(cors, { origin: env.CORS_ORIGIN });

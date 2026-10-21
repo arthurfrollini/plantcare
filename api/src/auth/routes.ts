@@ -2,7 +2,8 @@ import { authResponseSchema, localeSchema } from '@plantcare/shared';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { login, logout, refresh, register } from './service';
+import { AppError } from '../errors';
+import { googleLogin, login, logout, refresh, register } from './service';
 
 const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
 const refreshBody = z.object({ refreshToken: z.string().min(1).max(256) });
@@ -54,6 +55,33 @@ export function authRoutes(app: FastifyInstance): void {
       },
     },
     (request) => login(app.prisma, request.body),
+  );
+
+  typed.post(
+    '/auth/google',
+    {
+      config: rateLimited,
+      schema: {
+        tags: ['auth'],
+        summary: 'Sign in or sign up with a Google ID token',
+        body: z.object({
+          idToken: z.string().min(1).max(8192),
+          name: z.string().trim().min(1).max(60).optional(),
+          language: localeSchema.optional(),
+        }),
+        response: { 200: authResponseSchema },
+      },
+    },
+    (request) => {
+      if (!app.googleVerifier) {
+        throw new AppError(
+          503,
+          'google_not_configured',
+          'Google sign-in is not configured',
+        );
+      }
+      return googleLogin(app.prisma, app.googleVerifier, request.body);
+    },
   );
 
   typed.post(
