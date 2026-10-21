@@ -17,6 +17,7 @@ import { prisma as defaultPrisma } from './db';
 import { env } from './env';
 import { AppError, errorBody } from './errors';
 import type { PrismaClient } from './generated/prisma/client';
+import { plantRoutes } from './plants/routes';
 import { healthRoutes } from './routes/health';
 
 export type BuildAppOptions = {
@@ -110,6 +111,7 @@ export async function buildApp(
   });
 
   healthRoutes(app);
+  plantRoutes(app);
 
   await app.ready();
   return app;

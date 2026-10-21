@@ -1,0 +1,103 @@
+import {
+  difficultySchema,
+  frequencySchema,
+  lightSchema,
+  plantSourceSchema,
+  type CatalogPage,
+  type CatalogPlant,
+  type Difficulty,
+  type Light,
+  type Locale,
+} from '@plantcare/shared';
+import type { PrismaClient } from '../generated/prisma/client';
+import { toSearchName } from './search-name';
+
+export const PAGE_SIZE = 20;
+
+export type CatalogQuery = {
+  search?: string | undefined;
+  light?: Light | undefined;
+  difficulty?: Difficulty | undefined;
+  page: number;
+};
+
+const include = { translations: true } as const;
+
+type PlantRow = Awaited<ReturnType<typeof findRows>>[number];
+
+function findRows(prisma: PrismaClient, where: object) {
+  return prisma.plant.findMany({ where, include });
+}
+
+function toCatalogPlant(row: PlantRow, locale: Locale): CatalogPlant | null {
+  const text =
+    row.translations.find((t) => t.locale === locale) ??
+    row.translations.find((t) => t.locale === 'en');
+  if (!text) return null;
+  return {
+    id: row.id,
+    slug: row.slug,
+    scientificName: row.scientificName,
+    source: plantSourceSchema.parse(row.source),
+    name: text.name,
+    about: text.about,
+    waterTips: text.waterTips,
+    light: lightSchema.parse(row.light),
+    difficulty: difficultySchema.parse(row.difficulty),
+    frequency: frequencySchema.parse({
+      times: row.frequencyTimes,
+      per: row.frequencyPer,
+    }),
+    imageUrl: row.imageFile ? `/static/plants/${row.imageFile}` : null,
+  };
+}
+
+export async function listCatalog(
+  prisma: PrismaClient,
+  locale: Locale,
+  query: CatalogQuery,
+): Promise<CatalogPage> {
+  const term = query.search ? toSearchName(query.search) : '';
+  const rows = await findRows(prisma, {
+    ...(query.light ? { light: query.light } : {}),
+    ...(query.difficulty ? { difficulty: query.difficulty } : {}),
+    ...(term
+      ? {
+          OR: [
+            {
+              translations: {
+                some: { locale, searchName: { contains: term } },
+              },
+            },
+            { aliases: { some: { searchName: { contains: term } } } },
+            // Scientific names are plain ASCII, so a case-insensitive match
+            // equals matching the normalized name.
+            { scientificName: { contains: term, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  });
+
+  const plants = rows
+    .map((row) => toCatalogPlant(row, locale))
+    .filter((plant): plant is CatalogPlant => plant !== null)
+    .sort(
+      (a, b) =>
+        a.name.localeCompare(b.name, locale) || a.id.localeCompare(b.id),
+    );
+
+  const start = (query.page - 1) * PAGE_SIZE;
+  return {
+    items: plants.slice(start, start + PAGE_SIZE),
+    nextPage: start + PAGE_SIZE < plants.length ? query.page + 1 : null,
+  };
+}
+
+export async function getCatalogPlant(
+  prisma: PrismaClient,
+  locale: Locale,
+  id: string,
+): Promise<CatalogPlant | null> {
+  const row = await prisma.plant.findUnique({ where: { id }, include });
+  return row ? toCatalogPlant(row, locale) : null;
+}
