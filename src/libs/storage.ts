@@ -68,7 +68,7 @@ export async function savePlant(plant: PlantProps): Promise<void> {
     console.log(hour, minute, weekday, notificationId);
     console.log(nextTime);
 
-    const data = await AsyncStorage.getItem('@plantmanager:plants');
+    const data = await AsyncStorage.getItem('@plantcare:plants');
     const oldPlants = data ? (JSON.parse(data) as StoragePlantProps) : {};
 
     const newPlant = {
@@ -79,7 +79,7 @@ export async function savePlant(plant: PlantProps): Promise<void> {
     };
 
     await AsyncStorage.setItem(
-      '@plantmanager:plants',
+      '@plantcare:plants',
       JSON.stringify({
         ...newPlant,
         ...oldPlants,
@@ -92,7 +92,7 @@ export async function savePlant(plant: PlantProps): Promise<void> {
 
 export async function loadPlant(): Promise<PlantProps[]> {
   try {
-    const data = await AsyncStorage.getItem('@plantmanager:plants');
+    const data = await AsyncStorage.getItem('@plantcare:plants');
     const plants = data ? (JSON.parse(data) as StoragePlantProps) : {};
     const plantsSorted = Object.keys(plants)
       .map((plant) => {
@@ -118,7 +118,7 @@ export async function loadPlant(): Promise<PlantProps[]> {
 }
 
 export async function removePlant(id: string): Promise<void> {
-  const data = await AsyncStorage.getItem('@plantmanager:plants');
+  const data = await AsyncStorage.getItem('@plantcare:plants');
   const plants = data ? (JSON.parse(data) as StoragePlantProps) : {};
 
   await Notifications.cancelScheduledNotificationAsync(
@@ -127,5 +127,5 @@ export async function removePlant(id: string): Promise<void> {
 
   delete plants[id];
 
-  await AsyncStorage.setItem('@plantmanager:plants', JSON.stringify(plants));
+  await AsyncStorage.setItem('@plantcare:plants', JSON.stringify(plants));
 }

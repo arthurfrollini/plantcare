@@ -12,7 +12,7 @@ export function Header() {
 
   useEffect(() => {
     async function loadStorageUsername() {
-      const user = await AsyncStorage.getItem('@plantmanager:user');
+      const user = await AsyncStorage.getItem('@plantcare:user');
       setUsername(user || '');
     }
     loadStorageUsername();

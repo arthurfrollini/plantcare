@@ -41,7 +41,7 @@ export function UserIdentification() {
     if (!name) return Alert.alert('Me diz como podemos chamá-lo 😢');
 
     try {
-      await AsyncStorage.setItem('@plantmanager:user', name);
+      await AsyncStorage.setItem('@plantcare:user', name);
 
       navigation.navigate('Confirmation', {
         title: 'Prontinho',
