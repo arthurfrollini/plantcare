@@ -47,9 +47,14 @@ describe('plant photo routes', () => {
     id: string,
     token: string,
     file?: { data: Buffer; filename: string; type: string; field?: string },
+    fields: Record<string, string> = {},
   ) => {
     const boundary = '----plantcareboundary';
-    const parts: Buffer[] = [];
+    const parts: Buffer[] = Object.entries(fields).map(([name, value]) =>
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+      ),
+    );
     if (file) {
       parts.push(
         Buffer.from(
@@ -200,6 +205,33 @@ describe('plant photo routes', () => {
     });
     expect(json.statusCode).toBe(400);
     expect(json.json<ErrorBody>().error.code).toBe('photo_missing');
+  });
+
+  it('rejects too many form fields before the photo part', async () => {
+    const fields = Object.fromEntries(
+      Array.from({ length: 50 }, (_, i) => [`f${i}`, 'x']),
+    );
+    const res = await upload(
+      plantId,
+      tokenA,
+      { data: png, filename: 'a.png', type: 'image/png' },
+      fields,
+    );
+    expect(res.statusCode).toBe(413);
+    expect(res.json<ErrorBody>().error.code).toBe('photo_too_large');
+    expect(await readdir(dir).catch(() => [])).toEqual([]);
+  });
+
+  it('rejects an oversized form field before the photo part', async () => {
+    const res = await upload(
+      plantId,
+      tokenA,
+      { data: png, filename: 'a.png', type: 'image/png' },
+      { note: 'x'.repeat(2048) },
+    );
+    expect(res.statusCode).toBe(413);
+    expect(res.json<ErrorBody>().error.code).toBe('photo_too_large');
+    expect(await readdir(dir).catch(() => [])).toEqual([]);
   });
 
   it('requires authentication', async () => {
