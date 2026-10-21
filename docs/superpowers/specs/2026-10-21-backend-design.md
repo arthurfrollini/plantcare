@@ -25,7 +25,7 @@ This project is step 2 of an agreed sequence: (1) languages and Profile (done), 
 - Observability (Prometheus, Grafana, Loki, Jaeger). finwise already showcases that.
 - Server-sent push notifications. Reminders stay local notifications scheduled on the device (step 4 revisits this).
 - AI features (step 3). The data model should leave room for them.
-- A public, user-contributed catalog or any moderation tooling.
+- Users writing catalog content. Species are only created from curated data or by the AI (step 3); there is no moderation tooling.
 - Dark mode (decided against: the animated splash is light only).
 
 ## Anti-goals
@@ -47,10 +47,12 @@ This project is step 2 of an agreed sequence: (1) languages and Profile (done), 
 - Language preference is stored on the account once the user has one, and the app follows it on any device. English is the default.
 - Catalog: curated by the team, seeded from the current mock plants. Each plant gets a light level and a care difficulty. The room/environment filter is removed.
 - Catalog filters: light and care difficulty, plus search by name.
-- Plants a user creates manually are private to that user.
+- Every user plant belongs to a catalog species. There are no private, species-less plants. A user can give their plant a free nickname ("Gretting", "Babosa", "Pikachu") that only they see; the catalog keeps the species under its real name (for example *Aloe vera*).
+- Adding a plant: the main path is a photo (AI identification, step 3). The alternative is typing the species name: the API first searches the catalog (scientific name, localized names and common names, accent- and case-insensitive) and only calls the AI on a miss (step 3). The AI resolves the typed name to a scientific name; if that species already exists, the typed name is saved as a new common name; otherwise the AI creates the species for everyone, in English and Portuguese. Until step 3, only species already in the catalog can be added.
+- User plants show the user's real photo when there is one; otherwise the species illustration (curated species) or the mascot. Generated illustrations are dropped.
 - Google sign-in scope for this project: the API endpoint and the app button are built and tested with simulated Google tokens. Real Google sign-in (Google Cloud OAuth clients and a development build on a phone) is done later, together with the development build.
-- Plant form fields. Required: name, watering frequency, reminder time. Optional: photo (camera or gallery), light, notes.
-- One form for all three ways of adding a plant: picking from the catalog pre-fills it, manual entry starts empty, and the AI (step 3) will pre-fill it from a photo.
+- Plant form fields. Required: species (from the catalog), watering frequency, reminder time (frequency pre-filled from the species). Optional: nickname, photo (camera or gallery), light, notes.
+- One form for every way of adding a plant: picking a species from the catalog or by typed name pre-fills it, and the AI (step 3) will pre-fill it from a photo.
 - Watering frequency must actually be honored: "4 times a week" schedules four reminders a week, not one (the current app schedules one).
 
 ## Decided by the designer (review these)
@@ -69,8 +71,8 @@ This project is step 2 of an agreed sequence: (1) languages and Profile (done), 
 - The existing on-device plants (saved before this project) are not migrated. The only user today is the developer.
 - Signing in without saving a plant: the Welcome screen gets an "I already have an account" link and Profile gets "Sign in" when signed out, both opening the same auth screen used in the save flow. A returning user on a new phone signs in directly and skips the name step. When the account already has a name, the account name wins over the one typed on the device.
 - Frequency limits: `per: 'day'` allows only `times: 1` (the catalog never goes above once a day); `per: 'week'` allows 1 to 7. One reminder time per plant. Weekly reminders are repeating weekly triggers, so a plant uses at most 7 of iOS's 64 pending local notifications; the app warns if a sync would exceed the limit.
-- Catalog-based user plants keep a link to the catalog and only store a custom name when the user changed it. `GET /me/plants` returns the name, about and water tips translated into the requested language from the catalog, unless the user set their own name. Manual plants return exactly what the user typed.
-- Editing: My Plants opens a saved plant in the same form (edit and save, which reschedules its reminders). The photo is optional for every plant, catalog or manual; a user photo replaces the illustration for that plant only.
+- `GET /me/plants` returns the nickname (if any) plus the species name, about and water tips translated into the requested language from the catalog.
+- Editing: My Plants opens a saved plant in the same form (edit and save, which reschedules its reminders). The species cannot be changed after saving. The photo is optional; a user photo replaces the illustration for that plant only.
 - Sync: when signed in, the app refreshes My Plants and reschedules all reminders on launch and when it returns to the foreground. If the API is unreachable it shows the last synced list read-only, with a notice. Sign out cancels every local reminder and clears the cached list.
 - User photos are private: served through an authenticated route (`GET /me/plants/:id/photo`), never as public static files.
 - Lint scope: the finwise strict rules (no `any`, no unsafe casts, `noUncheckedIndexedAccess`) apply to `api/` and `packages/shared`. The app keeps `strict` TypeScript and gets ESLint with the recommended rules; files touched by this project are cleaned up to the strict standard, the rest of the app is not rewritten for lint alone.
@@ -79,9 +81,10 @@ This project is step 2 of an agreed sequence: (1) languages and Profile (done), 
 
 - `User`: id, name, email (unique, nullable for Google-only), password hash (nullable for Google-only), Google id (unique, nullable), language (`en` | `pt-BR`, default `en`), timestamps.
 - `RefreshToken`: id, user id, token (hashed), expires at, created at. Rotated on every refresh; expired ones deleted on a schedule or on use.
-- `Plant` (catalog): id, slug, light, difficulty, default frequency, illustration path, timestamps.
+- `Plant` (catalog): id, slug, scientific name (unique), source (`curated` | `ai`), light, difficulty, default frequency, illustration path (nullable: AI-created species have none), timestamps.
+- `PlantAlias`: plant id, name, search name (indexed). Common names in any language ("babosa", "língua de sogra", "snake plant"); the catalog search matches them too.
 - `PlantTranslation`: plant id, locale, name, about, water tips. Unique on (plant id, locale).
-- `UserPlant`: id, user id, catalog plant id (nullable: null means a manual plant), custom name (required for manual plants, nullable for catalog plants), frequency, reminder time, time zone, light (nullable), notes (nullable), photo path (nullable), timestamps. Frequency and light are copied from the catalog at save time so the user's edits stay personal; name and texts follow the catalog translation unless a custom name is set.
+- `UserPlant`: id, user id, catalog plant id (required), nickname (nullable), frequency, reminder time, time zone, light (nullable), notes (nullable), photo path (nullable), timestamps. Frequency and light are copied from the catalog at save time so the user's edits stay personal; the species name and texts always follow the catalog translation in the requested language.
 
 ## API surface (sketch)
 
@@ -120,6 +123,6 @@ This project is step 2 of an agreed sequence: (1) languages and Profile (done), 
 
 ## Later (not this project)
 
-- Step 3: AI identification and diagnosis fills the same plant form; unknown species can become catalog suggestions; generated illustrations per species, cached once per species.
+- Step 3: AI identification by photo and by typed species name (catalog first, AI on a miss, new species created for everyone). Diagnosis from a plant's detail in My Plants ("Report a problem"): photo plus optional description, likely cause with confidence, actions (water less, more light, fertilizer), a one-tap "apply" when the action is a setting change, and a diagnosis history per plant.
 - Step 4: server-driven notifications.
 - Maestro end-to-end flows for the app.

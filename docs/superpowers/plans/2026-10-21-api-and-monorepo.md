@@ -69,13 +69,14 @@ Expected: no type errors, export finishes with `Exported: /tmp/plantcare-export`
   - `frequencySchema`: `{ times: number, per: 'day' | 'week' }`, `per: 'day'` only allows `times: 1`, `per: 'week'` allows integers 1–7; `type Frequency`
   - `reminderTimeSchema`: string matching `HH:mm` 24h (`^([01]\d|2[0-3]):[0-5]\d$`)
   - `timeZoneSchema`: string accepted only if `Intl.supportedValuesOf('timeZone')` contains it or it is `"UTC"`
-  - `catalogPlantSchema`: `{ id: string, slug: string, name: string, about: string, waterTips: string, light: Light, difficulty: Difficulty, frequency: Frequency, imageUrl: string }`
+  - `plantSourceSchema = z.enum(['curated', 'ai'])`, `type PlantSource`
+  - `catalogPlantSchema`: `{ id: string, slug: string, scientificName: string, source: PlantSource, name: string, about: string, waterTips: string, light: Light, difficulty: Difficulty, frequency: Frequency, imageUrl: string | null }`
   - `catalogPageSchema`: `{ items: CatalogPlant[], nextPage: number | null }`
   - `userSchema`: `{ id: string, name: string, email: string | null, language: Locale, hasPassword: boolean, hasGoogle: boolean }`
   - `authResponseSchema`: `{ accessToken: string, refreshToken: string, user: User }`
-  - `userPlantSchema`: `{ id: string, catalogPlantId: string | null, name: string, hasCustomName: boolean, about: string | null, waterTips: string | null, frequency: Frequency, reminderTime: string, timeZone: string, light: Light | null, notes: string | null, imageUrl: string | null, hasPhoto: boolean, createdAt: string }`
-  - `createUserPlantSchema`: `{ catalogPlantId?: string, name?: string (1–60 chars, trimmed), frequency, reminderTime, timeZone, light?, notes?: string (≤ 500) }` refined so `name` is required when `catalogPlantId` is absent
-  - `updateUserPlantSchema`: all fields of create optional except `catalogPlantId` (not changeable); `name: null` clears a custom name on a catalog plant
+  - `userPlantSchema`: `{ id: string, catalogPlantId: string, nickname: string | null, speciesName: string, scientificName: string, about: string, waterTips: string, frequency: Frequency, reminderTime: string, timeZone: string, light: Light | null, notes: string | null, imageUrl: string | null, hasPhoto: boolean, createdAt: string }` (`imageUrl` is the species illustration; the user's photo is fetched separately when `hasPhoto`)
+  - `createUserPlantSchema`: `{ catalogPlantId: string, nickname?: string (1–40 chars, trimmed), frequency?: Frequency, reminderTime, timeZone, light?, notes?: string (≤ 500) }`
+  - `updateUserPlantSchema`: `nickname?: string | null` (null clears it), `frequency?`, `reminderTime?`, `timeZone?`, `light?: Light | null`, `notes?: string | null`; the species cannot change
   - `reminderSlots(frequency: Frequency, reminderTime: string): Array<{ weekday: number | null, hour: number, minute: number }>` where `weekday` uses Expo's convention (1 = Sunday … 7 = Saturday) and is `null` for daily
 
 - [ ] **Step 1: Write the failing tests.** `schedule.test.ts` asserts the weekly table exactly, plus the daily case:
@@ -95,7 +96,7 @@ it('daily is one slot without weekday', () => {
 });
 ```
 
-`schemas.test.ts` asserts that `frequencySchema` rejects `{ times: 2, per: 'day' }`, `{ times: 0, per: 'week' }`, `{ times: 8, per: 'week' }`, `{ times: 1.5, per: 'week' }`; `reminderTimeSchema` rejects `"25:00"`, `"9:05"`, `"09:5"` and accepts `"00:00"`, `"23:59"`; `timeZoneSchema` accepts `"America/Sao_Paulo"`, `"UTC"` and rejects `"Mars/Olympus"`; `createUserPlantSchema` rejects a body with neither `catalogPlantId` nor `name` and accepts each one alone.
+`schemas.test.ts` asserts that `frequencySchema` rejects `{ times: 2, per: 'day' }`, `{ times: 0, per: 'week' }`, `{ times: 8, per: 'week' }`, `{ times: 1.5, per: 'week' }`; `reminderTimeSchema` rejects `"25:00"`, `"9:05"`, `"09:5"` and accepts `"00:00"`, `"23:59"`; `timeZoneSchema` accepts `"America/Sao_Paulo"`, `"UTC"` and rejects `"Mars/Olympus"`; `createUserPlantSchema` rejects a body without `catalogPlantId` and accepts `{ catalogPlantId, reminderTime, timeZone }` alone; `nickname` accepts `"Pikachu"` and rejects `"   "` and a 41-character string.
 
 - [ ] **Step 2: Run them** — `npm test -w @plantcare/shared` — Expected: FAIL (modules missing).
 - [ ] **Step 3: Implement** `schemas.ts` and `schedule.ts` with the signatures above; the weekly table is a constant (no formula), Sunday-first sorting as in the 7× case.
@@ -118,7 +119,7 @@ it('daily is one slot without weekday', () => {
   - `buildApp(options?: { prisma?: PrismaClient; googleVerifier?: GoogleVerifier; logger?: boolean }): Promise<FastifyInstance>` in `src/app.ts`: registers the zod type provider, CORS, rate-limit (global off, per-route opt-in), swagger + Scalar at `/docs`, the error handler, `@fastify/static` for `api/public` under `/static/`, and every module's routes. `type GoogleVerifier` is defined in Task 7; until then the option is typed in `app.ts` as that alias.
   - `AppError(statusCode: number, code: string, message: string)` in `src/errors.ts`; the error handler maps `AppError`, zod validation errors (400, code `validation_error`), rate-limit (429, `rate_limited`), and anything else (500, `internal_error`, message not leaked) to the one error shape.
   - Test helpers: `createTestApp(options?)` returning `{ app, prisma }` against `plantcare_test`; `resetDb()` truncating all tables between tests.
-- Prisma models (in this task, all of them): `User`, `RefreshToken`, `Plant`, `PlantTranslation`, `UserPlant` exactly as in the spec's data model, plus: `User.email` unique (stored lowercased), `RefreshToken.tokenHash` unique, `PlantTranslation` unique on `(plantId, locale)` and a `searchName` column (lowercased, accents removed) indexed, `UserPlant` indexed on `userId`; frequency stored as `frequencyTimes Int` + `frequencyPer String`; ids are cuid.
+- Prisma models (in this task, all of them): `User`, `RefreshToken`, `Plant`, `PlantTranslation`, `PlantAlias`, `UserPlant` exactly as in the spec's data model, plus: `Plant.scientificName` unique, `Plant.source` (`curated` | `ai`, default `curated`), `Plant.imageFile` nullable, `PlantAlias.searchName` indexed, `UserPlant.catalogPlantId` required, `User.email` unique (stored lowercased), `RefreshToken.tokenHash` unique, `PlantTranslation` unique on `(plantId, locale)` and a `searchName` column (lowercased, accents removed) indexed, `UserPlant` indexed on `userId`; frequency stored as `frequencyTimes Int` + `frequencyPer String`; ids are cuid.
 
 - [ ] **Step 1: Write the failing tests:** `health.test.ts` — `GET /health` returns 200 `{ status: 'ok' }`; `GET /nope` returns 404 with `{ error: { code: 'not_found', message: expect.any(String) } }`; `env.test.ts` — parsing `{ JWT_SECRET: 'short' }` throws an error whose message mentions `JWT_SECRET` and `DATABASE_URL`.
 - [ ] **Step 2: Run** `docker compose up -d db && npm run db:test:prepare -w @plantcare/api && npm test -w @plantcare/api` — Expected: FAIL.
@@ -134,25 +135,24 @@ it('daily is one slot without weekday', () => {
 - Test: `api/prisma/seed.test.ts`, `api/src/plants/search-name.test.ts`
 
 **Interfaces:**
-- Produces: `toSearchName(text: string): string` (NFD normalize, strip combining marks, lowercase, collapse spaces, trim). The seed upserts by `slug`, so running it twice changes nothing.
-- Seed values (light, difficulty, frequency; texts are the mock's Portuguese, typo-fixed, plus a faithful English translation written by the implementer):
+- Produces: `toSearchName(text: string): string` (NFD normalize, strip combining marks, lowercase, replace hyphens with spaces, collapse spaces, trim). The seed upserts by `slug`, so running it twice changes nothing.
+- Seed values: the mock's plants minus **Frutíferas** ("fruit trees" is a category, not a species, so it cannot have a scientific name). Texts are the mock's Portuguese, typo-fixed, plus a faithful English translation written by the implementer; all `source: curated`:
 
-| slug | PT name | EN name | light | difficulty | frequency | image |
-|---|---|---|---|---|---|---|
-| aningapara | Aningapara | Dumb cane | partial_shade | easy | 2/week | 1.svg |
-| zamioculca | Zamioculca | ZZ plant | shade | easy | **1/week** (mock said daily) | 2.svg |
-| peperomia | Peperomia | Peperomia | partial_shade | easy | 3/week | 3.svg |
-| imbe | Imbé | Lacy tree philodendron | partial_shade | easy | 2/week | 4.svg |
-| espada-sao-jorge | Espada São Jorge | Snake plant | partial_shade | easy | **1/week** (mock said daily) | 5.svg |
-| yucca | Yucca | Yucca | full_sun | easy | 1/week | 6.svg |
-| frutiferas | Frutíferas | Fruit trees | full_sun | medium | 3/week | 7.svg |
-| orquidea | Orquídea | Orchid | partial_shade | hard | 4/week | 8.svg |
-| violeta | Violeta | African violet | partial_shade | medium | 2/week | 3.svg |
-| hortensia | Hortênsia | Hydrangea | full_sun | medium | 1/day | 2.svg |
+| slug | scientific name | PT name | EN name | light | difficulty | frequency | image | aliases |
+|---|---|---|---|---|---|---|---|---|
+| aningapara | Montrichardia linifera | Aningapara | Aninga | partial_shade | easy | 2/week | 1.svg | aninga, aninga-pará |
+| zamioculca | Zamioculcas zamiifolia | Zamioculca | ZZ plant | shade | easy | **1/week** (mock said daily) | 2.svg | zamioculcas, zz, planta da fortuna |
+| peperomia | Peperomia obtusifolia | Peperomia | Baby rubber plant | partial_shade | easy | 3/week | 3.svg | peperômia |
+| imbe | Thaumatophyllum bipinnatifidum | Imbé | Lacy tree philodendron | partial_shade | easy | 2/week | 4.svg | guaimbê, philodendron bipinnatifidum |
+| espada-sao-jorge | Dracaena trifasciata | Espada São Jorge | Snake plant | partial_shade | easy | **1/week** (mock said daily) | 5.svg | espada de são jorge, sansevieria, língua de sogra |
+| yucca | Yucca gigantea | Yucca | Spineless yucca | full_sun | easy | 1/week | 6.svg | iúca, yuca |
+| orquidea | Phalaenopsis | Orquídea | Moth orchid | partial_shade | hard | 4/week | 8.svg | orquídea borboleta, phalaenopsis |
+| violeta | Streptocarpus ionanthus | Violeta | African violet | partial_shade | medium | 2/week | 3.svg | violeta africana, saintpaulia |
+| hortensia | Hydrangea macrophylla | Hortênsia | Hydrangea | full_sun | medium | 1/day | 2.svg | hydrangea |
 
-The two corrected frequencies also get water tips that match them (no "Regue 1 vez no dia").
+The two corrected frequencies also get water tips that match them (no "Regue 1 vez no dia"). Before writing the seed, check each scientific name against a botanical source (POWO or GBIF) and fix any that is outdated; `7.svg` (fruit trees) is not copied.
 
-- [ ] **Step 1: Write the failing tests:** `search-name.test.ts` — `toSearchName('Espada São Jorge')` is `'espada sao jorge'`, `toSearchName('  ORQUÍDEA ')` is `'orquidea'`; `seed.test.ts` — after running the seed twice against the test DB there are 10 plants and 20 translations, every plant has both locales, `zamioculca` has frequency `{ times: 1, per: 'week' }`, and every image file referenced exists in `api/public/plants`.
+- [ ] **Step 1: Write the failing tests:** `search-name.test.ts` — `toSearchName('Espada São Jorge')` is `'espada sao jorge'`, `toSearchName('  ORQUÍDEA ')` is `'orquidea'`; `seed.test.ts` — after running the seed twice against the test DB there are 9 plants, 18 translations and the aliases from the table (no duplicates), every plant has both locales and a unique scientific name, `zamioculca` has frequency `{ times: 1, per: 'week' }`, and every image file referenced exists in `api/public/plants`.
 - [ ] **Step 2: Run** — Expected: FAIL.
 - [ ] **Step 3: Implement** seed, data and `toSearchName`; wire `db:seed` and Prisma's seed config.
 - [ ] **Step 4: Run** tests — Expected: PASS.
@@ -168,9 +168,9 @@ The two corrected frequencies also get water tips that match them (no "Regue 1 v
 - Consumes: `catalogPlantSchema`, `catalogPageSchema`, `lightSchema`, `difficultySchema` (Task 2); `toSearchName` (Task 4).
 - Produces: `resolveLocale(acceptLanguage: string | undefined): Locale` in `src/i18n.ts` (first supported tag by q-order; any `pt*` → `pt-BR`; else `en`). Routes: `GET /plants?search&light&difficulty&page` (page ≥ 1, 20 per page, ordered by localized name) → `CatalogPage`; `GET /plants/:id` → `CatalogPlant` or 404 `plant_not_found`. `imageUrl` is the path `/static/plants/<file>` (the app prefixes its API base URL). Public, no auth.
 
-- [ ] **Step 1: Write the failing tests:** `resolveLocale` cases from Review Focus (`'pt-BR,pt;q=0.9,en;q=0.8'` → `pt-BR`, `'pt'` → `pt-BR`, `'fr-FR'` → `en`, `undefined` → `en`, `'en;q=0.5,pt-BR;q=0.9'` → `pt-BR`); routes: default list returns 10 English items sorted by name with `nextPage: null`; `Accept-Language: pt-BR` returns Portuguese names; `?search=orquidea` returns only Orchid; `?search=SAO JORGE` with pt-BR returns "Espada São Jorge"; `?light=full_sun` returns exactly yucca, frutiferas, hortensia; `?difficulty=hard` returns only orquidea; `?light=sunny` returns 400 `validation_error`; `GET /plants/unknown` returns 404 `plant_not_found`; `GET /static/plants/<file>` for a returned `imageUrl` returns 200 `image/svg+xml`.
+- [ ] **Step 1: Write the failing tests:** `resolveLocale` cases from Review Focus (`'pt-BR,pt;q=0.9,en;q=0.8'` → `pt-BR`, `'pt'` → `pt-BR`, `'fr-FR'` → `en`, `undefined` → `en`, `'en;q=0.5,pt-BR;q=0.9'` → `pt-BR`); routes: default list returns 9 English items sorted by name with `nextPage: null`, each with `scientificName` and `source: 'curated'`; `Accept-Language: pt-BR` returns Portuguese names; `?search=orquidea` returns only Orchid; `?search=SAO JORGE` with pt-BR returns "Espada São Jorge"; `?search=lingua de sogra` and `?search=sansevieria` return the snake plant (aliases); `?search=dracaena` returns it too (scientific name); `?light=full_sun` returns exactly yucca and hortensia; `?difficulty=hard` returns only orquidea; `?light=sunny` returns 400 `validation_error`; `GET /plants/unknown` returns 404 `plant_not_found`; `GET /static/plants/<file>` for a returned `imageUrl` returns 200 `image/svg+xml`.
 - [ ] **Step 2: Run** — Expected: FAIL.
-- [ ] **Step 3: Implement** service (Prisma query on `PlantTranslation.searchName contains toSearchName(search)` for the resolved locale) and routes.
+- [ ] **Step 3: Implement** service (match when `toSearchName(search)` is contained in the resolved locale's `PlantTranslation.searchName`, in any `PlantAlias.searchName`, or in the normalized scientific name) and routes.
 - [ ] **Step 4: Run** — Expected: PASS.
 - [ ] **Step 5: Commit** (`"Add catalog routes with search, filters and translations"`)
 
@@ -237,9 +237,9 @@ The two corrected frequencies also get water tips that match them (no "Regue 1 v
 **Interfaces:**
 - Consumes: `createUserPlantSchema`, `updateUserPlantSchema`, `userPlantSchema` (Task 2); `resolveLocale` (Task 5); `app.authenticate` (Task 6).
 - Produces: `toUserPlantDto(row, catalogTranslation | null): UserPlant` in `service.ts` (used by Task 10). Routes, all authenticated: `GET /me/plants` → `UserPlant[]` ordered by next reminder time-of-day then name; `POST /me/plants` → 201 `UserPlant`; `PATCH /me/plants/:id` → `UserPlant`; `DELETE /me/plants/:id` → 204. A `catalogPlantId` that does not exist → 400 `plant_not_found`. Any id that is missing or owned by another user → 404 `user_plant_not_found`.
-- Behavior from the spec: a catalog-based plant copies frequency and light from the catalog when the body omits them; it stores `customName` only when a name is sent; its `name`, `about` and `waterTips` come from the catalog translation in the request's locale unless `customName` is set (then `name` is the custom one, `about`/`waterTips` still from the catalog); `hasCustomName` reflects that. Manual plants return what was stored, with `about` and `waterTips` null and `imageUrl` null unless the catalog link exists.
+- Behavior from the spec: frequency and light are copied from the species when the body omits them; `speciesName`, `about` and `waterTips` always come from the species translation in the request's locale; `nickname` is returned as stored (null when unset).
 
-- [ ] **Step 1: Write the failing tests:** create from catalog with only `catalogPlantId`, `reminderTime`, `timeZone` → frequency and light copied, `name` English by default and Portuguese with `Accept-Language: pt-BR`; with `name: 'Orquídea da vó'` → `hasCustomName: true` and that name in both locales; create manual without name → 400; manual with name → `catalogPlantId: null`, `about: null`; the Review Focus malformed inputs (`"25:00"`, `"9:5"`, `"Mars/Olympus"`, `{ times: 2, per: 'day' }`, `{ times: 8, per: 'week' }`) → 400 `validation_error`; PATCH changes frequency and `name: null` clears the custom name; user B gets 404 for GET-by-list absence, PATCH and DELETE on user A's plant id (Review Focus); DELETE then list no longer contains it; unknown `catalogPlantId` → 400 `plant_not_found`.
+- [ ] **Step 1: Write the failing tests:** create with only `catalogPlantId`, `reminderTime`, `timeZone` → frequency and light copied, `nickname: null`, `speciesName` English by default and Portuguese with `Accept-Language: pt-BR`; with `nickname: 'Pikachu'` → `nickname: 'Pikachu'` in both locales while `speciesName` still follows the locale; create without `catalogPlantId` → 400; the Review Focus malformed inputs (`"25:00"`, `"9:5"`, `"Mars/Olympus"`, `{ times: 2, per: 'day' }`, `{ times: 8, per: 'week' }`) → 400 `validation_error`; PATCH changes frequency and `nickname: null` clears the nickname; PATCH with `catalogPlantId` → 400; user B gets 404 for GET-by-list absence, PATCH and DELETE on user A's plant id (Review Focus); DELETE then list no longer contains it; unknown `catalogPlantId` → 400 `plant_not_found`.
 - [ ] **Step 2: Run** — Expected: FAIL. **Step 3: Implement.** **Step 4: Run** — Expected: PASS.
 - [ ] **Step 5: Commit** (`"Add the user's plants routes"`)
 
