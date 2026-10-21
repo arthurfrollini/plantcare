@@ -96,6 +96,7 @@ export function PlantSelect() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- legacy loader, replaced when the catalog moves to the API
     fetchPlants();
   }, []);
 

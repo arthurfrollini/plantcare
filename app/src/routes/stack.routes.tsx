@@ -24,7 +24,9 @@ export type RootStackParamList = {
 
 // Types every useNavigation() call against the routes above.
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- the React Navigation typing hook is a namespace augmentation
   namespace ReactNavigation {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
     interface RootParamList extends RootStackParamList {}
   }
 }

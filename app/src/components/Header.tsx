@@ -9,7 +9,7 @@ import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
 /** Up to two initials from the name the user typed, e.g. "Ana Clara Souza" -> "AC". */
-function initials(name: string) {
+export function initials(name: string) {
   return name
     .trim()
     .split(/\s+/)

@@ -35,7 +35,7 @@ export function MyPlants() {
             setMyPlants((oldData) =>
               oldData.filter((item) => item.id !== plant.id)
             );
-          } catch (err) {
+          } catch {
             Alert.alert(t('myPlants.removeError'));
           }
         },

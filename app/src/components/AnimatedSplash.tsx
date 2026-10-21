@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs -- the fade-out helper reads a ref from event callbacks only, never to render */
 import React, { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';

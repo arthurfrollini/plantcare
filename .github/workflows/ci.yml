@@ -39,5 +39,7 @@ jobs:
       - run: npm test -w @plantcare/shared
       - run: npm test -w @plantcare/api
       - run: npm run build -w @plantcare/api
+      - run: npm run lint -w @plantcare/app
+      - run: npm test -w @plantcare/app
       - run: npx tsc --noEmit
         working-directory: app
