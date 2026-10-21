@@ -14,7 +14,7 @@
     "format": "prettier --write .",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "prisma db seed",
     "db:test:prepare": "dotenv -e .env.test -- prisma migrate deploy"
   },
   "devDependencies": {
