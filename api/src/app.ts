@@ -15,6 +15,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { authenticateDecorator } from './auth/authenticate';
 import type { GoogleVerifier } from './auth/google';
+import { accessJwtConfig } from './auth/jwt-config';
 import { authRoutes } from './auth/routes';
 import { prisma as defaultPrisma } from './db';
 import { env } from './env';
@@ -56,8 +57,12 @@ export async function buildApp(
   await app.register(cors, { origin: env.CORS_ORIGIN });
   await app.register(rateLimit, { global: false });
   await app.register(jwt, {
-    secret: env.JWT_SECRET,
-    sign: { expiresIn: env.ACCESS_TOKEN_TTL },
+    secret: accessJwtConfig.secret,
+    sign: {
+      algorithm: accessJwtConfig.algorithm,
+      expiresIn: accessJwtConfig.expiresIn,
+    },
+    verify: { algorithms: [accessJwtConfig.algorithm] },
   });
   authenticateDecorator(app);
   await app.register(swagger, {

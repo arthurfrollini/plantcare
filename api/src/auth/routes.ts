@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { login, logout, refresh, register } from './service';
 
 const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
-const refreshBody = z.object({ refreshToken: z.string().min(1) });
+const refreshBody = z.object({ refreshToken: z.string().min(1).max(256) });
 
 export function authRoutes(app: FastifyInstance): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
@@ -23,7 +23,11 @@ export function authRoutes(app: FastifyInstance): void {
         body: z.object({
           name: z.string().trim().min(1).max(60),
           email: emailSchema,
-          password: z.string().min(8).max(128),
+          password: z
+            .string()
+            .min(8)
+            .max(128)
+            .refine((value) => Buffer.byteLength(value, 'utf8') <= 72),
           language: localeSchema.optional(),
         }),
         response: { 201: authResponseSchema },

@@ -2,12 +2,14 @@ import { createHash, randomBytes } from 'node:crypto';
 import { createSigner } from 'fast-jwt';
 import { env } from '../env';
 import type { PrismaClient } from '../generated/prisma/client';
+import { accessJwtConfig } from './jwt-config';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const signAccessToken = createSigner({
-  key: env.JWT_SECRET,
-  expiresIn: env.ACCESS_TOKEN_TTL,
+  key: accessJwtConfig.secret,
+  algorithm: accessJwtConfig.algorithm,
+  expiresIn: accessJwtConfig.expiresIn,
 });
 
 export function hashRefreshToken(token: string): string {

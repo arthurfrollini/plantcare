@@ -1,7 +1,11 @@
 import { localeSchema, type User } from '@plantcare/shared';
 import bcrypt from 'bcryptjs';
 import { AppError } from '../errors';
-import type { PrismaClient, User as UserRow } from '../generated/prisma/client';
+import {
+  Prisma,
+  type PrismaClient,
+  type User as UserRow,
+} from '../generated/prisma/client';
 import { hashRefreshToken, issueTokens } from './tokens';
 
 const BCRYPT_COST = 12;
@@ -45,19 +49,27 @@ export async function register(
     throw emailTaken();
   }
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
+  const user = await createUser(prisma, {
+    name: input.name,
+    email,
+    passwordHash,
+    ...(input.language ? { language: input.language } : {}),
+  });
+  return authResult(prisma, user);
+}
+
+async function createUser(
+  prisma: PrismaClient,
+  data: Prisma.UserCreateInput,
+): Promise<UserRow> {
   try {
-    const user = await prisma.user.create({
-      data: {
-        name: input.name,
-        email,
-        passwordHash,
-        ...(input.language ? { language: input.language } : {}),
-      },
-    });
-    return await authResult(prisma, user);
+    return await prisma.user.create({ data });
   } catch (error) {
     // Unique violation from a concurrent registration (Prisma P2002).
-    if (error instanceof Error && 'code' in error && error.code === 'P2002') {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
       throw emailTaken();
     }
     throw error;
@@ -68,8 +80,10 @@ function emailTaken(): AppError {
   return new AppError(409, 'email_taken', 'Email already registered');
 }
 
-// Compared against when the email is unknown, so timing does not reveal it.
-const DUMMY_HASH = bcrypt.hashSync('plantcare-dummy-password', BCRYPT_COST);
+// Cost-12 bcrypt hash of a throwaway string. Compared against when the email
+// is unknown, so timing does not reveal it (precomputed, not hashed at import).
+const DUMMY_HASH =
+  '$2b$12$VvqHkhNEd846TFwHn2Qmg.4EWZETI4NYlkG5q.1zHWRfrqKGDa4f.';
 
 export async function login(
   prisma: PrismaClient,

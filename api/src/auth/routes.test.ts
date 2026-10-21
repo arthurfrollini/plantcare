@@ -1,6 +1,8 @@
+import { createSigner } from 'fast-jwt';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestApp, resetDb } from '../../test/helpers';
+import { env } from '../env';
 import type { PrismaClient } from '../generated/prisma/client';
 
 type AuthBody = {
@@ -65,6 +67,29 @@ describe('auth routes', () => {
       language: 'pt-BR',
     });
     expect(res.json<AuthBody>().user.language).toBe('pt-BR');
+  });
+
+  it('rejects passwords longer than 72 UTF-8 bytes', async () => {
+    const tooLong = await post('/auth/register', {
+      ...credentials,
+      password: 'é'.repeat(37),
+    });
+    expect(tooLong.statusCode).toBe(400);
+    expect(tooLong.json<ErrorBody>().error.code).toBe('validation_error');
+    const ok = await post('/auth/register', {
+      ...credentials,
+      password: 'é'.repeat(36),
+    });
+    expect(ok.statusCode).toBe(201);
+  });
+
+  it('caps the refresh token field at 256 characters', async () => {
+    const refreshToken = 'a'.repeat(257);
+    for (const url of ['/auth/refresh', '/auth/logout']) {
+      const res = await post(url, { refreshToken });
+      expect(res.statusCode).toBe(400);
+      expect(res.json<ErrorBody>().error.code).toBe('validation_error');
+    }
   });
 
   it('rejects invalid input with 400', async () => {
@@ -234,6 +259,25 @@ describe('auth routes', () => {
       expect(res.json<ErrorBody>().error.code).toBe('unauthorized');
     });
 
+    it('accepts the Bearer scheme case-insensitively', async () => {
+      const token = guarded.jwt.sign({ sub: 'u1' });
+      const res = await guarded.inject({
+        method: 'GET',
+        url: '/test/protected',
+        headers: { authorization: `bearer ${token}` },
+      });
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('rejects tokens signed with another algorithm', async () => {
+      const token = createSigner({ key: env.JWT_SECRET, algorithm: 'HS384' })({
+        sub: 'u1',
+      });
+      const res = await get(token);
+      expect(res.statusCode).toBe(401);
+      expect(res.json<ErrorBody>().error.code).toBe('unauthorized');
+    });
+
     it('returns 200 with a valid token and sets request.userId', async () => {
       const token = guarded.jwt.sign({ sub: 'u1' });
       const res = await get(token);
@@ -243,7 +287,7 @@ describe('auth routes', () => {
   });
 
   it('rate limits logins to 10 per minute per IP by default', async () => {
-    const limited = await createTestApp({ authRateLimitMax: 10 });
+    const limited = await createTestApp({ authRateLimitMax: undefined });
     try {
       const statuses: number[] = [];
       for (let i = 0; i < 11; i += 1) {
