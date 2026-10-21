@@ -14,6 +14,7 @@ import type {
   UserPlant as UserPlantRow,
 } from '../generated/prisma/client';
 import { pickTranslation } from '../plants/service';
+import type { PhotoStorage } from '../storage';
 
 export type UserPlantWithSpecies = UserPlantRow & {
   catalogPlant: Plant & { translations: PlantTranslation[] };
@@ -148,13 +149,50 @@ export async function updateUserPlant(
   return present(row, locale);
 }
 
-export async function deleteUserPlant(
+/** Returns the plant's photo key (null if none); 404 unless the caller owns it. */
+export async function getPhotoKey(
   prisma: PrismaClient,
   userId: string,
   id: string,
+): Promise<string | null> {
+  const owned = await prisma.userPlant.findFirst({
+    where: { id, userId },
+    select: { photoPath: true },
+  });
+  if (!owned) throw notFound();
+  return owned.photoPath;
+}
+
+export async function setUserPlantPhoto(
+  prisma: PrismaClient,
+  storage: PhotoStorage,
+  userId: string,
+  id: string,
+  locale: Locale,
+  key: string,
+  data: Buffer,
+): Promise<UserPlant> {
+  const previous = await getPhotoKey(prisma, userId, id);
+  await storage.save(key, data);
+  const row = await prisma.userPlant.update({
+    where: { id },
+    data: { photoPath: key },
+    include,
+  });
+  if (previous !== null && previous !== key) await storage.remove(previous);
+  return present(row, locale);
+}
+
+export async function deleteUserPlant(
+  prisma: PrismaClient,
+  storage: PhotoStorage,
+  userId: string,
+  id: string,
 ): Promise<void> {
+  const photoKey = await getPhotoKey(prisma, userId, id);
   const { count } = await prisma.userPlant.deleteMany({
     where: { id, userId },
   });
   if (count === 0) throw notFound();
+  if (photoKey !== null) await storage.remove(photoKey);
 }

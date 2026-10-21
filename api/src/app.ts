@@ -1,4 +1,5 @@
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
@@ -23,6 +24,8 @@ import { AppError, errorBody } from './errors';
 import type { PrismaClient } from './generated/prisma/client';
 import { meRoutes } from './me/routes';
 import { plantRoutes } from './plants/routes';
+import { createDiskStorage, type PhotoStorage } from './storage';
+import { photoRoutes } from './user-plants/photo-routes';
 import { userPlantRoutes } from './user-plants/routes';
 import { healthRoutes } from './routes/health';
 
@@ -34,6 +37,8 @@ export type BuildAppOptions = {
   logger?: boolean;
   /** Requests per minute per client on the auth routes. */
   authRateLimitMax?: number;
+  /** Where plant photos are kept; defaults to disk under UPLOADS_DIR. */
+  photoStorage?: PhotoStorage;
   /** Test hook: register extra routes before the app is ready. */
   extraRoutes?: (app: FastifyInstance) => void;
 };
@@ -66,6 +71,7 @@ export async function buildApp(
 
   await app.register(cors, { origin: env.CORS_ORIGIN });
   await app.register(rateLimit, { global: false });
+  await app.register(multipart);
   await app.register(jwt, {
     secret: accessJwtConfig.secret,
     sign: {
@@ -139,7 +145,10 @@ export async function buildApp(
   plantRoutes(app);
   authRoutes(app);
   meRoutes(app);
-  userPlantRoutes(app);
+  const photoStorage =
+    options.photoStorage ?? createDiskStorage(env.UPLOADS_DIR);
+  userPlantRoutes(app, photoStorage);
+  photoRoutes(app, photoStorage);
   options.extraRoutes?.(app);
 
   await app.ready();

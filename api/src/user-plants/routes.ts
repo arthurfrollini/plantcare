@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { resolveLocale } from '../i18n';
+import type { PhotoStorage } from '../storage';
 import {
   createUserPlant,
   deleteUserPlant,
@@ -14,7 +15,10 @@ import {
   updateUserPlant,
 } from './service';
 
-export function userPlantRoutes(app: FastifyInstance): void {
+export function userPlantRoutes(
+  app: FastifyInstance,
+  storage: PhotoStorage,
+): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
   const security = [{ bearerAuth: [] }];
   const tags = ['user-plants'];
@@ -104,7 +108,12 @@ export function userPlantRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
-      await deleteUserPlant(app.prisma, request.userId, request.params.id);
+      await deleteUserPlant(
+        app.prisma,
+        storage,
+        request.userId,
+        request.params.id,
+      );
       return reply.code(204).send(null);
     },
   );
