@@ -16,6 +16,7 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { isBefore, format } from 'date-fns';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { PlantProps, savePlant } from '../libs/storage';
 
 import { Button } from '../components/Button';
@@ -33,6 +34,7 @@ export function PlantSave() {
   const route = useRoute<PlantSaveRoute>();
   const { plant } = route.params;
   const { bottom } = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const navigation = useNavigation();
 
@@ -45,7 +47,7 @@ export function PlantSave() {
     }
     if (dateTime && isBefore(dateTime, new Date())) {
       setSelectedDateTime(new Date());
-      return Alert.alert('Escolha um horário no futuro! ⏰');
+      return Alert.alert(t('plantSave.pastTime'));
     }
     if (dateTime) setSelectedDateTime(dateTime);
   }
@@ -62,15 +64,14 @@ export function PlantSave() {
       });
 
       navigation.navigate('Confirmation', {
-        title: 'Tudo certo',
-        subtitle:
-          'Fique tranquilo que sempre vamos lembrar você de cuidar da sua plantinha com muito cuidado.',
-        buttonTitle: 'Muito Obrigado :D',
+        title: t('plantSave.doneTitle'),
+        subtitle: t('plantSave.doneSubtitle'),
+        buttonTitle: t('plantSave.doneButton'),
         icon: 'hug',
         nextScreen: 'MyPlants',
       });
     } catch {
-      Alert.alert('Não foi possível salvar um horário ☹️');
+      Alert.alert(t('plantSave.saveError'));
     }
   }
 
@@ -92,9 +93,7 @@ export function PlantSave() {
             <Text style={styles.tipText}>{plant.water_tips}</Text>
           </View>
 
-          <Text style={styles.alertLabel}>
-            Escolha o melhor horário para ser lembrado:
-          </Text>
+          <Text style={styles.alertLabel}>{t('plantSave.pickTime')}</Text>
 
           {showDatePicker && (
             <DateTimePicker
@@ -110,14 +109,15 @@ export function PlantSave() {
               onPress={handleOpenDatetimePickerForAndroid}
               style={styles.dateTimePickerButton}
             >
-              <Text style={styles.dateTimePickerText}>{`Alterar, ${format(
-                selectedDateTime,
-                'HH:mm?'
-              )}`}</Text>
+              <Text style={styles.dateTimePickerText}>
+                {t('plantSave.changeTime', {
+                  time: format(selectedDateTime, 'HH:mm'),
+                })}
+              </Text>
             </TouchableOpacity>
           )}
 
-          <Button title="Cadastrar Planta" onPress={handleSave} />
+          <Button title={t('plantSave.save')} onPress={handleSave} />
         </View>
       </View>
     </ScrollView>

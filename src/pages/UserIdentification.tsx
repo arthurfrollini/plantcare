@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from '../components/Button';
 import colors from '../styles/colors';
@@ -22,6 +23,7 @@ export function UserIdentification() {
   const [isFilled, setIsFilled] = useState(false);
   const [name, setName] = useState<string>();
   const navigation = useNavigation();
+  const { t } = useTranslation();
 
   function handleInputBlur() {
     setIsFocused(false);
@@ -38,21 +40,20 @@ export function UserIdentification() {
   }
 
   async function handleSubmit() {
-    if (!name) return Alert.alert('Me diz como podemos chamá-lo 😢');
+    if (!name) return Alert.alert(t('identification.missingName'));
 
     try {
       await AsyncStorage.setItem('@plantcare:user', name);
 
       navigation.navigate('Confirmation', {
-        title: 'Prontinho',
-        subtitle:
-          'Agora vamos começar a cuidar das suas plantinhas com muito cuidado',
-        buttonTitle: 'Começar',
+        title: t('identification.doneTitle'),
+        subtitle: t('identification.doneSubtitle'),
+        buttonTitle: t('identification.doneButton'),
         icon: 'smile',
         nextScreen: 'PlantSelect',
       });
     } catch {
-      Alert.alert('Não foi possível salvar o seu nome ☹️');
+      Alert.alert(t('identification.saveError'));
     }
   }
 
@@ -68,7 +69,7 @@ export function UserIdentification() {
               <View style={styles.header}>
                 <Text style={styles.emoji}>{isFilled ? '😄' : '😀'}</Text>
                 <Text style={styles.title}>
-                  Como podemos {'\n'} chamar você?
+                  {t('identification.title')}
                 </Text>
               </View>
               <TextInput
@@ -76,13 +77,13 @@ export function UserIdentification() {
                   styles.input,
                   (isFocused || isFilled) && { borderColor: colors.green },
                 ]}
-                placeholder="Digite um nome"
+                placeholder={t('identification.placeholder')}
                 onBlur={handleInputBlur}
                 onFocus={handleInputFocus}
                 onChangeText={handleInputChange}
               />
               <View style={styles.footer}>
-                <Button title="Confirmar" onPress={handleSubmit} />
+                <Button title={t('identification.confirm')} onPress={handleSubmit} />
               </View>
             </View>
           </View>

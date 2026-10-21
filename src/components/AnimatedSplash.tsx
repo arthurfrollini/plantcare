@@ -16,6 +16,8 @@ const SPLASH_ASPECT = 680 / 1000;
 const WINK_FRAME = 32;
 const HOLD_ON_WINK_MS = 300;
 const FADE_OUT_MS = 250;
+// If the player never reports the end (lottie on web does not), the splash still leaves.
+const MAX_SPLASH_MS = 2500;
 
 interface AnimatedSplashProps {
   onFinish: () => void;
@@ -24,8 +26,11 @@ interface AnimatedSplashProps {
 export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
   const animation = useRef<LottieView>(null);
   const opacity = useRef(new Animated.Value(1)).current;
+  const leaving = useRef(false);
 
   function fadeOut() {
+    if (leaving.current) return;
+    leaving.current = true;
     Animated.timing(opacity, {
       toValue: 0,
       duration: FADE_OUT_MS,
@@ -49,7 +54,13 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
     setTimeout(fadeOut, HOLD_ON_WINK_MS);
   }
 
-  useEffect(() => () => opacity.stopAnimation(), [opacity]);
+  useEffect(() => {
+    const fallback = setTimeout(fadeOut, MAX_SPLASH_MS);
+    return () => {
+      clearTimeout(fallback);
+      opacity.stopAnimation();
+    };
+  }, []);
 
   return (
     <Animated.View

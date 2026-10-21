@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Image, Text } from 'react-native';
+import { View, StyleSheet, Image, Text, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -10,6 +12,8 @@ import fonts from '../styles/fonts';
 export function Header() {
   const [username, setUsername] = useState<string>();
   const { top } = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const navigation = useNavigation();
 
   useEffect(() => {
     async function loadStorageUsername() {
@@ -22,11 +26,18 @@ export function Header() {
   return (
     <View style={[styles.container, { marginTop: top }]}>
       <View>
-        <Text style={styles.greeting}>Olá,</Text>
+        <Text style={styles.greeting}>{t('header.greeting')}</Text>
         <Text style={styles.userName}>{username}</Text>
       </View>
 
-      <Image source={userImg} style={styles.image} />
+      <TouchableOpacity
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('header.openProfile')}
+        onPress={() => navigation.navigate('Profile')}
+      >
+        <Image source={userImg} style={styles.image} />
+      </TouchableOpacity>
     </View>
   );
 }

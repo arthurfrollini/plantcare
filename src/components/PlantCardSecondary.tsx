@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Feather } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 import { SvgFromUri } from 'react-native-svg';
 
@@ -28,6 +29,8 @@ export const PlantCardSecondary = ({
   handleRemove,
   ...rest
 }: PlantProps) => {
+  const { t } = useTranslation();
+
   return (
     <Swipeable
       overshootRight={false}
@@ -43,7 +46,7 @@ export const PlantCardSecondary = ({
         <SvgFromUri uri={data.photo} width={50} height={50} />
         <Text style={styles.title}>{data.name}</Text>
         <View style={styles.details}>
-          <Text style={styles.timeLabel}>Regar às</Text>
+          <Text style={styles.timeLabel}>{t('myPlants.waterAt')}</Text>
           <Text style={styles.time}>{data.hour}</Text>
         </View>
       </TouchableOpacity>

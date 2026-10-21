@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DailyTriggerInput, WeeklyTriggerInput } from 'expo-notifications';
 import { format, getHours, getMinutes, getDay } from 'date-fns';
 import * as Notifications from 'expo-notifications';
+import i18n from '../i18n';
 
 export interface PlantProps {
   id: string;
@@ -61,8 +62,8 @@ export async function savePlant(plant: PlantProps): Promise<void> {
 
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Heeey 🌱',
-        body: `Está na hora de cuidar da sua ${plant.name}`,
+        title: i18n.t('notification.title'),
+        body: i18n.t('notification.body', { name: plant.name }),
         sound: true,
         priority: Notifications.AndroidNotificationPriority.HIGH,
         data: {

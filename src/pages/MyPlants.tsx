@@ -5,7 +5,8 @@ import { Header } from '../components/Header';
 
 import { PlantProps, loadPlant, removePlant } from '../libs/storage';
 import { formatDistance } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
+import { dateLocale } from '../i18n';
 import { PlantCardSecondary } from '../components/PlantCardSecondary';
 import { Load } from '../components/Load';
 
@@ -16,16 +17,17 @@ import fonts from '../styles/fonts';
 export function MyPlants() {
   const [myPlants, setMyPlants] = useState<PlantProps[]>([]);
   const [loading, setLoading] = useState(true);
-  const [nextWatering, setNextWatering] = useState<string>();
+  const { t } = useTranslation();
 
   function handleRemove(plant: PlantProps) {
-    Alert.alert('Remover', `Deseja remover a ${plant.name}`, [
+    Alert.alert(t('myPlants.removeTitle', { name: plant.name }), undefined, [
       {
-        text: 'Não 🙏🏻',
+        text: t('myPlants.cancel'),
         style: 'cancel',
       },
       {
-        text: 'Sim 🥺',
+        text: t('myPlants.remove'),
+        style: 'destructive',
         onPress: async () => {
           try {
             await removePlant(plant.id);
@@ -34,7 +36,7 @@ export function MyPlants() {
               oldData.filter((item) => item.id !== plant.id)
             );
           } catch (err) {
-            Alert.alert('Não foi possível remover! 😭');
+            Alert.alert(t('myPlants.removeError'));
           }
         },
       },
@@ -44,23 +46,6 @@ export function MyPlants() {
   useEffect(() => {
     async function loadStoragedData() {
       const plantsStoraged = await loadPlant();
-
-      if (plantsStoraged.length === 0) {
-        setNextWatering('Você ainda não cadastrou nenhuma planta.');
-        setLoading(false);
-        return;
-      }
-
-      const nextTime = formatDistance(
-        new Date(plantsStoraged[0].dateTimeNotification).getTime(),
-        new Date().getTime(),
-        { locale: pt }
-      );
-
-      setNextWatering(
-        `Não esqueça de regar a ${plantsStoraged[0].name} em ${nextTime}.`
-      );
-
       setMyPlants(plantsStoraged);
       setLoading(false);
     }
@@ -69,6 +54,18 @@ export function MyPlants() {
   }, []);
 
   if (loading) return <Load />;
+
+  // Built on render so it follows a language change made in Profile while this tab stays mounted.
+  const nextPlant = myPlants[0];
+  const nextWatering = nextPlant
+    ? t('myPlants.nextWatering', {
+        name: nextPlant.name,
+        time: formatDistance(new Date(nextPlant.dateTimeNotification), new Date(), {
+          locale: dateLocale(),
+          addSuffix: true,
+        }),
+      })
+    : t('myPlants.empty');
 
   return (
     <View style={styles.container}>
@@ -79,7 +76,7 @@ export function MyPlants() {
       </View>
 
       <View style={styles.plants}>
-        <Text style={styles.plantsTitle}>Próximas regadas,</Text>
+        <Text style={styles.plantsTitle}>{t('myPlants.upcoming')}</Text>
 
         <FlatList
           data={myPlants}

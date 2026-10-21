@@ -2,19 +2,22 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { PlantSelect } from '../pages/PlantSelect';
 import { MyPlants } from '../pages/MyPlants';
 
 import colors from '../styles/colors';
 
 export type TabParamList = {
-  'Nova Planta': undefined;
-  'Minhas Plantas': undefined;
+  NewPlant: undefined;
+  MyPlantsList: undefined;
 };
 
 const AppTab = createBottomTabNavigator<TabParamList>();
 
 const AuthRoutes = () => {
+  const { t } = useTranslation();
+
   return (
     <AppTab.Navigator
       screenOptions={{
@@ -29,9 +32,10 @@ const AuthRoutes = () => {
       }}
     >
       <AppTab.Screen
-        name="Nova Planta"
+        name="NewPlant"
         component={PlantSelect}
         options={{
+          tabBarLabel: t('tabs.newPlant'),
           tabBarIcon: ({ size, color }) => (
             <MaterialIcons
               name="add-circle-outline"
@@ -43,9 +47,10 @@ const AuthRoutes = () => {
       />
 
       <AppTab.Screen
-        name="Minhas Plantas"
+        name="MyPlantsList"
         component={MyPlants}
         options={{
+          tabBarLabel: t('tabs.myPlants'),
           tabBarIcon: ({ size, color }) => (
             <MaterialIcons
               name="format-list-bulleted"

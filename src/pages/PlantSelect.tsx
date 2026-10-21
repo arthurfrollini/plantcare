@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 
 import { Header } from '../components/Header';
 import { EnvironmentButton } from '../components/EnvironmentButton';
@@ -34,6 +35,7 @@ export function PlantSelect() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const navigation = useNavigation();
+  const { t } = useTranslation();
 
   function handleEnvironmentSelected(environment: string) {
     setEnvironmentSelected(environment);
@@ -85,7 +87,7 @@ export function PlantSelect() {
       setEnvironments([
         {
           key: 'all',
-          title: 'Todos',
+          title: '',
         },
         ...data,
       ]);
@@ -103,8 +105,8 @@ export function PlantSelect() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Header />
-        <Text style={styles.title}>Em qual ambiente</Text>
-        <Text style={styles.subtitle}>você quer colocar sua planta?</Text>
+        <Text style={styles.title}>{t('plantSelect.title')}</Text>
+        <Text style={styles.subtitle}>{t('plantSelect.subtitle')}</Text>
       </View>
       <View>
         <FlatList
@@ -112,7 +114,9 @@ export function PlantSelect() {
           keyExtractor={(item) => String(item.key)}
           renderItem={({ item }) => (
             <EnvironmentButton
-              title={item.title}
+              title={
+                item.key === 'all' ? t('plantSelect.allEnvironments') : item.title
+              }
               active={item.key === environmentSelected}
               onPress={() => handleEnvironmentSelected(item.key)}
             />

@@ -12,6 +12,7 @@ import {
 
 import { PlantProps } from './src/libs/storage';
 import Routes from './src/routes';
+import { initI18n } from './src/i18n';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 
 // Keeps the native splash up until the Jost fonts are ready; AnimatedSplash hides it once its first
@@ -30,10 +31,15 @@ Notifications.setNotificationHandler({
 
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
+  const [i18nReady, setI18nReady] = useState(false);
   const [fontsLoaded, fontError] = useFonts({
     Jost_400Regular,
     Jost_600SemiBold,
   });
+
+  useEffect(() => {
+    initI18n().finally(() => setI18nReady(true));
+  }, []);
 
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(
@@ -45,7 +51,7 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
-  if (!fontsLoaded && !fontError) return null;
+  if ((!fontsLoaded && !fontError) || !i18nReady) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
