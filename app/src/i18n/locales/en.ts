@@ -1,7 +1,7 @@
 const en = {
   welcome: {
     title: 'Manage your\nplants with ease',
-    haveAccount: 'I already have an account',
+    start: 'Get started',
     subtitle: "Never forget to water your plants again. We'll remind you when it's time.",
   },
   identification: {

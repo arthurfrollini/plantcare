@@ -3,7 +3,7 @@ import type en from './en';
 const ptBR: typeof en = {
   welcome: {
     title: 'Cuide das suas\nplantas sem esforço',
-    haveAccount: 'Já tenho uma conta',
+    start: 'Começar',
     subtitle: 'Nunca mais esqueça de regar suas plantas. A gente te lembra na hora certa.',
   },
   identification: {

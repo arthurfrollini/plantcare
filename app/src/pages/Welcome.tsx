@@ -12,6 +12,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { useAuth } from '../auth/AuthProvider';
 
 import wateringImg from '../assets/watering.png';
 import colors from '../styles/colors';
@@ -20,13 +23,14 @@ import fonts from '../styles/fonts';
 export default function Welcome() {
   const navigation = useNavigation();
   const { t } = useTranslation();
+  const { status } = useAuth();
 
-  function handleStart() {
-    navigation.navigate('UserIdentification');
-  }
-
-  function handleSignIn() {
-    navigation.navigate('Auth', { mode: 'signIn' });
+  // The name screen is only for people we don't know yet: no account and no name saved here.
+  async function handleStart() {
+    const knownUser =
+      status === 'signedIn' ||
+      (await AsyncStorage.getItem('@plantcare:user').catch(() => null)) !== null;
+    navigation.navigate(knownUser ? 'PlantSelect' : 'UserIdentification');
   }
 
   return (
@@ -41,17 +45,11 @@ export default function Welcome() {
         <TouchableOpacity
           style={styles.button}
           activeOpacity={0.7}
-          onPress={handleStart}
+          accessibilityRole="button"
+          accessibilityLabel={t('welcome.start')}
+          onPress={() => void handleStart()}
         >
           <Feather name="chevron-right" style={styles.buttonIcon} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleSignIn}
-          accessibilityRole="button"
-          hitSlop={8}
-        >
-          <Text style={styles.link}>{t('welcome.haveAccount')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -82,12 +80,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     color: colors.heading,
     fontFamily: fonts.text,
-  },
-  link: {
-    color: colors.green_dark,
-    fontFamily: fonts.text,
-    fontSize: 16,
-    marginBottom: 10,
   },
   image: {
     height: Dimensions.get('window').width * 0.7,
