@@ -28,7 +28,8 @@ export function firstName(name: string) {
 
 export function Header() {
   const [localName, setLocalName] = useState<string>();
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<{ userId: string; token: string } | null>(null);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
   const { status, user } = useAuth();
   const { top } = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -44,19 +45,26 @@ export function Header() {
   // The photo request needs the access token, as for plant photos.
   const avatarVersion = user?.avatarVersion;
   const hasAvatar = user?.hasAvatar;
+  const userId = user?.id;
   useEffect(() => {
-    if (!hasAvatar) return;
+    if (!hasAvatar || !userId) return;
     let active = true;
     void loadTokens()
       .then((tokens) => {
-        if (active) setAccessToken(tokens?.accessToken ?? null);
+        if (active) setAccessToken(tokens ? { userId, token: tokens.accessToken } : null);
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [hasAvatar, avatarVersion]);
-  const photo = user && accessToken ? avatarSource(user, accessToken) : null;
+  }, [hasAvatar, avatarVersion, userId]);
+  // The token only counts for the user it was loaded for; a failed image shows the initials until
+  // the avatar changes.
+  const avatarKey = `${userId ?? ''}-${avatarVersion ?? ''}`;
+  const photo =
+    user && accessToken && accessToken.userId === user.id && failedKey !== avatarKey
+      ? avatarSource(user, accessToken.token)
+      : null;
 
   // The account name wins; the name typed on the first screen covers signed-out and offline use.
   const username = user?.name ?? localName;
@@ -75,6 +83,7 @@ export function Header() {
           <Image
             testID="header-avatar"
             source={photo}
+            onError={() => setFailedKey(avatarKey)}
             style={styles.avatarImage}
             accessibilityIgnoresInvertColors
           />

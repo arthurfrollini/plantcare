@@ -2,7 +2,7 @@ import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import MockAdapter from 'axios-mock-adapter';
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { api } from '../api/client';
@@ -109,6 +109,44 @@ describe('Header', () => {
     );
     expect(image).toBeOnTheScreen();
     expect(screen.queryByText('A')).not.toBeOnTheScreen();
+    mock.restore();
+  });
+
+  it('falls back to the initials when the avatar image fails to load', async () => {
+    await saveTokens({ accessToken: 'tok', refreshToken: 'r' });
+    const mock = new MockAdapter(api);
+    mock.onGet('/me').reply(200, {
+      id: 'u1',
+      name: 'Ana',
+      email: 'ana@example.com',
+      language: 'en',
+      hasPassword: true,
+      hasGoogle: false,
+      hasAvatar: true,
+      avatarVersion: 'v3',
+    });
+    mock.onGet('/me/plants').reply(200, []);
+
+    render(
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 390, height: 844 },
+          insets: { top: 0, left: 0, right: 0, bottom: 0 },
+        }}
+      >
+        <AuthProvider>
+          <NavigationContainer>
+            <Header />
+          </NavigationContainer>
+        </AuthProvider>
+      </SafeAreaProvider>,
+    );
+
+    const image = await screen.findByTestId('header-avatar');
+    fireEvent(image, 'error', { error: 'boom' });
+
+    expect(await screen.findByText('A')).toBeOnTheScreen();
+    await waitFor(() => expect(screen.queryByTestId('header-avatar')).not.toBeOnTheScreen());
     mock.restore();
   });
 });
