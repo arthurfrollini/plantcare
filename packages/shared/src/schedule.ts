@@ -1,44 +1,180 @@
 import { reminderTimeSchema, type Frequency } from './schemas';
 
-export type ReminderSlot = {
-  /** Expo convention: 1 = Sunday ... 7 = Saturday; null for daily. */
-  weekday: number | null;
-  hour: number;
-  minute: number;
+export type ScheduleInput = {
+  frequency: Frequency;
+  /** ISO weekdays, 1 = Monday ... 7 = Sunday. */
+  wateringDays: number[];
+  reminderTime: string;
+  reminderLeadMinutes: number;
+  /** YYYY-MM-DD anchor for every-two-weeks and monthly plants. */
+  scheduleStartsOn: string | null;
 };
 
-const SUN = 1;
-const MON = 2;
-const TUE = 3;
-const WED = 4;
-const THU = 5;
-const FRI = 6;
-const SAT = 7;
+export type ReminderTrigger =
+  | { kind: 'daily'; hour: number; minute: number }
+  | {
+      kind: 'weekly';
+      /** Expo convention: 1 = Sunday ... 7 = Saturday. */
+      weekday: number;
+      hour: number;
+      minute: number;
+    }
+  | { kind: 'date'; date: Date };
 
-const WEEKLY_WEEKDAYS: Record<number, readonly number[]> = {
-  1: [MON],
-  2: [MON, THU],
-  3: [MON, WED, FRI],
-  4: [MON, WED, FRI, SUN],
-  5: [MON, TUE, THU, FRI, SAT],
-  6: [MON, TUE, WED, THU, FRI, SAT],
-  7: [SUN, MON, TUE, WED, THU, FRI, SAT],
+const DEFAULT_WEEKDAYS: Record<number, number[]> = {
+  1: [1],
+  2: [1, 4],
+  3: [1, 3, 5],
+  4: [1, 3, 5, 7],
+  5: [1, 2, 4, 5, 6],
+  6: [1, 2, 3, 4, 5, 6],
+  7: [1, 2, 3, 4, 5, 6, 7],
 };
 
-export function reminderSlots(
-  frequency: Frequency,
-  reminderTime: string,
-): ReminderSlot[] {
-  if (!reminderTimeSchema.safeParse(reminderTime).success) {
-    throw new Error(`Invalid reminder time: ${reminderTime}`);
-  }
-  const [hourText = '', minuteText = ''] = reminderTime.split(':');
-  const hour = Number(hourText);
-  const minute = Number(minuteText);
+const DAY_MINUTES = 24 * 60;
 
-  if (frequency.per === 'day') {
-    return [{ weekday: null, hour, minute }];
+export function requiredWateringDays(f: Frequency): number {
+  if (f.per === 'day') return 0;
+  if (f.per === 'week') return f.times;
+  return 1;
+}
+
+export function defaultWateringDays(f: Frequency): number[] {
+  if (f.per === 'day') return [];
+  if (f.per === 'week') return [...(DEFAULT_WEEKDAYS[f.times] ?? [])];
+  return [1];
+}
+
+function effectiveDays(input: ScheduleInput): number[] {
+  return input.wateringDays.length === requiredWateringDays(input.frequency)
+    ? input.wateringDays
+    : defaultWateringDays(input.frequency);
+}
+
+function parseTime(time: string): { hour: number; minute: number } | null {
+  if (!reminderTimeSchema.safeParse(time).success) return null;
+  const [hourText = '', minuteText = ''] = time.split(':');
+  return { hour: Number(hourText), minute: Number(minuteText) };
+}
+
+function isoWeekday(date: Date): number {
+  return date.getDay() === 0 ? 7 : date.getDay();
+}
+
+function parseDate(text: string): [number, number, number] | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]) - 1, Number(match[3])];
+}
+
+function intervalDays(frequency: Frequency): number {
+  return frequency.per === 'month' ? 28 : 14;
+}
+
+/** Watering moments for date-based plants, in order, from the anchor on. */
+function* dateOccurrences(
+  input: ScheduleInput,
+  time: { hour: number; minute: number },
+  now: Date,
+): Generator<Date> {
+  const step = intervalDays(input.frequency);
+  const at = (y: number, m: number, d: number) =>
+    new Date(y, m, d, time.hour, time.minute);
+
+  let anchor: Date | null = null;
+  const parsed = input.scheduleStartsOn
+    ? parseDate(input.scheduleStartsOn)
+    : null;
+  if (parsed) {
+    anchor = at(...parsed);
+  } else {
+    const weekday = effectiveDays(input)[0] ?? 1;
+    for (let offset = 0; offset <= 7 && !anchor; offset++) {
+      const candidate = at(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + offset,
+      );
+      if (isoWeekday(candidate) === weekday && candidate > now) {
+        anchor = candidate;
+      }
+    }
   }
-  const weekdays = WEEKLY_WEEKDAYS[frequency.times] ?? [];
-  return weekdays.map((weekday) => ({ weekday, hour, minute }));
+  if (!anchor) return;
+
+  const y = anchor.getFullYear();
+  const m = anchor.getMonth();
+  const d = anchor.getDate();
+  // Skip whole periods that are long gone, with a one-period safety margin.
+  const elapsedDays = Math.floor(
+    (Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) -
+      Date.UTC(y, m, d)) /
+      86_400_000,
+  );
+  for (let k = Math.max(0, Math.floor(elapsedDays / step) - 1); ; k++) {
+    yield at(y, m, d + k * step);
+  }
+}
+
+export function reminderTriggers(
+  input: ScheduleInput,
+  now: Date,
+  upcoming = 3,
+): ReminderTrigger[] {
+  const time = parseTime(input.reminderTime);
+  if (!time) throw new Error(`Invalid reminder time: ${input.reminderTime}`);
+
+  const total = time.hour * 60 + time.minute - input.reminderLeadMinutes;
+  const dayShift = total < 0 ? -1 : 0;
+  const minutes = (total + DAY_MINUTES) % DAY_MINUTES;
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+
+  const { per } = input.frequency;
+  if (per === 'day') return [{ kind: 'daily', hour, minute }];
+  if (per === 'week') {
+    return effectiveDays(input).map((iso) => {
+      const shifted = ((iso - 1 + dayShift + 7) % 7) + 1;
+      return { kind: 'weekly', weekday: (shifted % 7) + 1, hour, minute };
+    });
+  }
+
+  const triggers: ReminderTrigger[] = [];
+  for (const watering of dateOccurrences(input, time, now)) {
+    const date = new Date(
+      watering.getTime() - input.reminderLeadMinutes * 60_000,
+    );
+    if (date > now) triggers.push({ kind: 'date', date });
+    if (triggers.length >= upcoming) break;
+  }
+  return triggers;
+}
+
+export function nextWatering(input: ScheduleInput, now: Date): Date | null {
+  const time = parseTime(input.reminderTime);
+  if (!time) return null;
+  const at = (offset: number) =>
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + offset,
+      time.hour,
+      time.minute,
+    );
+
+  const { per } = input.frequency;
+  if (per === 'day' || per === 'week') {
+    const days = per === 'day' ? null : effectiveDays(input);
+    for (let offset = 0; offset <= 7; offset++) {
+      const candidate = at(offset);
+      if (candidate <= now) continue;
+      if (!days || days.includes(isoWeekday(candidate))) return candidate;
+    }
+    return null;
+  }
+
+  for (const watering of dateOccurrences(input, time, now)) {
+    if (watering > now) return watering;
+  }
+  return null;
 }

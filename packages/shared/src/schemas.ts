@@ -15,12 +15,31 @@ export const frequencySchema = z.discriminatedUnion('per', [
     times: z.number().int().min(1).max(7),
     per: z.literal('week'),
   }),
+  z.object({ times: z.literal(1), per: z.literal('twoWeeks') }),
+  z.object({ times: z.literal(1), per: z.literal('month') }),
 ]);
 export type Frequency = z.infer<typeof frequencySchema>;
 
 export const reminderTimeSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:mm (24h)');
+
+// ISO weekdays: 1 = Monday ... 7 = Sunday. Strictly ascending, so no repeats.
+export const isoWeekdaySchema = z.number().int().min(1).max(7);
+export const wateringDaysSchema = z
+  .array(isoWeekdaySchema)
+  .max(7)
+  .refine(
+    (days) => days.every((day, i) => i === 0 || day > (days[i - 1] ?? 0)),
+    'Expected strictly ascending weekdays',
+  );
+
+export const halfHourTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):(00|30)$/, 'Expected HH:00 or HH:30');
+
+export const DEFAULT_REMINDER_LEAD = 15;
+export const reminderLeadSchema = z.number().int().min(5).max(30).multipleOf(5);
 
 const AREA_LOCATION = /^[A-Za-z][A-Za-z_]*(\/[A-Za-z0-9_+-]+)+$/;
 
@@ -96,9 +115,15 @@ export const userPlantSchema = z.object({
   about: z.string(),
   waterTips: z.string(),
   frequency: frequencySchema,
+  light: lightSchema,
+  difficulty: difficultySchema,
+  wateringDays: wateringDaysSchema,
   reminderTime: z.string(),
+  reminderLeadMinutes: reminderLeadSchema,
+  // YYYY-MM-DD; anchor for every-two-weeks and monthly plants.
+  scheduleStartsOn: z.string().nullable(),
+  scheduleNeedsReview: z.boolean(),
   timeZone: z.string(),
-  light: lightSchema.nullable(),
   notes: z.string().nullable(),
   // Species illustration; the user's own photo is fetched separately.
   imageUrl: z.string().nullable(),
@@ -112,24 +137,25 @@ export type UserPlant = z.infer<typeof userPlantSchema>;
 const nicknameSchema = z.string().trim().min(1).max(40);
 const notesSchema = z.string().max(500);
 
-export const createUserPlantSchema = z.object({
+export const createUserPlantSchema = z.strictObject({
   catalogPlantId: z.string().min(1),
   nickname: nicknameSchema.optional(),
-  frequency: frequencySchema.optional(),
-  reminderTime: reminderTimeSchema,
+  wateringDays: wateringDaysSchema.optional(),
+  reminderTime: halfHourTimeSchema,
+  reminderLeadMinutes: reminderLeadSchema.optional(),
   timeZone: timeZoneSchema,
-  light: lightSchema.nullable().optional(),
   notes: notesSchema.optional(),
 });
 export type CreateUserPlant = z.infer<typeof createUserPlantSchema>;
 
 // The species cannot change, so catalogPlantId is not part of an update.
-export const updateUserPlantSchema = z.object({
+// Frequency and light belong to the species and are rejected here.
+export const updateUserPlantSchema = z.strictObject({
   nickname: nicknameSchema.nullable().optional(),
-  frequency: frequencySchema.optional(),
-  reminderTime: reminderTimeSchema.optional(),
+  wateringDays: wateringDaysSchema.optional(),
+  reminderTime: halfHourTimeSchema.optional(),
+  reminderLeadMinutes: reminderLeadSchema.optional(),
   timeZone: timeZoneSchema.optional(),
-  light: lightSchema.nullable().optional(),
   notes: notesSchema.nullable().optional(),
 });
 export type UpdateUserPlant = z.infer<typeof updateUserPlantSchema>;
