@@ -13,16 +13,18 @@ enum PlantSource {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  name          String
-  email         String?        @unique // stored trimmed and lowercased
-  passwordHash  String?
-  googleId      String?        @unique
-  language      String         @default("en") // "en" | "pt-BR", validated by zod
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  refreshTokens RefreshToken[]
-  plants        UserPlant[]
+  id              String         @id @default(cuid())
+  name            String
+  email           String?        @unique // stored trimmed and lowercased
+  passwordHash    String?
+  googleId        String?        @unique
+  language        String         @default("en") // "en" | "pt-BR", validated by zod
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  avatarPath      String?
+  avatarUpdatedAt DateTime?
+  refreshTokens   RefreshToken[]
+  plants          UserPlant[]
 }
 
 model RefreshToken {

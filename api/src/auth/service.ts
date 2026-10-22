@@ -30,6 +30,11 @@ export function toUserDto(user: UserRow): User {
     language: language.success ? language.data : 'en',
     hasPassword: user.passwordHash !== null,
     hasGoogle: user.googleId !== null,
+    hasAvatar: user.avatarPath !== null,
+    avatarVersion:
+      user.avatarPath !== null && user.avatarUpdatedAt !== null
+        ? user.avatarUpdatedAt.toISOString()
+        : null,
   };
 }
 
