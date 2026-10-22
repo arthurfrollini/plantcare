@@ -71,6 +71,14 @@ describe('PlantForm', () => {
     expect(screen.getByText('Add plant')).toBeTruthy();
   });
 
+  it('says "1 time", not "1 times", in the frequency chip label', async () => {
+    await signIn();
+    renderForm();
+
+    expect(await screen.findByLabelText('1 time a week')).toBeTruthy();
+    expect(screen.queryByLabelText('1 times a week')).toBeNull();
+  });
+
   it('creates the plant once when Save is double tapped, then confirms', async () => {
     await signIn();
     mock.onPost('/me/plants').reply(201, userPlantFixture);
