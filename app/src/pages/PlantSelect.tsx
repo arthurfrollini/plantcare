@@ -1,105 +1,98 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
   ActivityIndicator,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { difficultySchema, lightSchema, type Difficulty, type Light } from '@plantcare/shared';
 
 import { Header } from '../components/Header';
-import { EnvironmentButton } from '../components/EnvironmentButton';
+import { FilterChip } from '../components/FilterChip';
 import { PlantCardPrimary } from '../components/PlantCardPrimary';
 import { Load } from '../components/Load';
-import { PlantProps } from '../libs/storage';
-
-import api from '../services/api';
+import { useCatalog } from '../plants/useCatalog';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface EnvironmentProps {
-  key: string;
-  title: string;
-}
+const LIGHTS = lightSchema.options;
+const DIFFICULTIES = difficultySchema.options;
 
 export function PlantSelect() {
-  const [environments, setEnvironments] = useState<EnvironmentProps[]>([]);
-  const [plants, setPlants] = useState<PlantProps[]>([]);
-  const [filteredPlants, setFilteredPlants] = useState<PlantProps[]>([]);
-  const [environmentSelected, setEnvironmentSelected] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [search, setSearch] = useState('');
+  const [light, setLight] = useState<Light | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
 
   const navigation = useNavigation();
   const { t } = useTranslation();
+  const { plants, loading, refreshing, loadingMore, error, loadMore, retry } = useCatalog({
+    search,
+    light,
+    difficulty,
+  });
 
-  function handleEnvironmentSelected(environment: string) {
-    setEnvironmentSelected(environment);
-
-    if (environment === 'all') {
-      return setFilteredPlants(plants);
-    }
-
-    const filtered = plants.filter((plant) =>
-      plant.environments.includes(environment)
-    );
-
-    setFilteredPlants(filtered);
+  function handlePlantSelect(catalogPlantId: string) {
+    navigation.navigate('PlantForm', { mode: 'create', catalogPlantId });
   }
 
-  async function fetchPlants() {
-    const { data } = await api.get(
-      `plants?_sort=name&_order=asc&_page=${page}&_limit=8`
-    );
+  const errorMessage = error
+    ? t(error.code === 'network' ? 'plantSelect.errors.network' : 'plantSelect.errors.unknown')
+    : null;
 
-    if (!data) return setLoading(true);
-    if (page > 1) {
-      setPlants((oldValue) => [...oldValue, ...data]);
-      setFilteredPlants((oldValue) => [...oldValue, ...data]);
-    } else {
-      setPlants(data);
-      setFilteredPlants(data);
-    }
-    setLoading(false);
-    setLoadingMore(false);
-  }
+  function renderBody() {
+    if (loading) return <Load />;
 
-  function handleFetchMore(distance: number) {
-    if (distance < 1) return;
-    setLoadingMore(true);
-    setPage((oldValue) => oldValue + 1);
-    fetchPlants();
-  }
-
-  function handlePlantSelect(plant: PlantProps) {
-    navigation.navigate('PlantSave', { plant });
-  }
-
-  useEffect(() => {
-    async function fetchEnvironment() {
-      const { data } = await api.get(
-        'plants_environments?_sort=title&_order=asc'
+    if (errorMessage && plants.length === 0) {
+      return (
+        <View style={styles.message}>
+          <Text style={styles.messageText}>{errorMessage}</Text>
+          <TouchableOpacity style={styles.retry} activeOpacity={0.7} onPress={retry}>
+            <Text style={styles.retryText}>{t('plantSelect.retry')}</Text>
+          </TouchableOpacity>
+        </View>
       );
-      setEnvironments([
-        {
-          key: 'all',
-          title: '',
-        },
-        ...data,
-      ]);
     }
-    fetchEnvironment();
-  }, []);
 
-  useEffect(() => {
-    fetchPlants();
-  }, []);
-
-  if (loading) return <Load />;
+    return (
+      <FlatList
+        data={plants}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <PlantCardPrimary data={item} onPress={() => handlePlantSelect(item.id)} />
+        )}
+        style={refreshing && styles.refreshing}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        numColumns={2}
+        onEndReachedThreshold={0.1}
+        onEndReached={loadMore}
+        ListEmptyComponent={
+          <View style={styles.message}>
+            <Text style={styles.messageText}>{t('plantSelect.empty')}</Text>
+          </View>
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator color={colors.green} />
+          ) : errorMessage ? (
+            <View style={styles.footerError}>
+              <Text style={styles.messageText}>{errorMessage}</Text>
+              <TouchableOpacity style={styles.retry} activeOpacity={0.7} onPress={retry}>
+                <Text style={styles.retryText}>{t('plantSelect.retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -107,68 +100,66 @@ export function PlantSelect() {
         <Header />
         <Text style={styles.title}>{t('plantSelect.title')}</Text>
         <Text style={styles.subtitle}>{t('plantSelect.subtitle')}</Text>
-      </View>
-      <View>
-        <FlatList
-          data={environments}
-          keyExtractor={(item) => String(item.key)}
-          renderItem={({ item }) => (
-            <EnvironmentButton
-              title={
-                item.key === 'all' ? t('plantSelect.allEnvironments') : item.title
-              }
-              active={item.key === environmentSelected}
-              onPress={() => handleEnvironmentSelected(item.key)}
-            />
-          )}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.environmentList}
+        <TextInput
+          style={styles.search}
+          value={search}
+          onChangeText={setSearch}
+          placeholder={t('plantSelect.searchPlaceholder')}
+          accessibilityLabel={t('plantSelect.searchPlaceholder')}
+          placeholderTextColor={colors.body_light}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
         />
       </View>
-      <View style={styles.plants}>
-        {environmentSelected === 'all' ? (
-          <FlatList
-            data={plants}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <PlantCardPrimary
-                data={item}
-                onPress={() => handlePlantSelect(item)}
-              />
-            )}
-            showsVerticalScrollIndicator={false}
-            numColumns={2}
-            onEndReachedThreshold={0.1}
-            onEndReached={({ distanceFromEnd }) =>
-              handleFetchMore(distanceFromEnd)
-            }
-            ListFooterComponent={
-              loadingMore ? <ActivityIndicator color={colors.green} /> : <></>
-            }
+
+      <Text style={styles.filterLabel}>{t('plantSelect.lightLabel')}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.chips}
+        style={styles.chipRow}
+      >
+        <FilterChip
+          title={t('plantSelect.all')}
+          active={light === null}
+          onPress={() => setLight(null)}
+        />
+        {LIGHTS.map((value) => (
+          <FilterChip
+            key={value}
+            title={t(`light.${value}`)}
+            active={light === value}
+            onPress={() => setLight(value)}
           />
-        ) : (
-          <FlatList
-            data={filteredPlants}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <PlantCardPrimary
-                data={item}
-                onPress={() => handlePlantSelect(item)}
-              />
-            )}
-            showsVerticalScrollIndicator={false}
-            numColumns={2}
-            onEndReachedThreshold={0.1}
-            onEndReached={({ distanceFromEnd }) =>
-              handleFetchMore(distanceFromEnd)
-            }
-            ListFooterComponent={
-              loadingMore ? <ActivityIndicator color={colors.green} /> : <></>
-            }
+        ))}
+      </ScrollView>
+
+      <Text style={styles.filterLabel}>{t('plantSelect.difficultyLabel')}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.chips}
+        style={styles.chipRow}
+      >
+        <FilterChip
+          title={t('plantSelect.all')}
+          active={difficulty === null}
+          onPress={() => setDifficulty(null)}
+        />
+        {DIFFICULTIES.map((value) => (
+          <FilterChip
+            key={value}
+            title={t(`difficulty.${value}`)}
+            active={difficulty === value}
+            onPress={() => setDifficulty(value)}
           />
-        )}
-      </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.plants}>{renderBody()}</View>
     </View>
   );
 }
@@ -195,16 +186,63 @@ const styles = StyleSheet.create({
     fontFamily: fonts.text,
     lineHeight: 20,
   },
-  environmentList: {
-    height: 40,
-    justifyContent: 'center',
-    paddingBottom: 5,
+  search: {
+    height: 44,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: colors.shape,
+    color: colors.heading,
+    fontFamily: fonts.text,
+    fontSize: 16,
+  },
+  filterLabel: {
+    marginTop: 16,
     marginLeft: 32,
-    marginVertical: 32,
+    color: colors.body_dark,
+    fontFamily: fonts.text,
+    fontSize: 13,
+  },
+  chipRow: {
+    flexGrow: 0,
+    marginTop: 6,
+  },
+  chips: {
+    paddingHorizontal: 32,
   },
   plants: {
     flex: 1,
     paddingHorizontal: 32,
+    marginTop: 16,
+  },
+  refreshing: {
+    opacity: 0.5,
+  },
+  message: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  messageText: {
+    color: colors.heading,
+    fontFamily: fonts.text,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  footerError: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  retry: {
+    marginTop: 16,
+    height: 44,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: colors.green,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  retryText: {
+    color: colors.white,
+    fontFamily: fonts.heading,
   },
 });

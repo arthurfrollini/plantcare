@@ -29,4 +29,19 @@ describe('reminderSlots', () => {
       { weekday: null, hour: 21, minute: 5 },
     ]);
   });
+
+  it.each(['9:5', '25:00', ''])(
+    'rejects malformed reminder time %j',
+    (time) => {
+      expect(() => reminderSlots({ times: 1, per: 'day' }, time)).toThrow(
+        'Invalid reminder time',
+      );
+    },
+  );
+
+  it.each(['00:00', '23:59'])('accepts boundary reminder time %j', (time) => {
+    const [slot] = reminderSlots({ times: 1, per: 'day' }, time);
+    expect(slot?.hour).toBe(Number(time.slice(0, 2)));
+    expect(slot?.minute).toBe(Number(time.slice(3)));
+  });
 });

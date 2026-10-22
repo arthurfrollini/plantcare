@@ -1,71 +1,117 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, Text, Image, FlatList, Alert } from 'react-native';
-
-import { Header } from '../components/Header';
-
-import { PlantProps, loadPlant, removePlant } from '../libs/storage';
+import { useNavigation } from '@react-navigation/native';
 import { formatDistance } from 'date-fns';
 import { useTranslation } from 'react-i18next';
-import { dateLocale } from '../i18n';
-import { PlantCardSecondary } from '../components/PlantCardSecondary';
+import type { UserPlant } from '@plantcare/shared';
+
+import { listMyPlants } from '../api/endpoints';
+import { useAuth } from '../auth/AuthProvider';
+import { loadTokens } from '../auth/session';
+import { Button } from '../components/Button';
+import { Header } from '../components/Header';
 import { Load } from '../components/Load';
+import { PlantCardSecondary } from '../components/PlantCardSecondary';
+import { dateLocale } from '../i18n';
+import { sortByNextWatering } from '../plants/nextWatering';
+import { useMyPlants } from '../plants/useMyPlants';
 
 import waterdrop from '../assets/waterdrop.png';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
 export function MyPlants() {
-  const [myPlants, setMyPlants] = useState<PlantProps[]>([]);
-  const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
+  const navigation = useNavigation();
+  const { status } = useAuth();
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const { plants, offline, loading, error, refresh, remove } = useMyPlants();
 
-  function handleRemove(plant: PlantProps) {
-    Alert.alert(t('myPlants.removeTitle', { name: plant.name }), undefined, [
-      {
-        text: t('myPlants.cancel'),
-        style: 'cancel',
-      },
+  // The token is read after each load: that request may have refreshed it.
+  useEffect(() => {
+    let active = true;
+    void loadTokens()
+      .then((tokens) => {
+        if (active) setAccessToken(tokens?.accessToken ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [plants]);
+
+  // Asks for any list so an expired token is refreshed, then returns the token now in use.
+  const refreshToken = useCallback(async () => {
+    try {
+      await listMyPlants();
+      const next = (await loadTokens())?.accessToken ?? null;
+      setAccessToken(next);
+      return next;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  function handleEdit(plant: UserPlant) {
+    if (offline) {
+      Alert.alert(t('myPlants.offlineNotice'));
+      return;
+    }
+    navigation.navigate('PlantForm', { mode: 'edit', userPlantId: plant.id });
+  }
+
+  function handleRemove(plant: UserPlant) {
+    Alert.alert(t('myPlants.removeTitle', { name: plant.nickname ?? plant.speciesName }), undefined, [
+      { text: t('myPlants.cancel'), style: 'cancel' },
       {
         text: t('myPlants.remove'),
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await removePlant(plant.id);
-
-            setMyPlants((oldData) =>
-              oldData.filter((item) => item.id !== plant.id)
-            );
-          } catch (err) {
-            Alert.alert(t('myPlants.removeError'));
-          }
+        onPress: () => {
+          remove(plant.id).catch(() => Alert.alert(t('myPlants.removeError')));
         },
       },
     ]);
   }
 
-  useEffect(() => {
-    async function loadStoragedData() {
-      const plantsStoraged = await loadPlant();
-      setMyPlants(plantsStoraged);
-      setLoading(false);
-    }
+  if (status === 'loading' || (status === 'signedIn' && loading)) return <Load />;
 
-    loadStoragedData();
-  }, []);
+  if (status === 'signedOut') {
+    return (
+      <View style={styles.container}>
+        <Header />
+        <View style={styles.message}>
+          <Text style={styles.messageText}>{t('myPlants.signedOut')}</Text>
+          <Button
+            title={t('myPlants.signIn')}
+            onPress={() => navigation.navigate('Auth', { mode: 'signIn' })}
+          />
+        </View>
+      </View>
+    );
+  }
 
-  if (loading) return <Load />;
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Header />
+        <View style={styles.message}>
+          <Text style={styles.messageText}>{t('myPlants.loadError')}</Text>
+          <Button title={t('myPlants.retry')} onPress={() => void refresh()} />
+        </View>
+      </View>
+    );
+  }
 
   // Built on render so it follows a language change made in Profile while this tab stays mounted.
-  const nextPlant = myPlants[0];
-  const nextWatering = nextPlant
-    ? t('myPlants.nextWatering', {
-        name: nextPlant.name,
-        time: formatDistance(new Date(nextPlant.dateTimeNotification), new Date(), {
-          locale: dateLocale(),
-          addSuffix: true,
-        }),
-      })
-    : t('myPlants.empty');
+  const sorted = sortByNextWatering(plants);
+  const first = sorted[0];
+  const nextWatering =
+    first && first.next
+      ? t('myPlants.nextWatering', {
+          name: first.plant.nickname ?? first.plant.speciesName,
+          time: formatDistance(first.next, new Date(), { locale: dateLocale(), addSuffix: true }),
+        })
+      : t('myPlants.empty');
 
   return (
     <View style={styles.container}>
@@ -74,19 +120,22 @@ export function MyPlants() {
         <Image source={waterdrop} style={styles.spotlightImage} />
         <Text style={styles.spotlightText}>{nextWatering}</Text>
       </View>
+      {offline && <Text style={styles.offline}>{t('myPlants.offlineNotice')}</Text>}
 
       <View style={styles.plants}>
         <Text style={styles.plantsTitle}>{t('myPlants.upcoming')}</Text>
 
         <FlatList
-          data={myPlants}
-          keyExtractor={(item) => String(item.id)}
+          data={sorted}
+          keyExtractor={(item) => item.plant.id}
           renderItem={({ item }) => (
             <PlantCardSecondary
-              data={item}
-              handleRemove={() => {
-                handleRemove(item);
-              }}
+              plant={item.plant}
+              accessToken={accessToken}
+              readOnly={offline}
+              onPress={() => handleEdit(item.plant)}
+              handleRemove={() => handleRemove(item.plant)}
+              onPhotoError={refreshToken}
             />
           )}
           showsVerticalScrollIndicator={false}
@@ -106,6 +155,18 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     backgroundColor: colors.background,
   },
+  message: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    gap: 20,
+  },
+  messageText: {
+    textAlign: 'center',
+    fontFamily: fonts.text,
+    fontSize: 17,
+    color: colors.heading,
+  },
   spotlight: {
     backgroundColor: colors.blue_light,
     paddingHorizontal: 20,
@@ -123,6 +184,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.blue,
     paddingLeft: 10,
+  },
+  offline: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontFamily: fonts.text,
+    fontSize: 14,
+    color: colors.body_dark,
   },
   plants: {
     flex: 1,

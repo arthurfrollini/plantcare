@@ -5,11 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { useAuth } from '../auth/AuthProvider';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
 /** Up to two initials from the name the user typed, e.g. "Ana Clara Souza" -> "AC". */
-function initials(name: string) {
+export function initials(name: string) {
   return name
     .trim()
     .split(/\s+/)
@@ -19,18 +20,22 @@ function initials(name: string) {
 }
 
 export function Header() {
-  const [username, setUsername] = useState<string>();
+  const [localName, setLocalName] = useState<string>();
+  const { status, user } = useAuth();
   const { top } = useSafeAreaInsets();
   const { t } = useTranslation();
   const navigation = useNavigation();
 
   useEffect(() => {
     async function loadStorageUsername() {
-      const user = await AsyncStorage.getItem('@plantcare:user');
-      setUsername(user || '');
+      const saved = await AsyncStorage.getItem('@plantcare:user');
+      setLocalName(saved || '');
     }
-    loadStorageUsername();
-  }, [username]);
+    void loadStorageUsername();
+  }, [status, user?.name]);
+
+  // The account name wins; the name typed on the first screen covers signed-out and offline use.
+  const username = user?.name ?? localName;
 
   return (
     <View style={[styles.container, { marginTop: top }]}>

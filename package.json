@@ -23,15 +23,18 @@
   },
   "lint-staged": {
     "api/**/*.{ts,mjs,js}": [
-      "eslint --fix --no-warn-ignored",
+      "bash -c 'cd api && npx eslint --fix --no-warn-ignored \"$@\"' --",
       "prettier --write"
     ],
     "packages/**/*.{ts,mjs,js}": [
-      "eslint --fix --no-warn-ignored",
+      "bash -c 'cd packages/shared && npx eslint --fix --no-warn-ignored \"$@\"' --",
       "prettier --write"
     ],
     "{api,packages}/**/*.{json,md}": [
       "prettier --write"
+    ],
+    "app/**/*.{ts,tsx,js}": [
+      "bash -c 'cd app && npx eslint --fix --no-warn-ignored \"$@\"' --"
     ]
   }
 }

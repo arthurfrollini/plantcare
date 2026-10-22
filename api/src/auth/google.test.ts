@@ -1,8 +1,23 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { OAuth2Client } from 'google-auth-library';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { createTestApp, resetDb } from '../../test/helpers';
 import type { PrismaClient } from '../generated/prisma/client';
-import type { GoogleProfile, GoogleVerifier } from './google';
+import {
+  createGoogleVerifier,
+  GoogleUnavailableError,
+  type GoogleProfile,
+  type GoogleVerifier,
+} from './google';
 
 type AuthBody = {
   accessToken: string;
@@ -30,6 +45,9 @@ describe('POST /auth/google', () => {
   let prisma: PrismaClient;
   let current: GoogleProfile;
   const verifier: GoogleVerifier = (idToken) => {
+    if (idToken === 'outage') {
+      return Promise.reject(new GoogleUnavailableError('certs unreachable'));
+    }
     if (idToken !== 'valid') return Promise.reject(new Error('bad token'));
     return Promise.resolve(current);
   };
@@ -175,6 +193,12 @@ describe('POST /auth/google', () => {
     expect(res.json<ErrorBody>().error.code).toBe('invalid_google_token');
   });
 
+  it('returns 502 google_unavailable when Google cannot be reached', async () => {
+    const res = await google({ idToken: 'outage' });
+    expect(res.statusCode).toBe(502);
+    expect(res.json<ErrorBody>().error.code).toBe('google_unavailable');
+  });
+
   it('returns 400 for a missing idToken', async () => {
     expect((await google({})).statusCode).toBe(400);
   });
@@ -191,5 +215,22 @@ describe('POST /auth/google', () => {
     } finally {
       await unconfigured.app.close();
     }
+  });
+});
+
+describe('createGoogleVerifier', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('wraps a certificate fetch failure in GoogleUnavailableError', async () => {
+    vi.spyOn(
+      OAuth2Client.prototype,
+      'getFederatedSignonCertsAsync',
+    ).mockRejectedValue(new Error('network down'));
+    const verify = createGoogleVerifier(['client-id']);
+    await expect(verify('any-token')).rejects.toBeInstanceOf(
+      GoogleUnavailableError,
+    );
   });
 });

@@ -1,0 +1,264 @@
+import React, {
+  createContext,
+  useRef,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { AuthResponse, Locale, User } from '@plantcare/shared';
+
+import { setSignedOutHandler } from '../api/client';
+import {
+  getMe,
+  listMyPlants,
+  login,
+  loginWithGoogle,
+  logout,
+  register,
+  updateMe,
+} from '../api/endpoints';
+import { changeLanguage, currentLanguage } from '../i18n';
+import { MY_PLANTS_CACHE_KEY } from '../plants/myPlantsCache';
+import { cancelAllReminders, syncReminders } from '../reminders/sync';
+import { clearTokens, loadTokens, saveTokens, sessionEpoch } from './session';
+
+const USER_KEY = '@plantcare:user';
+
+export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
+
+export type AuthContextValue = {
+  status: AuthStatus;
+  /** Null while signed out, and while signed in but the account could not be loaded (offline). */
+  user: User | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  setLanguage: (language: Locale) => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function useAuth(): AuthContextValue {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error('useAuth must be used inside AuthProvider');
+  return value;
+}
+
+/** The account name replaces the one typed on the first screen. */
+async function adoptName(user: User): Promise<void> {
+  await AsyncStorage.setItem(USER_KEY, user.name);
+}
+
+/**
+ * Loads the account at start. After sign-in the device language is the source of truth: when the
+ * account disagrees (an earlier PATCH failed), the local language is sent to the account instead
+ * of switching the app back. Returns null when the user signed out while this was in flight.
+ */
+async function fetchAccount(): Promise<User | null> {
+  const epoch = sessionEpoch();
+  let me = await getMe();
+  if (sessionEpoch() !== epoch) return null;
+  await adoptName(me);
+  if (me.language !== currentLanguage()) {
+    try {
+      me = await updateMe({ language: currentLanguage() });
+    } catch {
+      // Best effort; the next successful start tries again.
+    }
+  }
+  return sessionEpoch() === epoch ? me : null;
+}
+
+/** Local data tied to the account: the cached list and every scheduled reminder. Best effort. */
+async function clearLocalData(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(MY_PLANTS_CACHE_KEY);
+  } catch {
+    // A failed removal must not hold the user in.
+  }
+  try {
+    await cancelAllReminders();
+  } catch {
+    // Best effort; a failed cancel must not hold the user in.
+  }
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [user, setUser] = useState<User | null>(null);
+  const statusRef = useRef<AuthStatus>('loading');
+  const refetching = useRef(false);
+  const syncing = useRef(false);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  const startSession = useCallback(async (res: AuthResponse) => {
+    await saveTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken });
+    await adoptName(res.user);
+    // Signing in on a device applies the language chosen on the account.
+    if (res.user.language !== currentLanguage()) await changeLanguage(res.user.language);
+    setUser(res.user);
+    setStatus('signedIn');
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    // The session ended without a tap (the refresh was rejected): same cleanup as signing out.
+    setSignedOutHandler(() => {
+      setUser(null);
+      setStatus('signedOut');
+      void clearLocalData();
+    });
+
+    async function restore() {
+      let tokens;
+      try {
+        tokens = await loadTokens();
+      } catch {
+        tokens = null;
+      }
+      if (!active) return;
+      if (!tokens) {
+        setStatus('signedOut');
+        return;
+      }
+      // Saved tokens mean signed in right away: the screens must not wait for the account request
+      // (a 15 s timeout when offline). A rejected refresh moves status to signedOut through the handler.
+      setStatus('signedIn');
+      try {
+        const me = await fetchAccount();
+        if (active && me) setUser(me);
+      } catch {
+        // Offline or 5xx keeps the session; the account loads on a later start.
+      }
+    }
+    void restore();
+
+    return () => {
+      active = false;
+      setSignedOutHandler(() => undefined);
+    };
+  }, []);
+
+  // Best effort: reminders follow the server's list. A network error keeps the existing reminders.
+  const syncFromApi = useCallback(async () => {
+    if (syncing.current || statusRef.current !== 'signedIn') return;
+    syncing.current = true;
+    const epoch = sessionEpoch();
+    try {
+      const plants = await listMyPlants();
+      if (sessionEpoch() !== epoch || statusRef.current !== 'signedIn') return;
+      await syncReminders(plants);
+    } catch {
+      // Offline or rejected; the next foreground or sign-in tries again.
+    } finally {
+      syncing.current = false;
+    }
+  }, []);
+
+  // On sign-in and on launch while signed in.
+  useEffect(() => {
+    if (status === 'signedIn') void syncFromApi();
+  }, [status, syncFromApi]);
+
+  useEffect(() => {
+    if (status !== 'signedIn') return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void syncFromApi();
+    });
+    return () => subscription.remove();
+  }, [status, syncFromApi]);
+
+  // Signed in but the account never loaded (offline start): try again when the app comes back.
+  useEffect(() => {
+    if (status !== 'signedIn' || user) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || refetching.current) return;
+      refetching.current = true;
+      fetchAccount()
+        .then((me) => {
+          if (me) setUser(me);
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          refetching.current = false;
+        });
+    });
+    return () => subscription.remove();
+  }, [status, user]);
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      await startSession(await login({ email, password }));
+    },
+    [startSession],
+  );
+
+  const signUp = useCallback(
+    async (name: string, email: string, password: string) => {
+      await startSession(await register({ name, email, password, language: currentLanguage() }));
+    },
+    [startSession],
+  );
+
+  const signInWithGoogle = useCallback(
+    async (idToken: string) => {
+      await startSession(await loginWithGoogle({ idToken, language: currentLanguage() }));
+    },
+    [startSession],
+  );
+
+  const signOut = useCallback(async () => {
+    // Claimed before any await, so a second tap in the same frame is a no-op.
+    if (statusRef.current === 'signedOut') return;
+    statusRef.current = 'signedOut';
+    let tokens = null;
+    try {
+      tokens = await loadTokens();
+    } catch {
+      // Signing out locally still goes ahead.
+    }
+    // Local sign-out is immediate; clearTokens also stops an in-flight refresh from restoring it.
+    // Every local step is best effort so the status always reaches signedOut (the server revokes
+    // the refresh token below either way).
+    try {
+      await clearTokens();
+    } catch {
+      // Storage failure: the user still leaves the session.
+    }
+    setUser(null);
+    setStatus('signedOut');
+    await clearLocalData();
+    // Best effort, not awaited: being offline must not hold the user in.
+    if (tokens) void logout(tokens.refreshToken).catch(() => undefined);
+  }, []);
+
+  const setLanguage = useCallback(
+    async (language: Locale) => {
+      await changeLanguage(language);
+      if (status !== 'signedIn') return;
+      try {
+        setUser(await updateMe({ language }));
+      } catch {
+        // The local choice stands; the next successful start sends it to the account.
+      }
+      // Reminder texts and species names follow the new language.
+      void syncFromApi();
+    },
+    [status, syncFromApi],
+  );
+
+  const value = useMemo(
+    () => ({ status, user, signIn, signUp, signInWithGoogle, signOut, setLanguage }),
+    [status, user, signIn, signUp, signInWithGoogle, signOut, setLanguage],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

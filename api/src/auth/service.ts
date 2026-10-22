@@ -6,7 +6,7 @@ import {
   type PrismaClient,
   type User as UserRow,
 } from '../generated/prisma/client';
-import type { GoogleVerifier } from './google';
+import { GoogleUnavailableError, type GoogleVerifier } from './google';
 import { hashRefreshToken, issueTokens } from './tokens';
 
 const BCRYPT_COST = 12;
@@ -140,7 +140,14 @@ export async function googleLogin(
   let profile;
   try {
     profile = await verify(input.idToken);
-  } catch {
+  } catch (error) {
+    if (error instanceof GoogleUnavailableError) {
+      throw new AppError(
+        502,
+        'google_unavailable',
+        'Google sign-in is temporarily unavailable',
+      );
+    }
     throw new AppError(401, 'invalid_google_token', 'Invalid Google ID token');
   }
 

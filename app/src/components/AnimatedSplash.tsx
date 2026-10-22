@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
 import * as SplashScreen from 'expo-splash-screen';
@@ -25,7 +25,7 @@ interface AnimatedSplashProps {
 
 export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
   const animation = useRef<LottieView>(null);
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
   const leaving = useRef(false);
 
   function fadeOut() {

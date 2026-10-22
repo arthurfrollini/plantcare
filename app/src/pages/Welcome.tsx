@@ -25,6 +25,10 @@ export default function Welcome() {
     navigation.navigate('UserIdentification');
   }
 
+  function handleSignIn() {
+    navigation.navigate('Auth', { mode: 'signIn' });
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.wrapper}>
@@ -40,6 +44,14 @@ export default function Welcome() {
           onPress={handleStart}
         >
           <Feather name="chevron-right" style={styles.buttonIcon} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleSignIn}
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <Text style={styles.link}>{t('welcome.haveAccount')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -70,6 +82,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     color: colors.heading,
     fontFamily: fonts.text,
+  },
+  link: {
+    color: colors.green_dark,
+    fontFamily: fonts.text,
+    fontSize: 16,
+    marginBottom: 10,
   },
   image: {
     height: Dimensions.get('window').width * 0.7,

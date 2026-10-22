@@ -10,9 +10,9 @@ import {
   Jost_600SemiBold,
 } from '@expo-google-fonts/jost';
 
-import { PlantProps } from './src/libs/storage';
 import Routes from './src/routes';
 import { initI18n } from './src/i18n';
+import { AuthProvider } from './src/auth/AuthProvider';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 
 // Keeps the native splash up until the Jost fonts are ready; AnimatedSplash hides it once its first
@@ -41,23 +41,15 @@ export default function App() {
     initI18n().finally(() => setI18nReady(true));
   }, []);
 
-  useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const data = notification.request.content.data?.plant as PlantProps | undefined;
-        console.log(data);
-      }
-    );
-    return () => subscription.remove();
-  }, []);
-
   if ((!fontsLoaded && !fontError) || !i18nReady) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Routes />
+        <AuthProvider>
+          <Routes />
+        </AuthProvider>
         {!splashDone && <AnimatedSplash onFinish={() => setSplashDone(true)} />}
       </SafeAreaProvider>
     </GestureHandlerRootView>
