@@ -8,6 +8,16 @@ import { useAuth } from '../auth/AuthProvider';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
+/** Up to two initials from the name the user typed, e.g. "Ana Clara Souza" -> "AC". */
+export function initials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('');
+}
+
 /** The first word of the name, so a full name never crowds the greeting. */
 export function firstName(name: string) {
   return name.trim().split(/\s+/)[0] ?? '';
@@ -38,6 +48,10 @@ export function Header() {
           {firstName(username ?? '')}
         </Text>
       </View>
+
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
+      </View>
     </View>
   );
 }
@@ -50,9 +64,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
   },
-  // A very long single name ends in an ellipsis instead of wrapping.
+  // Shrinks before the avatar does; a very long single name ends in an ellipsis.
   names: {
     flexShrink: 1,
+    marginRight: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.green_light,
+  },
+  avatarText: {
+    fontSize: 28,
+    fontFamily: fonts.heading,
+    color: colors.green_dark,
   },
   greeting: {
     fontSize: 32,
