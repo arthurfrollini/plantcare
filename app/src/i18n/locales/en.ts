@@ -42,9 +42,18 @@ const en = {
     openProfile: 'Open profile',
   },
   plantSelect: {
-    title: 'Which room',
-    subtitle: 'is your plant going in?',
-    allEnvironments: 'All',
+    title: 'Find your plant',
+    subtitle: 'Search, or filter by light and difficulty.',
+    searchPlaceholder: 'Search plants',
+    lightLabel: 'Light',
+    difficultyLabel: 'Difficulty',
+    all: 'All',
+    empty: 'No plants found.',
+    retry: 'Try again',
+    errors: {
+      network: "Can't reach the server. Check your connection and try again.",
+      unknown: 'Something went wrong. Try again.',
+    },
   },
   plantForm: {
     nickname: 'Nickname (optional)',
@@ -89,6 +98,11 @@ const en = {
     full_sun: 'Full sun',
     partial_shade: 'Partial shade',
     shade: 'Shade',
+  },
+  difficulty: {
+    easy: 'Easy',
+    medium: 'Medium',
+    hard: 'Hard',
   },
   myPlants: {
     nextWatering: "Don't forget to water your {{name}} {{time}}.",

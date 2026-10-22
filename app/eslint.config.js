@@ -21,6 +21,9 @@ module.exports = defineConfig([
       'src/components/PhotoPicker.tsx',
       'src/pages/Profile.tsx',
       'src/pages/Welcome.tsx',
+      'src/pages/PlantSelect.tsx',
+      'src/components/FilterChip.tsx',
+      'src/components/PlantCardPrimary.tsx',
     ],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {

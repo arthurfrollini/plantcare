@@ -1,21 +1,19 @@
 import React from 'react';
-import { Pressable, PressableProps, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface EnvironmentButtonProps extends PressableProps {
+interface FilterChipProps extends Omit<PressableProps, 'children'> {
   title: string;
   active?: boolean;
 }
 
-export function EnvironmentButton({
-  title,
-  active = false,
-  ...rest
-}: EnvironmentButtonProps) {
+export function FilterChip({ title, active = false, ...rest }: FilterChipProps) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
       style={[styles.container, active && styles.containerActive]}
       {...rest}
     >
@@ -28,11 +26,12 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.shape,
     height: 40,
-    width: 76,
+    minWidth: 76,
+    paddingHorizontal: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
-    marginHorizontal: 7,
+    marginRight: 10,
   },
   containerActive: {
     backgroundColor: colors.green_light,

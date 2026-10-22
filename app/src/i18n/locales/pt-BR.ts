@@ -44,9 +44,18 @@ const ptBR: typeof en = {
     openProfile: 'Abrir perfil',
   },
   plantSelect: {
-    title: 'Em qual cômodo',
-    subtitle: 'vai ficar sua planta?',
-    allEnvironments: 'Todos',
+    title: 'Encontre sua planta',
+    subtitle: 'Busque, ou filtre por luz e dificuldade.',
+    searchPlaceholder: 'Buscar plantas',
+    lightLabel: 'Luz',
+    difficultyLabel: 'Dificuldade',
+    all: 'Todas',
+    empty: 'Nenhuma planta encontrada.',
+    retry: 'Tentar de novo',
+    errors: {
+      network: 'Não consegui falar com o servidor. Confira sua conexão e tente de novo.',
+      unknown: 'Algo deu errado. Tente de novo.',
+    },
   },
   plantForm: {
     nickname: 'Apelido (opcional)',
@@ -91,6 +100,11 @@ const ptBR: typeof en = {
     full_sun: 'Sol pleno',
     partial_shade: 'Meia-sombra',
     shade: 'Sombra',
+  },
+  difficulty: {
+    easy: 'Fácil',
+    medium: 'Médio',
+    hard: 'Difícil',
   },
   myPlants: {
     nextWatering: 'Não esqueça de regar a {{name}} {{time}}.',

@@ -16,8 +16,8 @@ A mobile app that reminds you to water your plants, with a schedule that fits ea
 Requires Node.js 22+.
 
 1. Install dependencies from the repo root: `npm install`
-2. From `app/`, start the fake API (json-server on port 3333): `npm run server`
-3. In another terminal, start the app: `npx expo start`
+2. Start the API on port 3333, see `api/README.md`
+3. From `app/`, start the app: `npx expo start`
 4. Open it on your phone with [Expo Go](https://expo.dev/go) by scanning the QR code, or press `i` for the iOS simulator / `a` for the Android emulator.
 
 The app finds the API on its own: it uses the address of the machine running Metro, so the phone and the computer only need to be on the same network. To point it somewhere else, set `EXPO_PUBLIC_API_URL`, e.g. `EXPO_PUBLIC_API_URL=http://192.168.0.10:3333 npx expo start`.

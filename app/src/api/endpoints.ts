@@ -20,13 +20,18 @@ import { z } from 'zod';
 import { api } from './client';
 import { assetUrl } from './config';
 
-export function listCatalog(q: {
-  search?: string;
-  light?: Light;
-  difficulty?: Difficulty;
-  page?: number;
-}): Promise<CatalogPage> {
-  return api.get('/plants', { params: q }).then((r) => catalogPageSchema.parse(r.data));
+export function listCatalog(
+  q: {
+    search?: string;
+    light?: Light;
+    difficulty?: Difficulty;
+    page?: number;
+  },
+  signal?: AbortSignal,
+): Promise<CatalogPage> {
+  return api
+    .get('/plants', { params: q, signal })
+    .then((r) => catalogPageSchema.parse(r.data));
 }
 
 export function getCatalogPlant(id: string): Promise<CatalogPlant> {
