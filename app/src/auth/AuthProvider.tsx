@@ -75,6 +75,20 @@ async function fetchAccount(): Promise<User | null> {
   return sessionEpoch() === epoch ? me : null;
 }
 
+/** Local data tied to the account: the cached list and every scheduled reminder. Best effort. */
+async function clearLocalData(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(MY_PLANTS_CACHE_KEY);
+  } catch {
+    // A failed removal must not hold the user in.
+  }
+  try {
+    await cancelAllReminders();
+  } catch {
+    // Best effort; a failed cancel must not hold the user in.
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<User | null>(null);
@@ -96,9 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    // The session ended without a tap (the refresh was rejected): same cleanup as signing out.
     setSignedOutHandler(() => {
       setUser(null);
       setStatus('signedOut');
+      void clearLocalData();
     });
 
     async function restore() {
@@ -113,17 +129,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('signedOut');
         return;
       }
+      // Saved tokens mean signed in right away: the screens must not wait for the account request
+      // (a 15 s timeout when offline). A rejected refresh moves status to signedOut through the handler.
+      setStatus('signedIn');
       try {
         const me = await fetchAccount();
-        if (!active) return;
-        if (me) {
-          setUser(me);
-          setStatus('signedIn');
-        }
+        if (active && me) setUser(me);
       } catch {
-        // A refresh the server rejects already moved status to signedOut through the handler.
-        // Anything else (offline, 5xx) keeps the session; the account loads on a later start.
-        if (active) setStatus((s) => (s === 'loading' ? 'signedIn' : s));
+        // Offline or 5xx keeps the session; the account loads on a later start.
       }
     }
     void restore();
@@ -213,15 +226,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Signing out locally still goes ahead.
     }
     // Local sign-out is immediate; clearTokens also stops an in-flight refresh from restoring it.
-    await clearTokens();
-    await AsyncStorage.removeItem(MY_PLANTS_CACHE_KEY);
+    // Every local step is best effort so the status always reaches signedOut (the server revokes
+    // the refresh token below either way).
+    try {
+      await clearTokens();
+    } catch {
+      // Storage failure: the user still leaves the session.
+    }
     setUser(null);
     setStatus('signedOut');
-    try {
-      await cancelAllReminders();
-    } catch {
-      // Best effort; a failed cancel must not hold the user in.
-    }
+    await clearLocalData();
     // Best effort, not awaited: being offline must not hold the user in.
     if (tokens) void logout(tokens.refreshToken).catch(() => undefined);
   }, []);
@@ -235,8 +249,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // The local choice stands; the next successful start sends it to the account.
       }
+      // Reminder texts and species names follow the new language.
+      void syncFromApi();
     },
-    [status],
+    [status, syncFromApi],
   );
 
   const value = useMemo(

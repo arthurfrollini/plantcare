@@ -28,8 +28,11 @@ export function useMyPlants(): MyPlantsResult {
   const latest = useRef(0);
   const plantsRef = useRef<UserPlant[]>([]);
   const shownFor = useRef<string | null>(null);
+  // True while the list on screen is the cached one shown ahead of the request.
+  const fromCache = useRef(false);
 
   const apply = useCallback((next: UserPlant[]) => {
+    fromCache.current = false;
     plantsRef.current = next;
     setPlants(next);
   }, []);
@@ -50,6 +53,16 @@ export function useMyPlants(): MyPlantsResult {
   const refresh = useCallback(async () => {
     if (status !== 'signedIn') return;
     const request = ++latest.current;
+    // Nothing on screen yet: show the last synced list while the request is in flight, so a slow
+    // or unreachable API does not leave a spinner.
+    if (plantsRef.current.length === 0) {
+      void readMyPlantsCache().then((cached) => {
+        if (request !== latest.current || plantsRef.current.length > 0 || cached.length === 0) return;
+        apply(cached);
+        fromCache.current = true;
+        setLoading(false);
+      });
+    }
     try {
       const fresh = await listMyPlants();
       if (request !== latest.current) return;
@@ -66,6 +79,8 @@ export function useMyPlants(): MyPlantsResult {
         setOffline(true);
         setError(null);
       } else {
+        // A server error shows the error, not the cached list shown while waiting.
+        if (fromCache.current) apply([]);
         setError(failure);
       }
     } finally {

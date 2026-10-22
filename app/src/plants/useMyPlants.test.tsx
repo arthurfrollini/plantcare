@@ -59,6 +59,16 @@ describe('useMyPlants', () => {
     ]);
   });
 
+  it('shows the cached list while the request is still in flight', async () => {
+    await AsyncStorage.setItem(MY_PLANTS_CACHE_KEY, JSON.stringify([userPlantFixture]));
+    mock.onGet('/me/plants').reply(() => new Promise(() => undefined));
+    const { result } = renderHook(() => useMyPlants(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.plants.map((p) => p.id)).toEqual(['p1']);
+    expect(result.current.offline).toBe(false);
+  });
+
   it('falls back to the cache, offline, when the API is unreachable', async () => {
     await AsyncStorage.setItem(MY_PLANTS_CACHE_KEY, JSON.stringify([userPlantFixture]));
     mock.onGet('/me/plants').networkError();

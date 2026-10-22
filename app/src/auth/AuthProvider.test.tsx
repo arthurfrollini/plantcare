@@ -9,6 +9,7 @@ import { api } from '../api/client';
 import { changeLanguage, currentLanguage, initI18n } from '../i18n';
 import { AuthProvider, useAuth } from './AuthProvider';
 import { GoogleSignInButton } from './GoogleSignInButton';
+import * as SecureStore from 'expo-secure-store';
 import { clearTokens, loadTokens, saveTokens } from './session';
 
 const baseUser = {
@@ -138,6 +139,15 @@ describe('start', () => {
     expect(await loadTokens()).not.toBeNull();
   });
 
+  it('is signed in at once, before the account answers, when tokens exist', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(() => new Promise(() => undefined));
+    const hook = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(hook.result.current.status).toBe('signedIn'));
+    expect(hook.result.current.user).toBeNull();
+  });
+
   it('signs out when the refresh is rejected', async () => {
     await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
     mock.onGet('/me').reply(401, { error: { code: 'unauthorized', message: 'no' } });
@@ -219,9 +229,57 @@ describe('signed-out handler', () => {
     expect(result.current.status).toBe('signedOut');
     expect(result.current.user).toBeNull();
   });
+
+  it('clears the cached list and cancels reminders on a forced sign-out, like a tapped one', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    await AsyncStorage.setItem('@plantcare:myPlantsCache', '[]');
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onGet('/me/plants').reply(200, []);
+    const cancel = jest.mocked(Notifications.cancelAllScheduledNotificationsAsync);
+    const { result } = await renderAuth();
+    cancel.mockClear();
+
+    mock.onGet('/ping').reply(401, { error: { code: 'unauthorized', message: 'no' } });
+    mock.onPost('/auth/refresh').reply(401, { error: { code: 'unauthorized', message: 'no' } });
+    await act(async () => {
+      await api.get('/ping').catch(() => undefined);
+    });
+
+    await waitFor(() => expect(cancel).toHaveBeenCalled());
+    expect(await AsyncStorage.getItem('@plantcare:myPlantsCache')).toBeNull();
+    expect(result.current.status).toBe('signedOut');
+  });
 });
 
 describe('signOut', () => {
+  it('still signs out, and a second tap is a no-op, when clearing the tokens fails', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    await AsyncStorage.setItem('@plantcare:myPlantsCache', '[]');
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPost('/auth/logout').reply(204);
+    const { result } = await renderAuth();
+    jest.mocked(SecureStore.deleteItemAsync).mockRejectedValueOnce(new Error('keychain'));
+
+    await act(() => result.current.signOut());
+
+    expect(result.current.status).toBe('signedOut');
+    expect(result.current.user).toBeNull();
+    expect(await AsyncStorage.getItem('@plantcare:myPlantsCache')).toBeNull();
+  });
+
+  it('still signs out when removing the cached list fails', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPost('/auth/logout').reply(204);
+    const { result } = await renderAuth();
+    jest.mocked(AsyncStorage.removeItem).mockRejectedValueOnce(new Error('disk'));
+
+    await act(() => result.current.signOut());
+
+    expect(result.current.status).toBe('signedOut');
+    expect(await loadTokens()).toBeNull();
+  });
+
   it('cancels every scheduled reminder, and a failure does not block sign-out', async () => {
     await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
     mock.onGet('/me').reply(200, baseUser);
@@ -324,6 +382,31 @@ describe('setLanguage', () => {
 
     expect(lastBody(mock.history.patch)).toEqual({ language: 'pt-BR' });
     expect(result.current.user?.language).toBe('pt-BR');
+  });
+});
+
+describe('setLanguage reminders', () => {
+  it('resyncs from the API after a language change while signed in', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onGet('/me/plants').reply(200, []);
+    mock.onPatch('/me').reply(200, { ...baseUser, language: 'pt-BR' });
+    const { result } = await renderAuth();
+    const lists = () => mock.history.get.filter((r) => r.url === '/me/plants').length;
+    await waitFor(() => expect(lists()).toBe(1));
+
+    await act(() => result.current.setLanguage('pt-BR'));
+
+    await waitFor(() => expect(lists()).toBe(2));
+    expect(mock.history.get.filter((r) => r.url === '/me/plants')[1]?.headers?.['Accept-Language']).toBe(
+      'pt-BR',
+    );
+  });
+
+  it('does not touch the plants list when signed out', async () => {
+    const { result } = await renderAuth();
+    await act(() => result.current.setLanguage('pt-BR'));
+    expect(mock.history.get).toHaveLength(0);
   });
 });
 
