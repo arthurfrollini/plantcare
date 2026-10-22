@@ -9,7 +9,7 @@ import {
 import { GoogleUnavailableError, type GoogleVerifier } from './google';
 import { hashRefreshToken, issueTokens } from './tokens';
 
-const BCRYPT_COST = 12;
+export const BCRYPT_COST = 12;
 
 export type AuthResult = {
   accessToken: string;

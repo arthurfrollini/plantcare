@@ -23,6 +23,7 @@ import { env } from './env';
 import { AppError, errorBody } from './errors';
 import type { PrismaClient } from './generated/prisma/client';
 import { avatarRoutes } from './me/avatar-routes';
+import { accountRoutes } from './me/account-routes';
 import { meRoutes } from './me/routes';
 import { plantRoutes } from './plants/routes';
 import { createDiskStorage, type PhotoStorage } from './storage';
@@ -171,6 +172,7 @@ export async function buildApp(
   const photoStorage =
     options.photoStorage ?? createDiskStorage(env.UPLOADS_DIR);
   avatarRoutes(app, photoStorage);
+  accountRoutes(app, photoStorage);
   userPlantRoutes(app, photoStorage);
   photoRoutes(app, photoStorage);
   options.extraRoutes?.(app);
