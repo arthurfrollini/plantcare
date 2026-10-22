@@ -105,7 +105,7 @@ export function Auth({ googleProvider }: Props) {
       pending = pendingInMemory.current ?? stored;
       pendingInMemory.current = null;
       if (!pending) {
-        navigation.dispatch(StackActions.replace('PlantSelect'));
+        navigation.dispatch(StackActions.popTo('PlantSelect'));
         return;
       }
       const { catalogPlantId, ...values } = pending;
@@ -149,7 +149,7 @@ export function Auth({ googleProvider }: Props) {
       void finishPendingSave();
       return;
     }
-    navigation.dispatch(StackActions.replace('PlantSelect'));
+    navigation.dispatch(StackActions.popTo('PlantSelect'));
   }, [status, navigation, route.params.afterAuth, finishPendingSave]);
 
   const signingUp = mode === 'signUp';
@@ -166,6 +166,13 @@ export function Auth({ googleProvider }: Props) {
               </Text>
               <View style={styles.footer}>
                 <Button title={t('plantForm.retry')} onPress={retryPendingSave} />
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('auth.back')}
+                >
+                  <Text style={styles.switch}>{t('auth.back')}</Text>
+                </TouchableOpacity>
               </View>
             </>
           ) : (

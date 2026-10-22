@@ -14,11 +14,12 @@ import { userPlantFixture } from '../plants/testFixtures';
 import { Auth } from './Auth';
 
 const mockDispatch = jest.fn();
+const mockGoBack = jest.fn();
 let mockParams: { mode: 'signIn' | 'signUp'; afterAuth?: 'savePendingPlant' } = { mode: 'signIn' };
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual<object>('@react-navigation/native'),
-  useNavigation: () => ({ dispatch: mockDispatch, goBack: jest.fn() }),
+  useNavigation: () => ({ dispatch: mockDispatch, goBack: mockGoBack }),
   useRoute: () => ({ params: mockParams }),
 }));
 
@@ -38,6 +39,7 @@ beforeAll(initI18n);
 beforeEach(async () => {
   mock = new MockAdapter(api);
   mockDispatch.mockClear();
+  mockGoBack.mockClear();
   mockParams = { mode: 'signIn' };
   await clearTokens();
   await AsyncStorage.clear();
@@ -74,7 +76,7 @@ describe('Auth', () => {
     fill('ana@example.com', 'secret123');
     fireEvent.press(screen.getByText('Sign in'));
 
-    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')));
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.popTo('PlantSelect')));
     expect(await loadTokens()).toEqual({ accessToken: 'a', refreshToken: 'r' });
   });
 
@@ -114,7 +116,7 @@ describe('Auth', () => {
     fill('ana@example.com', 'secret123');
     fireEvent.press(screen.getByText('Create account'));
 
-    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')));
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.popTo('PlantSelect')));
     const body: unknown = JSON.parse(String(mock.history.post[0]?.data));
     expect(body).toMatchObject({ name: 'Ana', language: 'en' });
   });
@@ -190,7 +192,7 @@ describe('Auth', () => {
     renderAuth();
 
     await waitFor(() =>
-      expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')),
+      expect(mockDispatch).toHaveBeenCalledWith(StackActions.popTo('PlantSelect')),
     );
   });
 
@@ -291,7 +293,7 @@ describe('Auth', () => {
 
       signUp();
 
-      await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')));
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.popTo('PlantSelect')));
       expect(mock.history.post.filter((r) => r.url === '/me/plants')).toHaveLength(0);
     });
 
@@ -342,6 +344,18 @@ describe('Auth', () => {
 
       await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
       expect(mock.history.post.filter((r) => r.url === '/me/plants')).toHaveLength(2);
+    });
+
+    it('offers a way out next to the retry when the create fails', async () => {
+      await setPendingSave(pending);
+      mock.onPost('/me/plants').networkError();
+      renderAuth();
+
+      signUp();
+      expect(await screen.findByText('Try again')).toBeTruthy();
+      fireEvent.press(screen.getByText('Back'));
+
+      expect(mockGoBack).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the form and offers a retry when the create fails', async () => {
