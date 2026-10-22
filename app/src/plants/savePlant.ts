@@ -25,7 +25,7 @@ export function deviceTimeZone(): string {
   }
 }
 
-/** A new plant: the species' own care plan; weekdays, nickname and photo come later, by editing. */
+/** A new plant: the species' own care plan; weekdays and photo come later, by editing. */
 export function createBody(pick: SpeciesPick): CreateUserPlant {
   return {
     catalogPlantId: pick.catalogPlantId,

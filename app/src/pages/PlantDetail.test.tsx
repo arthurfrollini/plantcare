@@ -1,5 +1,6 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import MockAdapter from 'axios-mock-adapter';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -306,6 +307,44 @@ describe('PlantDetail', () => {
       await waitFor(() => expect(screen.queryByText('Remove photo')).not.toBeOnTheScreen(), {
         timeout: 5000,
       });
+    }, 15000);
+
+    it('says the photo could not be saved when the upload fails', async () => {
+      mock.onPost('/me/plants/p1/photo').reply(500);
+      jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+        canceled: false,
+        assets: [{ uri: 'file:///tmp/leaf.jpg', mimeType: 'image/jpeg', width: 1, height: 1 }],
+      });
+      await renderScreen();
+
+      fireEvent.press(screen.getByRole('button', { name: 'Edit photo' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Choose from gallery' }));
+
+      expect(
+        await screen.findByText(
+          "Couldn't save the photo. Check your connection and try again.",
+          undefined,
+          { timeout: 5000 },
+        ),
+      ).toBeOnTheScreen();
+      expect(screen.queryByText(/save the plant without one/)).not.toBeOnTheScreen();
+    }, 15000);
+
+    it('says the photo could not be removed when the removal fails', async () => {
+      const withPhoto = { ...userPlantFixture, hasPhoto: true, photoVersion: 'v1' };
+      mock.onDelete('/me/plants/p1/photo').reply(500);
+      await renderScreen(withPhoto);
+
+      fireEvent.press(screen.getByRole('button', { name: 'Edit photo' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Remove photo' }));
+
+      expect(
+        await screen.findByText(
+          "Couldn't remove the photo. Check your connection and try again.",
+          undefined,
+          { timeout: 5000 },
+        ),
+      ).toBeOnTheScreen();
     }, 15000);
   });
 });

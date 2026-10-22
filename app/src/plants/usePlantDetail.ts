@@ -209,6 +209,8 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
         try {
           storePlant(await updateMyPlant(current.id, body));
           settlePending(field, save);
+          // A failure of an earlier save that this one replaced no longer applies.
+          setError(null);
           showSaved();
           queueSync();
           return true;
@@ -243,13 +245,12 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
         try {
           replacePlant(await uploadPlantPhoto(plant.id, result.photo));
         } catch {
-          setPhotoMessage('failed');
+          setPhotoMessage('uploadFailed');
         }
       } else if ('message' in result) {
         setPhotoMessage(result.message);
-      } else if (!plant.hasPhoto) {
-        setPhotoMessage('cancelled');
       }
+      // A cancelled picker leaves the photo as it was, with nothing to say.
     } finally {
       photoWorking.current = false;
       setPhotoBusy(false);
@@ -264,7 +265,7 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
     try {
       replacePlant(await deletePlantPhoto(plant.id));
     } catch {
-      setPhotoMessage('failed');
+      setPhotoMessage('removeFailed');
     } finally {
       photoWorking.current = false;
       setPhotoBusy(false);

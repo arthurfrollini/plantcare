@@ -170,6 +170,43 @@ describe('usePlantDetail', () => {
     expect(result.current.values.reminderLeadMinutes).toBe(20);
   });
 
+  it('clears the error of a replaced save that failed once the newer one is stored', async () => {
+    const replies: ((ok: boolean) => void)[] = [];
+    const { result } = await renderDetail();
+    mock.onPatch('/me/plants/p1').reply(
+      (config) =>
+        new Promise<[number, unknown]>((resolve) => {
+          replies.push((ok) =>
+            resolve(ok ? [200, { ...userPlantFixture, ...bodyOf(config.data) }] : [500, {}]),
+          );
+        }),
+    );
+
+    let first: Promise<boolean> = Promise.resolve(true);
+    let second: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      first = result.current.saveLead(10);
+    });
+    await waitFor(() => expect(replies).toHaveLength(1), { timeout: 5000 });
+    act(() => {
+      second = result.current.saveLead(20);
+    });
+
+    await act(async () => {
+      replies[0]?.(false);
+      await first;
+    });
+    expect(result.current.error).toBe('unknown');
+
+    await waitFor(() => expect(replies).toHaveLength(2), { timeout: 5000 });
+    await act(async () => {
+      replies[1]?.(true);
+      await second;
+    });
+    expect(result.current.plant?.reminderLeadMinutes).toBe(20);
+    expect(result.current.error).toBeNull();
+  });
+
   it('shows the default days while the watering asks for a review', async () => {
     const { result } = await renderDetail({
       ...userPlantFixture,
@@ -345,8 +382,18 @@ describe('usePlantDetail', () => {
 
       await act(() => result.current.changePhoto('gallery'));
 
-      expect(result.current.photoMessage).toBe('failed');
+      expect(result.current.photoMessage).toBe('uploadFailed');
       expect(result.current.plant?.hasPhoto).toBe(false);
+    });
+
+    it('reports a failed removal with its own message', async () => {
+      mock.onDelete('/me/plants/p1/photo').reply(500);
+      const { result } = await renderDetail(withPhoto);
+
+      await act(() => result.current.removePhoto());
+
+      expect(result.current.photoMessage).toBe('removeFailed');
+      expect(result.current.plant?.hasPhoto).toBe(true);
     });
 
     it('removes the photo at once', async () => {
@@ -375,16 +422,11 @@ describe('usePlantDetail', () => {
       expect(mock.history.post).toHaveLength(0);
     });
 
-    it('says why there is no photo when the picker is cancelled', async () => {
-      const { result } = await renderDetail();
-
-      await act(() => result.current.changePhoto('gallery'));
-
-      expect(result.current.photoMessage).toBe('cancelled');
-    });
-
-    it('says nothing about a missing photo when the picker is cancelled over a saved one', async () => {
-      const { result } = await renderDetail(withPhoto);
+    it.each([
+      ['without a photo', userPlantFixture],
+      ['over a saved one', withPhoto],
+    ])('says nothing when the picker is cancelled %s', async (_case, plant) => {
+      const { result } = await renderDetail(plant);
 
       await act(() => result.current.changePhoto('gallery'));
 
