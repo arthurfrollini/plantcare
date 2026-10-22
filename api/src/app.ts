@@ -75,7 +75,11 @@ export async function buildApp(
   );
   app.decorate('authRateLimitMax', options.authRateLimitMax ?? 10);
 
-  await app.register(cors, { origin: env.CORS_ORIGIN });
+  await app.register(cors, {
+    origin: env.CORS_ORIGIN,
+    // The default omits PATCH and DELETE, which a browser client (the web build) needs.
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'],
+  });
   await app.register(rateLimit, { global: false });
   await app.register(multipart);
   await app.register(jwt, {

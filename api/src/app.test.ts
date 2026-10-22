@@ -95,3 +95,30 @@ describe('error handler', () => {
     expect(res.json<ErrorBody>().error.code).toBe('bad_request');
   });
 });
+
+describe('CORS', () => {
+  let app: FastifyInstance;
+  let prisma: PrismaClient;
+
+  beforeAll(async () => {
+    ({ app, prisma } = await createTestApp());
+  });
+  afterAll(async () => {
+    await app.close();
+    await prisma.$disconnect();
+  });
+
+  it('allows PATCH and DELETE in the preflight response', async () => {
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/me/plants/x',
+      headers: {
+        origin: 'http://localhost:8081',
+        'access-control-request-method': 'PATCH',
+      },
+    });
+    const methods = String(res.headers['access-control-allow-methods']);
+    expect(methods).toContain('PATCH');
+    expect(methods).toContain('DELETE');
+  });
+});
