@@ -18,7 +18,7 @@ Requires Node.js 22+.
 3. From `app/`, start the app: `npx expo start`
 4. Open it on your phone with [Expo Go](https://expo.dev/go) (SDK 57) by scanning the QR code, or press `i` for the iOS simulator or `a` for the Android emulator.
 
-The app finds the API on its own: it uses the address of the machine running Metro, on port 3333, so the phone and the computer only need to be on the same network. If they are not (or for the web build), set `EXPO_PUBLIC_API_URL`:
+The app finds the API on its own: it uses the address of the machine running Metro, on port 3333, so the phone and the computer only need to be on the same network. If they are not (on different networks, or through a tunnel), set `EXPO_PUBLIC_API_URL`. The web build uses the address of the page, so it does not need it:
 
 ```sh
 EXPO_PUBLIC_API_URL=http://192.168.0.10:3333 npx expo start
