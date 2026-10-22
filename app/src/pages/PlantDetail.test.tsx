@@ -139,7 +139,11 @@ describe('PlantDetail', () => {
 
     await waitFor(() => expect(mock.history.patch).toHaveLength(1), { timeout: 5000 });
     expect(patchBody()).toEqual({ wateringDays: [2, 4, 6] });
-    await waitFor(() => expect(screen.queryAllByRole('checkbox')).toHaveLength(0), { timeout: 5000 });
+    // The sheet closes after the save; the Linux CI runner needs well over the Mac's time here.
+    await waitFor(() => expect(screen.queryByText(/Pick 3 days/)).not.toBeOnTheScreen(), {
+      timeout: 10000,
+    });
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
     expect(screen.getByLabelText('Saturday')).toBeSelected();
     expect(screen.getByLabelText('Monday')).not.toBeSelected();
     expect(mockDispatch).not.toHaveBeenCalled();
