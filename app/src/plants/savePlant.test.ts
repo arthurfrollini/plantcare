@@ -3,24 +3,12 @@ import MockAdapter from 'axios-mock-adapter';
 import { api, toApiError } from '../api/client';
 import { clearTokens } from '../auth/session';
 import type { SpeciesPick } from './pendingSave';
-import { addPlants, createBody, deviceTimeZone } from './savePlant';
+import { addPlants, createBody, deviceTimeZone, scheduleChanges } from './savePlant';
 import { userPlantFixture } from './testFixtures';
 
-const monstera: SpeciesPick = {
-  catalogPlantId: 'c1',
-  frequency: { times: 2, per: 'week' },
-  light: 'partial_shade',
-};
-const cactus: SpeciesPick = {
-  catalogPlantId: 'c2',
-  frequency: { times: 1, per: 'week' },
-  light: 'full_sun',
-};
-const fern: SpeciesPick = {
-  catalogPlantId: 'c3',
-  frequency: { times: 1, per: 'day' },
-  light: 'shade',
-};
+const monstera: SpeciesPick = { catalogPlantId: 'c1' };
+const cactus: SpeciesPick = { catalogPlantId: 'c2' };
+const fern: SpeciesPick = { catalogPlantId: 'c3' };
 
 let mock: MockAdapter;
 
@@ -41,14 +29,39 @@ function postedIds(): unknown[] {
 }
 
 describe('createBody', () => {
-  it("starts from the species' care plan with an 08:00 reminder and nothing personal", () => {
-    expect(createBody(cactus)).toEqual({
+  it('sends only the species, the 08:00 reminder and the time zone', () => {
+    expect(createBody({ catalogPlantId: 'c2' })).toEqual({
       catalogPlantId: 'c2',
-      frequency: { times: 1, per: 'week' },
       reminderTime: '08:00',
       timeZone: deviceTimeZone(),
-      light: 'full_sun',
     });
+  });
+});
+
+describe('scheduleChanges', () => {
+  const values = { wateringDays: [1, 4], reminderTime: '09:30', reminderLeadMinutes: 15 };
+
+  it('sends only the weekdays when only they changed', () => {
+    expect(scheduleChanges(userPlantFixture, { ...values, wateringDays: [1, 3, 5] })).toEqual({
+      wateringDays: [1, 3, 5],
+    });
+  });
+
+  it('sends the time with the time zone when only the time changed', () => {
+    expect(scheduleChanges(userPlantFixture, { ...values, reminderTime: '07:30' })).toEqual({
+      reminderTime: '07:30',
+      timeZone: deviceTimeZone(),
+    });
+  });
+
+  it('sends only the lead when only it changed', () => {
+    expect(scheduleChanges(userPlantFixture, { ...values, reminderLeadMinutes: 30 })).toEqual({
+      reminderLeadMinutes: 30,
+    });
+  });
+
+  it('sends nothing when nothing changed', () => {
+    expect(scheduleChanges(userPlantFixture, values)).toEqual({});
   });
 });
 

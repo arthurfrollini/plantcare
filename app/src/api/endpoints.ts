@@ -87,6 +87,12 @@ export function updateMyPlant(id: string, b: UpdateUserPlant): Promise<UserPlant
     .then((r) => userPlantSchema.parse(r.data));
 }
 
+export function deletePlantPhoto(id: string): Promise<UserPlant> {
+  return api
+    .delete(`/me/plants/${encodeURIComponent(id)}/photo`)
+    .then((r) => userPlantSchema.parse(r.data));
+}
+
 export async function deleteMyPlant(id: string): Promise<void> {
   await api.delete(`/me/plants/${encodeURIComponent(id)}`);
 }

@@ -239,12 +239,12 @@ describe('Auth', () => {
   describe('after sign up with a pending plant', () => {
     const pending: PendingSave = {
       plants: [
-        { catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'partial_shade' },
-        { catalogPlantId: 'c2', frequency: { times: 1, per: 'day' }, light: 'full_sun' },
+        { catalogPlantId: 'c1' },
+        { catalogPlantId: 'c2' },
       ],
     };
     const onePlant: PendingSave = {
-      plants: [{ catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'partial_shade' }],
+      plants: [{ catalogPlantId: 'c1' }],
     };
 
     beforeEach(() => {

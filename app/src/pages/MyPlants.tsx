@@ -61,7 +61,7 @@ export function MyPlants() {
   }
 
   function handleRemove(plant: UserPlant) {
-    Alert.alert(t('myPlants.removeTitle', { name: plant.nickname ?? plant.speciesName }), undefined, [
+    Alert.alert(t('myPlants.removeTitle', { name: plant.speciesName }), undefined, [
       { text: t('myPlants.cancel'), style: 'cancel' },
       {
         text: t('myPlants.remove'),

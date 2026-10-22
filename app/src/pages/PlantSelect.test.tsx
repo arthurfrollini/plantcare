@@ -10,6 +10,7 @@ import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
 import { PENDING_SAVE_KEY } from '../plants/pendingSave';
+import { deviceTimeZone } from '../plants/savePlant';
 import { accountFixture, catalogFixture, userPlantFixture } from '../plants/testFixtures';
 import { PlantSelect } from './PlantSelect';
 
@@ -165,12 +166,8 @@ describe('PlantSelect', () => {
 
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
     expect(mock.history.post.map((r) => JSON.parse(String(r.data)) as unknown)).toEqual([
-      expect.objectContaining({
-        catalogPlantId: 'c1',
-        light: 'partial_shade',
-        reminderTime: '08:00',
-      }),
-      expect.objectContaining({ catalogPlantId: 'c2', light: 'full_sun', reminderTime: '08:00' }),
+      { catalogPlantId: 'c1', reminderTime: '08:00', timeZone: deviceTimeZone() },
+      { catalogPlantId: 'c2', reminderTime: '08:00', timeZone: deviceTimeZone() },
     ]);
     expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
       type: 'REPLACE',
@@ -192,9 +189,7 @@ describe('PlantSelect', () => {
       }),
     );
     expect(JSON.parse(String(await AsyncStorage.getItem(PENDING_SAVE_KEY)))).toEqual({
-      plants: [
-        { catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'partial_shade' },
-      ],
+      plants: [{ catalogPlantId: 'c1' }],
     });
     expect(mock.history.post).toHaveLength(0);
   });

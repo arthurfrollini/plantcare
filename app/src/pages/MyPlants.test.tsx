@@ -69,13 +69,13 @@ async function signIn() {
 }
 
 describe('MyPlants', () => {
-  it('shows the nickname over the species name and caches the list', async () => {
+  it('shows the species name, not the nickname, and caches the list', async () => {
     await signIn();
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);
     renderScreen();
 
-    expect(await screen.findAllByText('Pikachu')).not.toHaveLength(0);
-    expect(screen.getByText('Monstera')).toBeTruthy();
+    expect(await screen.findAllByText('Monstera')).not.toHaveLength(0);
+    expect(screen.queryByText('Pikachu')).toBeNull();
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)).toContain('Pikachu'),
     );
