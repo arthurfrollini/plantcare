@@ -24,6 +24,8 @@ module.exports = defineConfig([
       'src/pages/PlantSelect.tsx',
       'src/components/FilterChip.tsx',
       'src/components/PlantCardPrimary.tsx',
+      'src/components/PlantCardSecondary.tsx',
+      'src/pages/MyPlants.tsx',
     ],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {

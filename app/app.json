@@ -39,7 +39,8 @@
           "cameraPermission": "PlantCare uses the camera so you can take a picture of your plant.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-image"
     ]
   }
 }

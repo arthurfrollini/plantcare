@@ -115,6 +115,12 @@ const ptBR: typeof en = {
     remove: 'Remover',
     cancel: 'Cancelar',
     removeError: 'Não foi possível remover a planta. Tente de novo.',
+    signedOut: 'Entre para ver suas plantas.',
+    signIn: 'Entrar',
+    retry: 'Tentar de novo',
+    loadError: 'Não foi possível carregar suas plantas.',
+    offlineNotice: 'Mostrando suas últimas plantas sincronizadas. Alterações precisam de conexão.',
+    capReached: 'Só cabem 60 lembretes no celular, então algumas plantas ficarão sem lembrete.',
   },
   tabs: {
     newPlant: 'Nova planta',

@@ -10,7 +10,6 @@ import {
   Jost_600SemiBold,
 } from '@expo-google-fonts/jost';
 
-import { PlantProps } from './src/libs/storage';
 import Routes from './src/routes';
 import { initI18n } from './src/i18n';
 import { AuthProvider } from './src/auth/AuthProvider';
@@ -45,8 +44,7 @@ export default function App() {
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(
       (notification) => {
-        const data = notification.request.content.data?.plant as PlantProps | undefined;
-        console.log(data);
+        console.log(notification.request.content.data);
       }
     );
     return () => subscription.remove();

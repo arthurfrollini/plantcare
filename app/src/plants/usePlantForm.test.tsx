@@ -342,14 +342,15 @@ describe('usePlantForm', () => {
       const { result } = await renderEdit({ ...userPlantFixture, hasPhoto: true, photoVersion: 'v1' });
       const lists = () => mock.history.get.filter((r) => r.url === '/me/plants').length;
       expect(result.current.savedPhoto).not.toBeNull();
-      expect(lists()).toBe(1);
+      // One list for the form's own load, one for the reminder sync the provider runs at launch.
+      await waitFor(() => expect(lists()).toBe(2));
 
       await act(() => result.current.handleSavedPhotoError());
-      expect(lists()).toBe(2);
+      expect(lists()).toBe(3);
       expect(result.current.savedPhoto).not.toBeNull();
 
       await act(() => result.current.handleSavedPhotoError());
-      expect(lists()).toBe(2);
+      expect(lists()).toBe(3);
       expect(result.current.savedPhoto).toBeNull();
     });
 

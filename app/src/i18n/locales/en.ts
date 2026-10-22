@@ -113,6 +113,12 @@ const en = {
     remove: 'Remove',
     cancel: 'Cancel',
     removeError: "Couldn't remove the plant. Try again.",
+    signedOut: 'Sign in to see your plants.',
+    signIn: 'Sign in',
+    retry: 'Try again',
+    loadError: "Couldn't load your plants.",
+    offlineNotice: 'Showing your last synced plants. Changes need a connection.',
+    capReached: 'Only 60 reminders fit on your phone, so some of your plants will not get one.',
   },
   tabs: {
     newPlant: 'New plant',

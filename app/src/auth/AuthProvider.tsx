@@ -15,6 +15,7 @@ import type { AuthResponse, Locale, User } from '@plantcare/shared';
 import { setSignedOutHandler } from '../api/client';
 import {
   getMe,
+  listMyPlants,
   login,
   loginWithGoogle,
   logout,
@@ -22,11 +23,11 @@ import {
   updateMe,
 } from '../api/endpoints';
 import { changeLanguage, currentLanguage } from '../i18n';
-import { cancelAllReminders } from '../reminders/sync';
+import { MY_PLANTS_CACHE_KEY } from '../plants/myPlantsCache';
+import { cancelAllReminders, syncReminders } from '../reminders/sync';
 import { clearTokens, loadTokens, saveTokens, sessionEpoch } from './session';
 
 const USER_KEY = '@plantcare:user';
-const MY_PLANTS_CACHE_KEY = '@plantcare:myPlantsCache';
 
 export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const statusRef = useRef<AuthStatus>('loading');
   const refetching = useRef(false);
+  const syncing = useRef(false);
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
@@ -131,6 +133,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSignedOutHandler(() => undefined);
     };
   }, []);
+
+  // Best effort: reminders follow the server's list. A network error keeps the existing reminders.
+  const syncFromApi = useCallback(async () => {
+    if (syncing.current || statusRef.current !== 'signedIn') return;
+    syncing.current = true;
+    const epoch = sessionEpoch();
+    try {
+      const plants = await listMyPlants();
+      if (sessionEpoch() !== epoch || statusRef.current !== 'signedIn') return;
+      await syncReminders(plants);
+    } catch {
+      // Offline or rejected; the next foreground or sign-in tries again.
+    } finally {
+      syncing.current = false;
+    }
+  }, []);
+
+  // On sign-in and on launch while signed in.
+  useEffect(() => {
+    if (status === 'signedIn') void syncFromApi();
+  }, [status, syncFromApi]);
+
+  useEffect(() => {
+    if (status !== 'signedIn') return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void syncFromApi();
+    });
+    return () => subscription.remove();
+  }, [status, syncFromApi]);
 
   // Signed in but the account never loaded (offline start): try again when the app comes back.
   useEffect(() => {

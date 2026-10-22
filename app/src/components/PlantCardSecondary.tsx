@@ -1,53 +1,109 @@
-import React from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  TouchableOpacityProps,
-} from 'react-native';
+import React, { useState } from 'react';
+import { Image as NativeImage, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
-
 import { SvgFromUri } from 'react-native-svg';
+import type { UserPlant } from '@plantcare/shared';
 
+import { assetUrl } from '../api/config';
+import { plantPhotoSource } from '../api/endpoints';
+import mascot from '../assets/watering.png';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface PlantProps extends TouchableOpacityProps {
-  data: {
-    name: string;
-    photo: string;
-    hour: string;
-  };
+interface PlantProps {
+  plant: UserPlant;
+  accessToken: string | null;
+  /** Offline: no swipe-to-remove. */
+  readOnly: boolean;
+  onPress: () => void;
   handleRemove: () => void;
+  /** The photo failed once; refresh the session so the retry carries a fresh token. */
+  onPhotoError: () => Promise<void>;
 }
 
 export const PlantCardSecondary = ({
-  data,
+  plant,
+  accessToken,
+  readOnly,
+  onPress,
   handleRemove,
-  ...rest
+  onPhotoError,
 }: PlantProps) => {
   const { t } = useTranslation();
+  const [photoRetried, setPhotoRetried] = useState(false);
+  const [photoGone, setPhotoGone] = useState(false);
+  const [illustrationGone, setIllustrationGone] = useState(false);
+
+  const photo = !photoGone && accessToken ? plantPhotoSource(plant, accessToken) : null;
+  const name = plant.nickname ?? plant.speciesName;
+
+  function handlePhotoError() {
+    if (photoRetried) {
+      setPhotoGone(true);
+      return;
+    }
+    setPhotoRetried(true);
+    void onPhotoError();
+  }
+
+  function renderPicture() {
+    if (photo) {
+      return (
+        <Image
+          testID="plant-photo"
+          source={photo}
+          style={styles.photo}
+          onError={handlePhotoError}
+          accessibilityIgnoresInvertColors
+        />
+      );
+    }
+    if (plant.imageUrl && !illustrationGone) {
+      return (
+        <SvgFromUri
+          uri={assetUrl(plant.imageUrl)}
+          width={50}
+          height={50}
+          onError={() => setIllustrationGone(true)}
+        />
+      );
+    }
+    return <NativeImage source={mascot} style={styles.photo} accessibilityIgnoresInvertColors />;
+  }
 
   return (
     <Swipeable
+      enabled={!readOnly}
       overshootRight={false}
-      renderRightActions={() => (
-        <View>
-          <TouchableOpacity style={styles.buttonRemove} onPress={handleRemove}>
-            <Feather name="trash" size={32} color={colors.white} />
-          </TouchableOpacity>
-        </View>
-      )}
+      renderRightActions={
+        readOnly
+          ? undefined
+          : () => (
+              <View>
+                <TouchableOpacity
+                  style={styles.buttonRemove}
+                  onPress={handleRemove}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('myPlants.remove')}
+                >
+                  <Feather name="trash" size={32} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+            )
+      }
     >
-      <TouchableOpacity style={styles.container} activeOpacity={0.7} {...rest}>
-        <SvgFromUri uri={data.photo} width={50} height={50} />
-        <Text style={styles.title}>{data.name}</Text>
+      <TouchableOpacity style={styles.container} activeOpacity={0.7} onPress={onPress}>
+        {renderPicture()}
+        <View style={styles.names}>
+          <Text style={styles.title}>{name}</Text>
+          {plant.nickname && <Text style={styles.species}>{plant.speciesName}</Text>}
+        </View>
         <View style={styles.details}>
           <Text style={styles.timeLabel}>{t('myPlants.waterAt')}</Text>
-          <Text style={styles.time}>{data.hour}</Text>
+          <Text style={styles.time}>{plant.reminderTime}</Text>
         </View>
       </TouchableOpacity>
     </Swipeable>
@@ -65,9 +121,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.shape,
     marginVertical: 5,
   },
-  title: {
+  photo: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  names: {
     flex: 1,
     marginLeft: 10,
+  },
+  species: {
+    marginTop: 2,
+    fontFamily: fonts.text,
+    fontSize: 14,
+    color: colors.body_light,
+  },
+  title: {
     fontFamily: fonts.heading,
     fontSize: 17,
     color: colors.heading,

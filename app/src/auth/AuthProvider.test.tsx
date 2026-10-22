@@ -126,7 +126,7 @@ describe('start', () => {
     });
 
     await waitFor(() => expect(result.current.user?.name).toBe('Ana'));
-    expect(mock.history.get).toHaveLength(2);
+    expect(mock.history.get.filter((r) => r.url === '/me')).toHaveLength(2);
   });
 
   it('stays signed in with no account when the API is unreachable', async () => {
@@ -351,5 +351,84 @@ describe('GoogleSignInButton', () => {
     await waitFor(() => expect(mock.history.post).toHaveLength(1));
     expect(mock.history.post[0]?.url).toBe('/auth/google');
     expect(lastBody(mock.history.post)).toEqual({ idToken: 'fake-id-token', language: 'en' });
+  });
+});
+
+describe('reminder sync', () => {
+  const plant = {
+    id: 'p1', catalogPlantId: 'c1', nickname: null, speciesName: 'Monstera', scientificName: 'M',
+    about: '', waterTips: '', frequency: { times: 1, per: 'day' }, reminderTime: '09:00',
+    timeZone: 'UTC', light: null, notes: null, imageUrl: null, hasPhoto: false, photoVersion: null,
+    createdAt: '2026-10-22T00:00:00.000Z',
+  };
+  const scheduled = () => jest.mocked(Notifications.scheduleNotificationAsync);
+
+  function captureAppState() {
+    const handlers: ((state: AppStateStatus) => void)[] = [];
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
+      handlers.push(handler);
+      return { remove: jest.fn() };
+    });
+    return (state: AppStateStatus) => handlers.forEach((h) => h(state));
+  }
+
+  beforeEach(() => {
+    scheduled().mockClear();
+    jest.mocked(Notifications.cancelAllScheduledNotificationsAsync).mockClear();
+  });
+
+  it('syncs on launch when signed in, and not when signed out', async () => {
+    await renderAuth();
+    expect(mock.history.get).toHaveLength(0);
+
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onGet('/me/plants').reply(200, [plant]);
+    await renderAuth();
+
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
+  });
+
+  it('syncs after sign-in', async () => {
+    mock.onPost('/auth/login').reply(200, authBody);
+    mock.onGet('/me/plants').reply(200, [plant]);
+    const { result } = await renderAuth();
+
+    await act(() => result.current.signIn('ana@example.com', 'secret123'));
+
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
+  });
+
+  it('syncs when the app returns to the foreground while signed in', async () => {
+    const fire = captureAppState();
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onGet('/me/plants').reply(200, [plant]);
+    await renderAuth();
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
+
+    act(() => fire('active'));
+
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not sync on foreground while signed out', async () => {
+    const fire = captureAppState();
+    await renderAuth();
+
+    act(() => fire('active'));
+
+    expect(mock.history.get).toHaveLength(0);
+    expect(scheduled()).not.toHaveBeenCalled();
+  });
+
+  it('keeps existing reminders when the API is unreachable', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onGet('/me/plants').networkError();
+    await renderAuth();
+
+    await waitFor(() => expect(mock.history.get.some((r) => r.url === '/me/plants')).toBe(true));
+    expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
   });
 });

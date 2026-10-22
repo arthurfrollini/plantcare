@@ -2,6 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import type { RootStackParamList } from '../routes/stack.routes';
 
 import { Button } from '../components/Button';
 
@@ -22,7 +25,7 @@ const emojis = {
 };
 
 export function Confirmation() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const routes =
     useRoute<RouteProp<{ Confirmation: ConfirmationParams }, 'Confirmation'>>();
 
@@ -35,6 +38,12 @@ export function Confirmation() {
   } = routes.params;
 
   function handleMoveOn() {
+    if (nextScreen === 'MyPlants') {
+      // Both tabs live in the PlantSelect navigator already on the stack; go back to it on the
+      // My plants tab instead of pushing a second copy of the tab navigator.
+      navigation.popTo('PlantSelect', { screen: 'MyPlantsList' });
+      return;
+    }
     navigation.navigate(nextScreen);
   }
 

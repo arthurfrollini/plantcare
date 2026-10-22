@@ -37,3 +37,27 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
 }));
+
+jest.mock('expo-image', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  return { Image: (props: object) => createElement('ExpoImage', props) };
+});
+
+// The real swipeable needs the native worklets runtime.
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  return {
+    __esModule: true,
+    default: (props: {
+      children?: React.ReactNode;
+      enabled?: boolean;
+      renderRightActions?: () => React.ReactNode;
+    }) =>
+      createElement(
+        'Swipeable',
+        null,
+        props.children,
+        props.enabled === false ? null : props.renderRightActions?.(),
+      ),
+  };
+});
