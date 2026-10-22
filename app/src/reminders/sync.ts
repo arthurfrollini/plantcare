@@ -1,6 +1,6 @@
 import { Alert } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { reminderSlots, type ReminderSlot, type UserPlant } from '@plantcare/shared';
+import { reminderTriggers, type ReminderTrigger, type UserPlant } from '@plantcare/shared';
 
 import i18n from '../i18n';
 
@@ -24,25 +24,32 @@ export async function cancelAllReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-function triggerFor(slot: ReminderSlot): Notifications.NotificationTriggerInput {
-  if (slot.weekday === null) {
-    return {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: slot.hour,
-      minute: slot.minute,
-    };
+function triggerFor(trigger: ReminderTrigger): Notifications.NotificationTriggerInput {
+  switch (trigger.kind) {
+    case 'daily':
+      return {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: trigger.hour,
+        minute: trigger.minute,
+      };
+    case 'weekly':
+      return {
+        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+        weekday: trigger.weekday,
+        hour: trigger.hour,
+        minute: trigger.minute,
+      };
+    case 'date':
+      return {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: trigger.date,
+      };
   }
-  return {
-    type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-    weekday: slot.weekday,
-    hour: slot.hour,
-    minute: slot.minute,
-  };
 }
 
-function slotsOf(plant: UserPlant): ReminderSlot[] | null {
+function triggersOf(plant: UserPlant, now: Date): ReminderTrigger[] | null {
   try {
-    return reminderSlots(plant.frequency, plant.reminderTime);
+    return reminderTriggers(plant, now);
   } catch {
     return null;
   }
@@ -51,7 +58,11 @@ function slotsOf(plant: UserPlant): ReminderSlot[] | null {
 let queue: Promise<unknown> = Promise.resolve();
 
 async function runSync(plants: UserPlant[]): Promise<{ scheduled: number; skipped: number }> {
-  const planned = plants.map((plant) => ({ plant, slots: slotsOf(plant) }));
+  const now = new Date();
+  const planned = plants.map((plant) => ({
+    plant,
+    slots: triggersOf(plant, now),
+  }));
   const totalSkipped = planned.reduce((n, { slots }) => n + (slots ? slots.length : 1), 0);
 
   try {
@@ -83,7 +94,10 @@ async function runSync(plants: UserPlant[]): Promise<{ scheduled: number; skippe
         await Notifications.scheduleNotificationAsync({
           content: {
             title: i18n.t('notification.title'),
-            body: i18n.t('notification.body', { name: plant.nickname ?? plant.speciesName }),
+            body: i18n.t('notification.body', {
+              minutes: plant.reminderLeadMinutes,
+              name: plant.speciesName,
+            }),
             sound: true,
             data: { userPlantId: plant.id },
           },

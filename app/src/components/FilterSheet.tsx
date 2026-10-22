@@ -3,24 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { difficultySchema, lightSchema, type Difficulty, type Light } from '@plantcare/shared';
 
+import { DIFFICULTY_EMOJI, LIGHT_EMOJI } from '../plants/careEmoji';
 import { BottomSheet } from './BottomSheet';
 import { Button } from './Button';
 import { FilterChip } from './FilterChip';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
-
-const LIGHT_EMOJI: Record<Light, string> = {
-  full_sun: '☀️',
-  partial_shade: '⛅',
-  shade: '☁️',
-};
-
-const DIFFICULTY_EMOJI: Record<Difficulty, string> = {
-  easy: '😌',
-  medium: '🙂',
-  hard: '😅',
-};
 
 interface FilterSheetProps {
   visible: boolean;

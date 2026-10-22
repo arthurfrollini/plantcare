@@ -38,7 +38,7 @@ export const PlantCardSecondary = ({
   const [illustrationGone, setIllustrationGone] = useState(false);
 
   const photo = !photoGone && accessToken ? plantPhotoSource(plant, accessToken) : null;
-  const name = plant.nickname ?? plant.speciesName;
+  const name = plant.speciesName;
 
   // One retry with a refreshed token; any other failure falls back to the illustration.
   function handlePhotoError() {
@@ -108,7 +108,6 @@ export const PlantCardSecondary = ({
         {renderPicture()}
         <View style={styles.names}>
           <Text style={styles.title}>{name}</Text>
-          {plant.nickname && <Text style={styles.species}>{plant.speciesName}</Text>}
         </View>
         <View style={styles.details}>
           <Text style={styles.timeLabel}>{t('myPlants.waterAt')}</Text>
@@ -138,12 +137,6 @@ const styles = StyleSheet.create({
   names: {
     flex: 1,
     marginLeft: 10,
-  },
-  species: {
-    marginTop: 2,
-    fontFamily: fonts.text,
-    fontSize: 14,
-    color: colors.body_light,
   },
   title: {
     fontFamily: fonts.heading,

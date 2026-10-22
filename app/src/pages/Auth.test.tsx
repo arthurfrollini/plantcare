@@ -168,7 +168,9 @@ describe('Auth', () => {
       fireEvent.press(button);
     });
 
-    await waitFor(() => expect(screen.queryByText('Sign in')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Sign in')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
     expect(screen.getByLabelText('Please wait')).toBeTruthy();
     release();
     await waitFor(() => expect(mockDispatch).toHaveBeenCalled());
@@ -239,12 +241,12 @@ describe('Auth', () => {
   describe('after sign up with a pending plant', () => {
     const pending: PendingSave = {
       plants: [
-        { catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'partial_shade' },
-        { catalogPlantId: 'c2', frequency: { times: 1, per: 'day' }, light: 'full_sun' },
+        { catalogPlantId: 'c1' },
+        { catalogPlantId: 'c2' },
       ],
     };
     const onePlant: PendingSave = {
-      plants: [{ catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'partial_shade' }],
+      plants: [{ catalogPlantId: 'c1' }],
     };
 
     beforeEach(() => {

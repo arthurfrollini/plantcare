@@ -32,7 +32,7 @@ export function userPlantRoutes(
         tags,
         summary: "List the signed-in user's plants",
         description:
-          'Ordered by reminder time of day, then name. Species texts follow Accept-Language.',
+          'Ordered by reminder time of day, then species name. Frequency, light and difficulty come from the species; texts follow Accept-Language. When the species frequency no longer matches the stored watering days, scheduleNeedsReview is true and wateringDays is empty.',
         security,
         response: { 200: z.array(userPlantSchema) },
       },
@@ -53,7 +53,7 @@ export function userPlantRoutes(
         tags,
         summary: 'Add a plant',
         description:
-          'Frequency and light default to the species values when omitted.',
+          'Frequency and light belong to the species. wateringDays must be empty or have one day per watering (ISO weekdays, 1 = Monday); otherwise 400 invalid_watering_days. Reminder time is HH:00 or HH:30; the lead defaults to 15 minutes.',
         security,
         body: createUserPlantSchema,
         response: { 201: userPlantSchema },
@@ -78,10 +78,10 @@ export function userPlantRoutes(
         tags,
         summary: 'Update a plant',
         description:
-          'The species cannot change, so catalogPlantId is rejected. A null nickname, light or notes clears it.',
+          'The species cannot change, so catalogPlantId, frequency and light are rejected. A null nickname or notes clears it. Changing wateringDays or reminderTime recomputes the anchor date of every-two-weeks and monthly plants.',
         security,
         params,
-        body: updateUserPlantSchema.strict(),
+        body: updateUserPlantSchema,
         response: { 200: userPlantSchema },
       },
     },

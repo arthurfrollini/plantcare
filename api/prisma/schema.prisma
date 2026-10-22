@@ -79,22 +79,22 @@ model PlantAlias {
 }
 
 model UserPlant {
-  id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  catalogPlantId String
-  catalogPlant   Plant    @relation(fields: [catalogPlantId], references: [id])
-  nickname       String?
-  frequencyTimes Int
-  frequencyPer   String
-  reminderTime   String
-  timeZone       String
-  light          String?
-  notes          String?
-  photoPath      String?
-  photoUpdatedAt DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  catalogPlantId      String
+  catalogPlant        Plant     @relation(fields: [catalogPlantId], references: [id])
+  nickname            String?
+  wateringDays        Int[]     @default([])
+  reminderTime        String
+  reminderLeadMinutes Int       @default(15)
+  scheduleStartsOn    DateTime? @db.Date
+  timeZone            String
+  notes               String?
+  photoPath           String?
+  photoUpdatedAt      DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@index([userId])
 }

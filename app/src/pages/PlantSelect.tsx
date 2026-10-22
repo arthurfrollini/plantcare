@@ -61,10 +61,7 @@ export function PlantSelect() {
     setSelected((current) =>
       current.some((pick) => pick.catalogPlantId === plant.id)
         ? current.filter((pick) => pick.catalogPlantId !== plant.id)
-        : [
-            ...current,
-            { catalogPlantId: plant.id, frequency: plant.frequency, light: plant.light },
-          ],
+        : [...current, { catalogPlantId: plant.id }],
     );
   }
 

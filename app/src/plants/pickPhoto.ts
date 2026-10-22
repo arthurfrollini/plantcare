@@ -1,15 +1,17 @@
 import * as ImagePicker from 'expo-image-picker';
 
-import type { PlantFormValues } from './pendingSave';
-
-export type PlantPhoto = NonNullable<PlantFormValues['photo']>;
-export type PhotoMessage = 'denied' | 'cancelled' | 'unsupported' | 'failed';
+/** A picked image, ready to upload. */
+export type PlantPhoto = { uri: string; mimeType: string };
+/** Why the picker gave no photo. */
+export type PickMessage = 'denied' | 'unsupported' | 'failed';
+/** A note under the photo: the picker's, or a failed upload or removal. */
+export type PhotoMessage = PickMessage | 'uploadFailed' | 'removeFailed';
 export type PhotoSource = 'camera' | 'gallery';
 
 export type PickPhotoResult =
   | { photo: PlantPhoto }
   | { cancelled: true }
-  | { message: Exclude<PhotoMessage, 'cancelled'> };
+  | { message: PickMessage };
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const EXTENSION_TYPES: Record<string, string> = {

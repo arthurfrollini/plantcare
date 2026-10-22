@@ -4,7 +4,7 @@ import type { UserPlant } from '@plantcare/shared';
 import { clearTokens } from '../auth/session';
 import { api } from './client';
 import { assetUrl } from './config';
-import { deleteMyPlant, listCatalog, plantPhotoSource } from './endpoints';
+import { deleteMyPlant, deletePlantPhoto, listCatalog, plantPhotoSource } from './endpoints';
 
 let mock: MockAdapter;
 beforeEach(async () => {
@@ -39,7 +39,12 @@ function plant(overrides: Partial<UserPlant>): UserPlant {
     frequency: { times: 1, per: 'day' },
     reminderTime: '08:00',
     timeZone: 'UTC',
-    light: null,
+    light: 'shade',
+    difficulty: 'easy',
+    wateringDays: [],
+    reminderLeadMinutes: 15,
+    scheduleStartsOn: null,
+    scheduleNeedsReview: false,
     notes: null,
     imageUrl: null,
     hasPhoto: false,
@@ -66,6 +71,12 @@ describe('endpoints', () => {
     mock.onDelete('/me/plants/up1').reply(204);
     await deleteMyPlant('up1');
     expect(mock.history.delete[0]?.headers?.['Content-Type']).toBeUndefined();
+  });
+
+  it('deletePlantPhoto returns the updated plant', async () => {
+    mock.onDelete('/me/plants/up1/photo').reply(200, plant({ id: 'up1' }));
+    const updated = await deletePlantPhoto('up1');
+    expect(updated.hasPhoto).toBe(false);
   });
 });
 

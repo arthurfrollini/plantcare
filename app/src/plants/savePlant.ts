@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
 import { createMyPlant, listMyPlants } from '../api/endpoints';
 import type { ConfirmationParams } from '../pages/Confirmation';
 import { ensureNotificationPermission, syncReminders, warnIfCapped } from '../reminders/sync';
-import type { PlantFormValues, SpeciesPick } from './pendingSave';
+import type { SpeciesPick } from './pendingSave';
 
 /** Every plant added from the catalog starts with its reminder at this time; it can be edited. */
 export const DEFAULT_REMINDER_TIME = '08:00';
@@ -25,35 +25,35 @@ export function deviceTimeZone(): string {
   }
 }
 
-/** A new plant with the species' own care plan; nickname, notes and photo come later, by editing. */
+/** A new plant: the species' own care plan; weekdays and photo come later, by editing. */
 export function createBody(pick: SpeciesPick): CreateUserPlant {
   return {
     catalogPlantId: pick.catalogPlantId,
-    frequency: pick.frequency,
     reminderTime: DEFAULT_REMINDER_TIME,
     timeZone: deviceTimeZone(),
-    light: pick.light,
   };
 }
 
-/** Only the fields that differ from the saved plant; empty when nothing changed. */
-export function changesBody(saved: UserPlant, values: PlantFormValues): UpdateUserPlant {
+export type ScheduleValues = {
+  wateringDays: number[];
+  reminderTime: string;
+  reminderLeadMinutes: number;
+};
+
+/** Only the schedule fields that differ from the saved plant; empty when nothing changed. */
+export function scheduleChanges(saved: UserPlant, values: ScheduleValues): UpdateUserPlant {
   const body: UpdateUserPlant = {};
-  const nickname = values.nickname.trim();
-  const notes = values.notes.trim();
-  if ((nickname || null) !== saved.nickname) body.nickname = nickname || null;
-  if (
-    values.frequency.per !== saved.frequency.per ||
-    values.frequency.times !== saved.frequency.times
-  ) {
-    body.frequency = values.frequency;
-  }
+  const sameDays =
+    values.wateringDays.length === saved.wateringDays.length &&
+    values.wateringDays.every((day, i) => day === saved.wateringDays[i]);
+  if (!sameDays) body.wateringDays = values.wateringDays;
   if (values.reminderTime !== saved.reminderTime) {
     body.reminderTime = values.reminderTime;
     body.timeZone = deviceTimeZone();
   }
-  if (values.light !== saved.light) body.light = values.light;
-  if ((notes || null) !== saved.notes) body.notes = notes || null;
+  if (values.reminderLeadMinutes !== saved.reminderLeadMinutes) {
+    body.reminderLeadMinutes = values.reminderLeadMinutes;
+  }
   return body;
 }
 
@@ -112,17 +112,6 @@ export function addedConfirmationParams(
   return {
     title: t('plantForm.doneTitle'),
     subtitle: failed > 0 ? `${subtitle}\n\n${t('plantSelect.notAdded', { count: failed })}` : subtitle,
-    buttonTitle: t('plantForm.doneButton'),
-    icon: 'hug',
-    nextScreen: 'MyPlants',
-  };
-}
-
-export function confirmationParams(t: TFunction, photoFailed: boolean): ConfirmationParams {
-  const subtitle = t('plantForm.doneSubtitle');
-  return {
-    title: t('plantForm.doneTitle'),
-    subtitle: photoFailed ? `${subtitle}\n\n${t('plantForm.photoNotSaved')}` : subtitle,
     buttonTitle: t('plantForm.doneButton'),
     icon: 'hug',
     nextScreen: 'MyPlants',

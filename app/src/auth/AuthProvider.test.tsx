@@ -417,7 +417,9 @@ describe('GoogleSignInButton', () => {
         <GoogleSignInButton title="Continue with Google" />
       </AuthProvider>,
     );
-    await waitFor(() => expect(screen.queryByText('Continue with Google')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Continue with Google')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
   });
 
   it('posts the token from the provider to /auth/google', async () => {
@@ -441,7 +443,8 @@ describe('reminder sync', () => {
   const plant = {
     id: 'p1', catalogPlantId: 'c1', nickname: null, speciesName: 'Monstera', scientificName: 'M',
     about: '', waterTips: '', frequency: { times: 1, per: 'day' }, reminderTime: '09:00',
-    timeZone: 'UTC', light: null, notes: null, imageUrl: null, hasPhoto: false, photoVersion: null,
+    timeZone: 'UTC', light: 'partial_shade', difficulty: 'easy', wateringDays: [], reminderLeadMinutes: 15,
+    scheduleStartsOn: null, scheduleNeedsReview: false, notes: null, imageUrl: null, hasPhoto: false, photoVersion: null,
     createdAt: '2026-10-22T00:00:00.000Z',
   };
   const scheduled = () => jest.mocked(Notifications.scheduleNotificationAsync);

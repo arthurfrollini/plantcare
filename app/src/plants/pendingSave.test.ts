@@ -3,10 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PENDING_SAVE_KEY, setPendingSave, takePendingSave, type PendingSave } from './pendingSave';
 
 const pending: PendingSave = {
-  plants: [
-    { catalogPlantId: 'c1', frequency: { times: 1, per: 'day' }, light: 'shade' },
-    { catalogPlantId: 'c2', frequency: { times: 2, per: 'week' }, light: 'full_sun' },
-  ],
+  plants: [{ catalogPlantId: 'c1' }, { catalogPlantId: 'c2' }],
 };
 
 beforeEach(() => AsyncStorage.clear());
@@ -32,6 +29,34 @@ describe('pendingSave', () => {
     await AsyncStorage.setItem(
       PENDING_SAVE_KEY,
       JSON.stringify({ catalogPlantId: 'c1', nickname: '', frequency: { times: 1, per: 'day' } }),
+    );
+
+    expect(await takePendingSave()).toBeNull();
+  });
+
+  it('drops the single-plant form saved by the first version of the app', async () => {
+    await AsyncStorage.setItem(
+      PENDING_SAVE_KEY,
+      JSON.stringify({
+        catalogPlantId: 'c1',
+        nickname: 'Pikachu',
+        frequency: { times: 1, per: 'day' },
+        reminderTime: '08:00',
+        light: 'shade',
+        notes: '',
+        photo: null,
+      }),
+    );
+
+    expect(await takePendingSave()).toBeNull();
+  });
+
+  it('drops a plants list whose entries carry the old care plan', async () => {
+    await AsyncStorage.setItem(
+      PENDING_SAVE_KEY,
+      JSON.stringify({
+        plants: [{ catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'shade' }],
+      }),
     );
 
     expect(await takePendingSave()).toBeNull();

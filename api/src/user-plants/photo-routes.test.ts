@@ -323,4 +323,46 @@ describe('plant photo routes', () => {
     expect(res.statusCode).toBe(204);
     expect(await readdir(dir)).toEqual([]);
   });
+
+  const removePhoto = (id: string, token: string) =>
+    app.inject({
+      method: 'DELETE',
+      url: `/me/plants/${id}/photo`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+  it('removes the photo', async () => {
+    const up = (
+      await upload(plantId, tokenA, {
+        data: png,
+        filename: 'a.png',
+        type: 'image/png',
+      })
+    ).json<UserPlant>();
+    const res = await removePhoto(plantId, tokenA);
+    expect(res.statusCode).toBe(200);
+    const body = res.json<UserPlant>();
+    expect(body).toMatchObject({ id: plantId, hasPhoto: false });
+    expect(body.photoVersion).not.toBe(up.photoVersion);
+    expect(await readdir(dir)).toEqual([]);
+    expect((await download(plantId, tokenA)).statusCode).toBe(404);
+  });
+
+  it("answers 404 removing another user's photo", async () => {
+    await upload(plantId, tokenA, {
+      data: png,
+      filename: 'a.png',
+      type: 'image/png',
+    });
+    const res = await removePhoto(plantId, tokenB);
+    expect(res.statusCode).toBe(404);
+    expect(res.json<ErrorBody>().error.code).toBe('user_plant_not_found');
+    expect(await readdir(dir)).toEqual([`${plantId}.png`]);
+  });
+
+  it('answers 200 removing when there is none', async () => {
+    const res = await removePhoto(plantId, tokenA);
+    expect(res.statusCode).toBe(200);
+    expect(res.json<UserPlant>().hasPhoto).toBe(false);
+  });
 });

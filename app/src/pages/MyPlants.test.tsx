@@ -69,13 +69,14 @@ async function signIn() {
 }
 
 describe('MyPlants', () => {
-  it('shows the nickname over the species name and caches the list', async () => {
+  it('shows the species name, not the nickname, and caches the list', async () => {
     await signIn();
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);
     renderScreen();
 
-    expect(await screen.findAllByText('Pikachu')).not.toHaveLength(0);
-    expect(screen.getByText('Monstera')).toBeTruthy();
+    expect(await screen.findAllByText('Monstera')).not.toHaveLength(0);
+    expect(await screen.findByText(/Don't forget to water your Monstera/)).toBeTruthy();
+    expect(screen.queryByText(/Pikachu/)).toBeNull();
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)).toContain('Pikachu'),
     );
@@ -101,14 +102,14 @@ describe('MyPlants', () => {
     );
   });
 
-  it('opens the form in edit mode when online', async () => {
+  it('opens the plant detail when online', async () => {
     await signIn();
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('PlantForm', { userPlantId: 'p1' });
+    expect(mockNavigate).toHaveBeenCalledWith('PlantDetail', { userPlantId: 'p1' });
   });
 
   it('removes a plant after the confirm dialog', async () => {
@@ -122,7 +123,9 @@ describe('MyPlants', () => {
     const buttons = alert.mock.calls[0]?.[2];
     buttons?.find((b) => b.text === 'Remove')?.onPress?.();
 
-    await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Monstera')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
     expect(mock.history.delete[0]?.headers?.['Content-Type']).toBeUndefined();
   });
 

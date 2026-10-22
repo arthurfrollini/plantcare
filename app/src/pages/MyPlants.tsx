@@ -57,11 +57,11 @@ export function MyPlants() {
       Alert.alert(t('myPlants.offlineNotice'));
       return;
     }
-    navigation.navigate('PlantForm', { userPlantId: plant.id });
+    navigation.navigate('PlantDetail', { userPlantId: plant.id });
   }
 
   function handleRemove(plant: UserPlant) {
-    Alert.alert(t('myPlants.removeTitle', { name: plant.nickname ?? plant.speciesName }), undefined, [
+    Alert.alert(t('myPlants.removeTitle', { name: plant.speciesName }), undefined, [
       { text: t('myPlants.cancel'), style: 'cancel' },
       {
         text: t('myPlants.remove'),
@@ -108,7 +108,7 @@ export function MyPlants() {
   const nextWatering =
     first && first.next
       ? t('myPlants.nextWatering', {
-          name: first.plant.nickname ?? first.plant.speciesName,
+          name: first.plant.speciesName,
           time: formatDistance(first.next, new Date(), { locale: dateLocale(), addSuffix: true }),
         })
       : t('myPlants.empty');
