@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { difficultySchema, lightSchema, type Difficulty, type Light } from '@plantcare/shared';
@@ -22,7 +23,8 @@ const DIFFICULTY_EMOJI: Record<Difficulty, string> = {
   hard: '😅',
 };
 
-const SHEET_OFFSET = 400;
+/** Start position below the screen until the sheet has measured itself. */
+const INITIAL_SHEET_HEIGHT = 600;
 
 interface FilterSheetProps {
   visible: boolean;
@@ -43,13 +45,26 @@ export function FilterSheet({
 }: FilterSheetProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [offset] = useState(() => new Animated.Value(SHEET_OFFSET));
+  const [progress] = useState(() => new Animated.Value(0));
+  const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_HEIGHT);
+  // Stays true while the sheet slides out, so the modal closes only after the animation.
+  const [mounted, setMounted] = useState(visible);
+  if (visible && !mounted) setMounted(true);
 
   useEffect(() => {
-    if (!visible) return;
-    offset.setValue(SHEET_OFFSET);
-    Animated.timing(offset, { toValue: 0, duration: 220, useNativeDriver: true }).start();
-  }, [visible, offset]);
+    const animation = Animated.timing(progress, {
+      toValue: visible ? 1 : 0,
+      duration: visible ? 280 : 220,
+      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
+    return () => animation.stop();
+  }, [visible, progress]);
+
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [sheetHeight, 0] });
 
   function clear() {
     onLightChange(null);
@@ -57,13 +72,25 @@ export function FilterSheet({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessible={false} />
+    <Modal
+      visible={mounted}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: progress }]}>
+        <BlurView
+          intensity={20}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={StyleSheet.absoluteFill}
+        />
+        <Pressable style={styles.backdrop} onPress={onClose} accessible={false} />
+      </Animated.View>
       <Animated.View
-        style={[
-          styles.sheet,
-          { paddingBottom: insets.bottom + 24, transform: [{ translateY: offset }] },
-        ]}
+        onLayout={(e) => setSheetHeight(e.nativeEvent.layout.height)}
+        style={[styles.sheet, { paddingBottom: insets.bottom + 24, transform: [{ translateY }] }]}
       >
         <View style={styles.top}>
           <Text style={styles.title}>{t('plantSelect.filters')}</Text>
@@ -119,9 +146,13 @@ export function FilterSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
