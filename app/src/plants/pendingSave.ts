@@ -15,7 +15,7 @@ export const plantFormValuesSchema = z.object({
 export type PlantFormValues = z.infer<typeof plantFormValuesSchema>;
 
 /** A species picked in the catalog; the API gives it the species' own care plan. */
-export const speciesPickSchema = z.object({ catalogPlantId: z.string().min(1) });
+export const speciesPickSchema = z.strictObject({ catalogPlantId: z.string().min(1) });
 export type SpeciesPick = z.infer<typeof speciesPickSchema>;
 
 const pendingSaveSchema = z.object({ plants: z.array(speciesPickSchema).min(1) });

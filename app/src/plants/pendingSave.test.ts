@@ -34,6 +34,34 @@ describe('pendingSave', () => {
     expect(await takePendingSave()).toBeNull();
   });
 
+  it('drops the single-plant form saved by the first version of the app', async () => {
+    await AsyncStorage.setItem(
+      PENDING_SAVE_KEY,
+      JSON.stringify({
+        catalogPlantId: 'c1',
+        nickname: 'Pikachu',
+        frequency: { times: 1, per: 'day' },
+        reminderTime: '08:00',
+        light: 'shade',
+        notes: '',
+        photo: null,
+      }),
+    );
+
+    expect(await takePendingSave()).toBeNull();
+  });
+
+  it('drops a plants list whose entries carry the old care plan', async () => {
+    await AsyncStorage.setItem(
+      PENDING_SAVE_KEY,
+      JSON.stringify({
+        plants: [{ catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'shade' }],
+      }),
+    );
+
+    expect(await takePendingSave()).toBeNull();
+  });
+
   it('drops a malformed value', async () => {
     await AsyncStorage.setItem(PENDING_SAVE_KEY, '{"nope":1}');
 

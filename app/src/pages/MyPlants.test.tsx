@@ -11,6 +11,7 @@ import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
 import { resetCapWarning } from '../reminders/sync';
 import { MY_PLANTS_CACHE_KEY } from '../plants/myPlantsCache';
+import * as nextWatering from '../plants/nextWatering';
 import { accountFixture, userPlantFixture } from '../plants/testFixtures';
 import { MyPlants } from './MyPlants';
 
@@ -72,10 +73,15 @@ describe('MyPlants', () => {
   it('shows the species name, not the nickname, and caches the list', async () => {
     await signIn();
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+    // Pins a next watering so the banner renders whatever the schedule code does.
+    jest
+      .spyOn(nextWatering, 'sortByNextWatering')
+      .mockImplementation((plants) => plants.map((plant) => ({ plant, next: new Date() })));
     renderScreen();
 
     expect(await screen.findAllByText('Monstera')).not.toHaveLength(0);
-    expect(screen.queryByText('Pikachu')).toBeNull();
+    expect(await screen.findByText(/Don't forget to water your Monstera/)).toBeTruthy();
+    expect(screen.queryByText(/Pikachu/)).toBeNull();
     await waitFor(async () =>
       expect(await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)).toContain('Pikachu'),
     );

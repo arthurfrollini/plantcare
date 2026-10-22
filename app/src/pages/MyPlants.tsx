@@ -108,7 +108,7 @@ export function MyPlants() {
   const nextWatering =
     first && first.next
       ? t('myPlants.nextWatering', {
-          name: first.plant.nickname ?? first.plant.speciesName,
+          name: first.plant.speciesName,
           time: formatDistance(first.next, new Date(), { locale: dateLocale(), addSuffix: true }),
         })
       : t('myPlants.empty');
