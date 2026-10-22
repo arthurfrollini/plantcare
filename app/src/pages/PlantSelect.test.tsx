@@ -144,11 +144,12 @@ describe('PlantSelect', () => {
     // A filter applies at once (the search is debounced), so the list changes without timers.
     fireEvent.press(screen.getByLabelText('Filters'));
     fireEvent.press(screen.getByText('Full sun'));
-    await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull());
+    // The refetch with the sheet open takes over a second on the Linux CI runner.
+    await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull(), { timeout: 5000 });
     fireEvent.press(screen.getByText('Cactus'));
 
     expect(screen.getByText('Add 2 plants')).toBeTruthy();
-  });
+  }, 15000);
 
   it('adds every selected species with its care plan, then confirms', async () => {
     await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
