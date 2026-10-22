@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import type { PhotoMessage } from '../plants/usePlantForm';
+import type { PhotoMessage } from '../plants/usePlantDetail';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
