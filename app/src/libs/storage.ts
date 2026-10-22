@@ -3,6 +3,7 @@ import { DailyTriggerInput, WeeklyTriggerInput } from 'expo-notifications';
 import { format, getHours, getMinutes, getDay } from 'date-fns';
 import * as Notifications from 'expo-notifications';
 import i18n from '../i18n';
+import { ensureNotificationPermission } from '../reminders/sync';
 
 export interface PlantProps {
   id: string;
@@ -26,17 +27,9 @@ export interface StoragePlantProps {
   };
 }
 
-async function ensureNotificationPermission() {
-  const { granted } = await Notifications.getPermissionsAsync();
-  if (granted) return;
-
-  const request = await Notifications.requestPermissionsAsync();
-  if (!request.granted) throw new Error('Notification permission denied');
-}
-
 export async function savePlant(plant: PlantProps): Promise<void> {
   try {
-    await ensureNotificationPermission();
+    if (!(await ensureNotificationPermission())) throw new Error('Notification permission denied');
 
     const nextTime = new Date(plant.dateTimeNotification);
 

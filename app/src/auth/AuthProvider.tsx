@@ -22,6 +22,7 @@ import {
   updateMe,
 } from '../api/endpoints';
 import { changeLanguage, currentLanguage } from '../i18n';
+import { cancelAllReminders } from '../reminders/sync';
 import { clearTokens, loadTokens, saveTokens, sessionEpoch } from './session';
 
 const USER_KEY = '@plantcare:user';
@@ -185,6 +186,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.removeItem(MY_PLANTS_CACHE_KEY);
     setUser(null);
     setStatus('signedOut');
+    try {
+      await cancelAllReminders();
+    } catch {
+      // Best effort; a failed cancel must not hold the user in.
+    }
     // Best effort, not awaited: being offline must not hold the user in.
     if (tokens) void logout(tokens.refreshToken).catch(() => undefined);
   }, []);

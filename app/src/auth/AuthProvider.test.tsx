@@ -1,6 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import MockAdapter from 'axios-mock-adapter';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 
@@ -221,6 +222,22 @@ describe('signed-out handler', () => {
 });
 
 describe('signOut', () => {
+  it('cancels every scheduled reminder, and a failure does not block sign-out', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPost('/auth/logout').reply(204);
+    const cancel = jest.mocked(Notifications.cancelAllScheduledNotificationsAsync);
+    cancel.mockClear();
+    cancel.mockRejectedValueOnce(new Error('boom'));
+    const { result } = await renderAuth();
+
+    await act(() => result.current.signOut());
+
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe('signedOut');
+    expect(await loadTokens()).toBeNull();
+  });
+
   it('logs out, clears tokens and the My Plants cache', async () => {
     await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
     await AsyncStorage.setItem('@plantcare:myPlantsCache', '[]');
