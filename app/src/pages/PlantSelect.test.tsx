@@ -132,23 +132,18 @@ describe('PlantSelect', () => {
     expect(screen.queryByRole('button', { name: 'Monstera', selected: true })).toBeNull();
   });
 
-  it('keeps the selection while searching', async () => {
+  it('keeps the selection when the list changes', async () => {
     mock.onGet('/plants').reply((config) => {
-      const search = (config.params as { search?: string } | undefined)?.search;
-      const items = search ? [cactusFixture] : [catalogFixture, cactusFixture];
+      const light = (config.params as { light?: string } | undefined)?.light;
+      const items = light ? [cactusFixture] : [catalogFixture, cactusFixture];
       return [200, { items, nextPage: null }];
     });
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
-    // The search is debounced: run its 300 ms timer by hand instead of waiting for it.
-    jest.useFakeTimers();
-    try {
-      fireEvent.changeText(screen.getByLabelText('Search plants'), 'cac');
-      act(() => jest.advanceTimersByTime(300));
-    } finally {
-      jest.useRealTimers();
-    }
+    // A filter applies at once (the search is debounced), so the list changes without timers.
+    fireEvent.press(screen.getByLabelText('Filters'));
+    fireEvent.press(screen.getByText('Full sun'));
     await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull());
     fireEvent.press(screen.getByText('Cactus'));
 
