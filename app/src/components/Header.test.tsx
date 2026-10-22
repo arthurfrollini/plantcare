@@ -6,7 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '../auth/AuthProvider';
 import { initI18n } from '../i18n';
-import { Header, initials } from './Header';
+import { Header, firstName, initials } from './Header';
 
 describe('initials', () => {
   it('takes the first letters of the first two words', () => {
@@ -22,13 +22,27 @@ describe('initials', () => {
   });
 });
 
+describe('firstName', () => {
+  it('keeps only the first word', () => {
+    expect(firstName('Ana Clara Souza')).toBe('Ana');
+  });
+
+  it('trims surrounding and repeated spaces', () => {
+    expect(firstName('   Arthur    Frollini ')).toBe('Arthur');
+  });
+
+  it('is empty for an empty name', () => {
+    expect(firstName('  ')).toBe('');
+  });
+});
+
 describe('Header', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     await initI18n();
   });
 
-  it('shows the stored user name and initials', async () => {
+  it('greets by first name and keeps both initials', async () => {
     await AsyncStorage.setItem('@plantcare:user', 'Arthur Frollini');
 
     render(
@@ -46,7 +60,8 @@ describe('Header', () => {
       </SafeAreaProvider>,
     );
 
-    expect(await screen.findByText('Arthur Frollini')).toBeTruthy();
+    expect(await screen.findByText('Arthur')).toBeTruthy();
+    expect(screen.queryByText('Arthur Frollini')).toBeNull();
     expect(screen.getByText('AF')).toBeTruthy();
   });
 });

@@ -1,7 +1,7 @@
 const en = {
   welcome: {
     title: 'Manage your\nplants with ease',
-    haveAccount: 'I already have an account',
+    start: 'Get started',
     subtitle: "Never forget to water your plants again. We'll remind you when it's time.",
   },
   identification: {
@@ -39,16 +39,35 @@ const en = {
   },
   header: {
     greeting: 'Hello,',
-    openProfile: 'Open profile',
   },
   plantSelect: {
+    back: 'Back',
+    tabCatalog: 'Catalog',
+    tabAi: 'Add with AI',
+    aiTitle: 'Add with AI',
+    aiText: "Soon you'll type a plant's name or take a photo, and the AI will find it and add it to the catalog.",
+    soon: 'Soon',
+    add_zero: 'Add plant(s)',
     title: 'Find your plant',
     subtitle: 'Search, or filter by light and difficulty.',
     searchPlaceholder: 'Search plants',
     lightLabel: 'Light',
     difficultyLabel: 'Difficulty',
+    filters: 'Filters',
+    filtersActive_one: 'Filters, {{count}} active',
+    filtersActive_other: 'Filters, {{count}} active',
+    clear: 'Clear',
+    done: 'Done',
     all: 'All',
     empty: 'No plants found.',
+    add_one: 'Add plant',
+    add_other: 'Add {{count}} plants',
+    selected: 'Selected',
+    added_one: "Your plant is in your garden. We'll remind you when it's time to water it.",
+    added_other: "Your {{count}} plants are in your garden. We'll remind you when it's time to water them.",
+    notAdded_one: "{{count}} plant couldn't be added. Pick it again in the catalog.",
+    notAdded_other: "{{count}} plants couldn't be added. Pick them again in the catalog.",
+    addedSome: 'Added {{added}} of {{total}} plants. The rest are still selected, so you can try again.',
     retry: 'Try again',
     errors: {
       network: "Can't reach the server. Check your connection and try again.",
@@ -78,7 +97,6 @@ const en = {
       unsupported: 'That photo type is not supported. Use a JPEG, PNG or WebP image.',
       failed: "Couldn't open the photo. You can still save the plant without one.",
     },
-    saveAdd: 'Add plant',
     saveEdit: 'Save changes',
     saving: 'Saving',
     retry: 'Try again',
@@ -107,7 +125,7 @@ const en = {
   },
   myPlants: {
     nextWatering: "Don't forget to water your {{name}} {{time}}.",
-    empty: "You haven't added any plants yet.",
+    empty: "You haven't added any plants yet. Tap + to add your first one.",
     upcoming: 'Coming up',
     waterAt: 'Water at',
     removeTitle: 'Remove {{name}}?',
@@ -122,7 +140,8 @@ const en = {
     capReached: 'Only 60 reminders fit on your phone, so some of your plants will not get one.',
   },
   tabs: {
-    newPlant: 'New plant',
+    profile: 'Profile',
+    newPlant: 'Add a plant',
     myPlants: 'My plants',
   },
   notification: {
@@ -131,7 +150,6 @@ const en = {
   },
   profile: {
     title: 'Profile',
-    back: 'Back',
     language: 'Language',
     account: 'Account',
     signIn: 'Sign in',

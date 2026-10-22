@@ -3,7 +3,7 @@ import type en from './en';
 const ptBR: typeof en = {
   welcome: {
     title: 'Cuide das suas\nplantas sem esforço',
-    haveAccount: 'Já tenho uma conta',
+    start: 'Começar',
     subtitle: 'Nunca mais esqueça de regar suas plantas. A gente te lembra na hora certa.',
   },
   identification: {
@@ -41,16 +41,35 @@ const ptBR: typeof en = {
   },
   header: {
     greeting: 'Olá,',
-    openProfile: 'Abrir perfil',
   },
   plantSelect: {
+    back: 'Voltar',
+    tabCatalog: 'Catálogo',
+    tabAi: 'Adicionar com IA',
+    aiTitle: 'Adicionar com IA',
+    aiText: 'Em breve você vai digitar o nome de uma planta ou tirar uma foto, e a IA vai encontrá-la e adicioná-la ao catálogo.',
+    soon: 'Em breve',
+    add_zero: 'Adicionar planta(s)',
     title: 'Encontre sua planta',
     subtitle: 'Busque, ou filtre por luz e dificuldade.',
     searchPlaceholder: 'Buscar plantas',
     lightLabel: 'Luz',
     difficultyLabel: 'Dificuldade',
+    filters: 'Filtros',
+    filtersActive_one: 'Filtros, {{count}} ativo',
+    filtersActive_other: 'Filtros, {{count}} ativos',
+    clear: 'Limpar',
+    done: 'Pronto',
     all: 'Todas',
     empty: 'Nenhuma planta encontrada.',
+    add_one: 'Adicionar planta',
+    add_other: 'Adicionar {{count}} plantas',
+    selected: 'Selecionada',
+    added_one: 'Sua planta está no seu jardim. A gente te lembra na hora de regar.',
+    added_other: 'Suas {{count}} plantas estão no seu jardim. A gente te lembra na hora de regar.',
+    notAdded_one: 'Não consegui adicionar {{count}} planta. Escolha de novo no catálogo.',
+    notAdded_other: 'Não consegui adicionar {{count}} plantas. Escolha de novo no catálogo.',
+    addedSome: 'Adicionei {{added}} de {{total}} plantas. As outras continuam selecionadas pra tentar de novo.',
     retry: 'Tentar de novo',
     errors: {
       network: 'Não consegui falar com o servidor. Confira sua conexão e tente de novo.',
@@ -80,7 +99,6 @@ const ptBR: typeof en = {
       unsupported: 'Esse tipo de foto não é aceito. Use uma imagem JPEG, PNG ou WebP.',
       failed: 'Não foi possível abrir a foto. Você ainda pode salvar a planta sem foto.',
     },
-    saveAdd: 'Cadastrar planta',
     saveEdit: 'Salvar alterações',
     saving: 'Salvando',
     retry: 'Tentar de novo',
@@ -109,7 +127,7 @@ const ptBR: typeof en = {
   },
   myPlants: {
     nextWatering: 'Não esqueça de regar a {{name}} {{time}}.',
-    empty: 'Você ainda não cadastrou nenhuma planta.',
+    empty: 'Você ainda não cadastrou nenhuma planta. Toque no + para adicionar a primeira.',
     upcoming: 'Próximas regas',
     waterAt: 'Regar às',
     removeTitle: 'Remover {{name}}?',
@@ -124,7 +142,8 @@ const ptBR: typeof en = {
     capReached: 'Só cabem 60 lembretes no celular, então algumas plantas ficarão sem lembrete.',
   },
   tabs: {
-    newPlant: 'Nova planta',
+    profile: 'Perfil',
+    newPlant: 'Adicionar planta',
     myPlants: 'Minhas plantas',
   },
   notification: {
@@ -133,7 +152,6 @@ const ptBR: typeof en = {
   },
   profile: {
     title: 'Perfil',
-    back: 'Voltar',
     language: 'Idioma',
     account: 'Conta',
     signIn: 'Entrar',

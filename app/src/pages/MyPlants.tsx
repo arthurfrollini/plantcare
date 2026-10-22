@@ -57,7 +57,7 @@ export function MyPlants() {
       Alert.alert(t('myPlants.offlineNotice'));
       return;
     }
-    navigation.navigate('PlantForm', { mode: 'edit', userPlantId: plant.id });
+    navigation.navigate('PlantForm', { userPlantId: plant.id });
   }
 
   function handleRemove(plant: UserPlant) {

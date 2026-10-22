@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 /**
@@ -11,9 +10,7 @@ export function apiUrl(): string {
 
   const hostUri: unknown = Constants.expoConfig?.hostUri;
   const metroHost = typeof hostUri === 'string' ? hostUri.split(':')[0] : undefined;
-  const host =
-    metroHost ??
-    (Platform.OS === 'web' ? window.location.hostname : 'localhost');
+  const host = metroHost ?? 'localhost';
 
   return `http://${host}:3333`;
 }

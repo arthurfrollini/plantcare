@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import type { Frequency, Light, UserPlant } from '@plantcare/shared';
 
 import { toApiError } from '../api/client';
 import {
-  getCatalogPlant,
   listMyPlants,
   plantPhotoSource,
   updateMyPlant,
@@ -15,13 +13,9 @@ import {
 import { useAuth } from '../auth/AuthProvider';
 import { loadTokens } from '../auth/session';
 import type { RootStackParamList } from '../routes/stack.routes';
-import { setPendingSave, type PlantFormValues } from './pendingSave';
-import {
-  changesBody,
-  confirmationParams,
-  createPlantWithPhoto,
-  syncAfterSave,
-} from './savePlant';
+import type { PlantFormValues } from './pendingSave';
+import { pickPhoto as pickFrom, type PhotoMessage, type PhotoSource } from './pickPhoto';
+import { changesBody, confirmationParams, syncAfterSave } from './savePlant';
 
 export type { PlantFormValues } from './pendingSave';
 export type PlantFormParams = RootStackParamList['PlantForm'];
@@ -35,12 +29,12 @@ export type Species = {
 };
 
 export type FormError = 'network' | 'validation_error' | 'rate_limited' | 'unknown';
-export type PhotoMessage = 'denied' | 'cancelled' | 'unsupported' | 'failed';
+export type { PhotoMessage } from './pickPhoto';
 
 type Load =
   | { state: 'loading' }
   | { state: 'error'; error: FormError }
-  | { state: 'ready'; species: Species; saved: UserPlant | null; accessToken: string | null };
+  | { state: 'ready'; species: Species; saved: UserPlant; accessToken: string | null };
 
 const DEFAULT_VALUES: PlantFormValues = {
   nickname: '',
@@ -49,14 +43,6 @@ const DEFAULT_VALUES: PlantFormValues = {
   light: null,
   notes: '',
   photo: null,
-};
-
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const EXTENSION_TYPES: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
 };
 
 function formError(e: unknown): FormError {
@@ -69,12 +55,6 @@ function formError(e: unknown): FormError {
     default:
       return 'unknown';
   }
-}
-
-function imageType(asset: { uri: string; mimeType?: string | undefined }): string | null {
-  if (asset.mimeType) return IMAGE_TYPES.includes(asset.mimeType) ? asset.mimeType : null;
-  const extension = asset.uri.split('?')[0]?.split('.').pop()?.toLowerCase() ?? '';
-  return EXTENSION_TYPES[extension] ?? null;
 }
 
 function valuesOf(saved: UserPlant): PlantFormValues {
@@ -90,19 +70,11 @@ function valuesOf(saved: UserPlant): PlantFormValues {
 
 type Ready = Extract<Load, { state: 'ready' }>;
 
-async function loadForm(params: PlantFormParams): Promise<{ ready: Ready; values: PlantFormValues }> {
-  if (params.mode === 'create') {
-    const plant = await getCatalogPlant(params.catalogPlantId);
-    return {
-      ready: { state: 'ready', species: plant, saved: null, accessToken: null },
-      // The species' own care plan is the starting point.
-      values: { ...DEFAULT_VALUES, frequency: plant.frequency, light: plant.light },
-    };
-  }
+async function loadForm(userPlantId: string): Promise<{ ready: Ready; values: PlantFormValues }> {
   // The list request refreshes an expired token first, so the token is read after it.
   const plants = await listMyPlants();
   const tokens = await loadTokens();
-  const saved = plants.find((p) => p.id === params.userPlantId);
+  const saved = plants.find((p) => p.id === userPlantId);
   if (!saved) throw new Error('Plant not found');
   return {
     ready: {
@@ -121,7 +93,8 @@ async function loadForm(params: PlantFormParams): Promise<{ ready: Ready; values
   };
 }
 
-export function usePlantForm(params: PlantFormParams) {
+/** Edits a plant already in the garden; plants are added from the catalog, not through this form. */
+export function usePlantForm({ userPlantId }: PlantFormParams) {
   const navigation = useNavigation();
   const { status } = useAuth();
   const { t } = useTranslation();
@@ -136,17 +109,11 @@ export function usePlantForm(params: PlantFormParams) {
   const photoRetried = useRef(false);
   const [savedPhotoFailed, setSavedPhotoFailed] = useState(false);
 
-  const { mode } = params;
-  const targetId = params.mode === 'create' ? params.catalogPlantId : params.userPlantId;
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
-    const target: PlantFormParams =
-      mode === 'create'
-        ? { mode, catalogPlantId: targetId }
-        : { mode, userPlantId: targetId };
-    loadForm(target).then(
+    loadForm(userPlantId).then(
       (result) => {
         if (!active) return;
         setValues(result.values);
@@ -159,7 +126,7 @@ export function usePlantForm(params: PlantFormParams) {
     return () => {
       active = false;
     };
-  }, [mode, targetId, attempt]);
+  }, [userPlantId, attempt]);
 
   const retryLoad = useCallback(() => {
     setLoad({ state: 'loading' });
@@ -184,42 +151,17 @@ export function usePlantForm(params: PlantFormParams) {
     update({ frequency: { times: Math.min(7, Math.max(1, Math.round(times))), per: 'week' } });
   }
 
-  async function pickPhoto(source: 'camera' | 'gallery') {
+  async function pickPhoto(source: PhotoSource) {
     setPhotoMessage(null);
-    try {
-      const permission =
-        source === 'camera'
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        setPhotoMessage('denied');
-        return;
-      }
-      const options = { mediaTypes: ['images' as const], quality: 0.8 };
-      const result =
-        source === 'camera'
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync({
-              ...options,
-              // Makes iOS convert HEIC photos to JPEG, which the API accepts.
-              preferredAssetRepresentationMode:
-                ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-            });
-      const asset = result.canceled ? undefined : result.assets[0];
-      if (!asset) {
-        // With a photo showing (just picked, or saved), "no photo" would be misleading.
-        const showingPhoto = values.photo !== null || (load.state === 'ready' && load.saved?.hasPhoto);
-        if (!showingPhoto) setPhotoMessage('cancelled');
-        return;
-      }
-      const mimeType = imageType(asset);
-      if (!mimeType) {
-        setPhotoMessage('unsupported');
-        return;
-      }
-      update({ photo: { uri: asset.uri, mimeType } });
-    } catch {
-      setPhotoMessage('failed');
+    const result = await pickFrom(source);
+    if ('photo' in result) {
+      update({ photo: result.photo });
+    } else if ('message' in result) {
+      setPhotoMessage(result.message);
+    } else {
+      // With a photo showing (just picked, or saved), "no photo" would be misleading.
+      const showingPhoto = values.photo !== null || (load.state === 'ready' && load.saved?.hasPhoto);
+      if (!showingPhoto) setPhotoMessage('cancelled');
     }
   }
 
@@ -255,20 +197,7 @@ export function usePlantForm(params: PlantFormParams) {
     setSaving(true);
     setError(null);
     try {
-      if (params.mode === 'create') {
-        if (status !== 'signedIn') {
-          await setPendingSave({ ...values, catalogPlantId: params.catalogPlantId });
-          navigation.navigate('Auth', { mode: 'signUp', afterAuth: 'savePendingPlant' });
-          return;
-        }
-        const { photoFailed } = await createPlantWithPhoto(params.catalogPlantId, values);
-        await syncAfterSave();
-        navigation.dispatch(StackActions.replace('Confirmation', confirmationParams(t, photoFailed)));
-        return;
-      }
-
       const saved = load.saved;
-      if (!saved) return;
       const changes = changesBody(saved, values);
       if (Object.keys(changes).length > 0) await updateMyPlant(saved.id, changes);
       let photoFailed = false;
@@ -291,7 +220,7 @@ export function usePlantForm(params: PlantFormParams) {
 
   const ready = load.state === 'ready' ? load : null;
   const savedPhoto =
-    ready?.saved && ready.accessToken && !savedPhotoFailed ? plantPhotoSource(ready.saved, ready.accessToken) : null;
+    ready && ready.accessToken && !savedPhotoFailed ? plantPhotoSource(ready.saved, ready.accessToken) : null;
 
   return {
     load,

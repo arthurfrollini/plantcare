@@ -9,12 +9,12 @@ import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
-import { accountFixture, catalogFixture, userPlantFixture } from '../plants/testFixtures';
+import { accountFixture, userPlantFixture } from '../plants/testFixtures';
 import { PlantForm } from './PlantForm';
 
 const mockNavigate = jest.fn();
 const mockDispatch = jest.fn();
-let mockParams: object = { mode: 'create', catalogPlantId: 'c1' };
+const mockParams = { userPlantId: 'p1' };
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual<object>('@react-navigation/native'),
@@ -30,12 +30,11 @@ beforeEach(async () => {
   mock = new MockAdapter(api);
   mockNavigate.mockClear();
   mockDispatch.mockClear();
-  mockParams = { mode: 'create', catalogPlantId: 'c1' };
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');
-  mock.onGet('/plants/c1').reply(200, catalogFixture);
   mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+  mock.onPatch('/me/plants/p1').reply(200, userPlantFixture);
 });
 
 afterEach(() => mock.restore());
@@ -61,14 +60,15 @@ function renderForm() {
 }
 
 describe('PlantForm', () => {
-  it('shows the species and the pre-filled care plan', async () => {
+  it('shows the species and the saved care plan', async () => {
     await signIn();
     renderForm();
 
     expect(await screen.findByText('Monstera')).toBeTruthy();
+    expect(screen.getByDisplayValue('Pikachu')).toBeTruthy();
     expect(screen.getByLabelText('2 times a week').props.accessibilityState.selected).toBe(true);
     expect(screen.getByLabelText('Partial shade').props.accessibilityState.selected).toBe(true);
-    expect(screen.getByText('Add plant')).toBeTruthy();
+    expect(screen.getByText('Save changes')).toBeTruthy();
   });
 
   it('says "1 time", not "1 times", in the frequency chip label', async () => {
@@ -79,41 +79,20 @@ describe('PlantForm', () => {
     expect(screen.queryByLabelText('1 times a week')).toBeNull();
   });
 
-  it('creates the plant once when Save is double tapped, then confirms', async () => {
+  it('saves once when Save is double tapped, then confirms', async () => {
     await signIn();
-    mock.onPost('/me/plants').reply(201, userPlantFixture);
     renderForm();
     await screen.findByText('Monstera');
-    await waitFor(() =>
-      expect(screen.getByText('Add plant')).toBeEnabled(),
-    );
+    await waitFor(() => expect(screen.getByText('Save changes')).toBeEnabled());
 
-    fireEvent.changeText(screen.getByLabelText('Nickname (optional)'), 'Pikachu');
-    const save = screen.getByText('Add plant');
+    fireEvent.changeText(screen.getByLabelText('Nickname (optional)'), 'Bulbasaur');
+    const save = screen.getByText('Save changes');
     fireEvent.press(save);
     fireEvent.press(save);
 
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
-    const created = mock.history.post.filter((r) => r.url === '/me/plants');
-    expect(created).toHaveLength(1);
-    expect(JSON.parse(String(created[0]?.data))).toMatchObject({ nickname: 'Pikachu' });
-  });
-
-  it('opens sign up when signed out', async () => {
-    renderForm();
-    await screen.findByText('Monstera');
-
-    await waitFor(() =>
-      expect(screen.getByText('Add plant')).toBeEnabled(),
-    );
-    fireEvent.press(screen.getByText('Add plant'));
-    await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith('Auth', {
-        mode: 'signUp',
-        afterAuth: 'savePendingPlant',
-      }),
-    );
-    expect(mock.history.post).toHaveLength(0);
+    expect(mock.history.patch).toHaveLength(1);
+    expect(JSON.parse(String(mock.history.patch[0]?.data))).toEqual({ nickname: 'Bulbasaur' });
   });
 
   it('says why there is no photo when the permission is denied', async () => {
@@ -134,15 +113,17 @@ describe('PlantForm', () => {
 
   it('shows the network message and keeps Save available as a retry', async () => {
     await signIn();
-    mock.onPost('/me/plants').networkErrorOnce();
-    mock.onPost('/me/plants').reply(201, userPlantFixture);
+    mock.resetHandlers();
+    mock.onGet('/me').reply(200, accountFixture);
+    mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+    mock.onPatch('/me/plants/p1').networkErrorOnce();
+    mock.onPatch('/me/plants/p1').reply(200, userPlantFixture);
     renderForm();
     await screen.findByText('Monstera');
-    await waitFor(() =>
-      expect(screen.getByText('Add plant')).toBeEnabled(),
-    );
+    await waitFor(() => expect(screen.getByText('Save changes')).toBeEnabled());
 
-    fireEvent.press(screen.getByText('Add plant'));
+    fireEvent.changeText(screen.getByLabelText('Nickname (optional)'), 'Bulbasaur');
+    fireEvent.press(screen.getByText('Save changes'));
 
     expect(
       await screen.findByText("Can't reach the server. Check your connection and try again."),
@@ -151,23 +132,16 @@ describe('PlantForm', () => {
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
   });
 
-  it('shows a retry instead of a spinner when the species cannot be loaded', async () => {
+  it('shows a retry instead of a spinner when the plant cannot be loaded', async () => {
+    await signIn();
     mock.resetHandlers();
-    mock.onGet('/plants/c1').networkErrorOnce();
-    mock.onGet('/plants/c1').reply(200, catalogFixture);
+    mock.onGet('/me').reply(200, accountFixture);
+    mock.onGet('/me/plants').networkErrorOnce();
+    mock.onGet('/me/plants').reply(200, [userPlantFixture]);
     renderForm();
 
     fireEvent.press(await screen.findByText('Try again'));
 
     expect(await screen.findByText('Monstera')).toBeTruthy();
-  });
-
-  it('pre-fills from the saved plant in edit mode', async () => {
-    await signIn();
-    mockParams = { mode: 'edit', userPlantId: 'p1' };
-    renderForm();
-
-    expect(await screen.findByDisplayValue('Pikachu')).toBeTruthy();
-    expect(screen.getByText('Save changes')).toBeTruthy();
   });
 });

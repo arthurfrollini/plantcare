@@ -108,7 +108,7 @@ describe('MyPlants', () => {
 
     fireEvent.press(await screen.findByText('Monstera'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('PlantForm', { mode: 'edit', userPlantId: 'p1' });
+    expect(mockNavigate).toHaveBeenCalledWith('PlantForm', { userPlantId: 'p1' });
   });
 
   it('removes a plant after the confirm dialog', async () => {

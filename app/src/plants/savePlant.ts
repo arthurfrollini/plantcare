@@ -2,10 +2,13 @@ import { timeZoneSchema } from '@plantcare/shared';
 import type { CreateUserPlant, UpdateUserPlant, UserPlant } from '@plantcare/shared';
 import type { TFunction } from 'i18next';
 
-import { createMyPlant, listMyPlants, uploadPlantPhoto } from '../api/endpoints';
+import { createMyPlant, listMyPlants } from '../api/endpoints';
 import type { ConfirmationParams } from '../pages/Confirmation';
 import { ensureNotificationPermission, syncReminders, warnIfCapped } from '../reminders/sync';
-import type { PlantFormValues } from './pendingSave';
+import type { PlantFormValues, SpeciesPick } from './pendingSave';
+
+/** Every plant added from the catalog starts with its reminder at this time; it can be edited. */
+export const DEFAULT_REMINDER_TIME = '08:00';
 
 /** Keeps a zone only when the API will accept it; devices may report "GMT" or an empty value. */
 export function normalizeTimeZone(zone: string | undefined): string {
@@ -22,20 +25,14 @@ export function deviceTimeZone(): string {
   }
 }
 
-export function createBody(
-  catalogPlantId: string,
-  values: PlantFormValues,
-): CreateUserPlant {
-  const nickname = values.nickname.trim();
-  const notes = values.notes.trim();
+/** A new plant with the species' own care plan; nickname, notes and photo come later, by editing. */
+export function createBody(pick: SpeciesPick): CreateUserPlant {
   return {
-    catalogPlantId,
-    ...(nickname ? { nickname } : {}),
-    frequency: values.frequency,
-    reminderTime: values.reminderTime,
+    catalogPlantId: pick.catalogPlantId,
+    frequency: pick.frequency,
+    reminderTime: DEFAULT_REMINDER_TIME,
     timeZone: deviceTimeZone(),
-    light: values.light,
-    ...(notes ? { notes } : {}),
+    light: pick.light,
   };
 }
 
@@ -60,19 +57,28 @@ export function changesBody(saved: UserPlant, values: PlantFormValues): UpdateUs
   return body;
 }
 
-/** Creates the plant, then its photo. The photo failing never undoes the plant. */
-export async function createPlantWithPhoto(
-  catalogPlantId: string,
-  values: PlantFormValues,
-): Promise<{ plant: UserPlant; photoFailed: boolean }> {
-  const plant = await createMyPlant(createBody(catalogPlantId, values));
-  if (!values.photo) return { plant, photoFailed: false };
-  try {
-    await uploadPlantPhoto(plant.id, values.photo);
-    return { plant, photoFailed: false };
-  } catch {
-    return { plant, photoFailed: true };
+export type AddPlantsResult = {
+  added: UserPlant[];
+  failed: SpeciesPick[];
+  /** Why the first failure happened, to pick the message when nothing was added. */
+  error: unknown;
+};
+
+/**
+ * Adds the picked species to the garden one at a time (the API creates one plant per request).
+ * A failure does not stop the rest; the caller decides what to do with the ones that failed.
+ */
+export async function addPlants(picks: SpeciesPick[]): Promise<AddPlantsResult> {
+  const result: AddPlantsResult = { added: [], failed: [], error: null };
+  for (const pick of picks) {
+    try {
+      result.added.push(await createMyPlant(createBody(pick)));
+    } catch (e) {
+      result.failed.push(pick);
+      if (result.error === null) result.error = e;
+    }
   }
+  return result;
 }
 
 /**
@@ -94,6 +100,22 @@ export async function syncAfterSave(): Promise<{ scheduled: number; skipped: num
     // The next time a sync runs (sign-in, foreground), it tries again.
     return null;
   }
+}
+
+/** The confirmation after plants were added from the catalog; mentions any that were not. */
+export function addedConfirmationParams(
+  t: TFunction,
+  added: number,
+  failed: number,
+): ConfirmationParams {
+  const subtitle = t('plantSelect.added', { count: added });
+  return {
+    title: t('plantForm.doneTitle'),
+    subtitle: failed > 0 ? `${subtitle}\n\n${t('plantSelect.notAdded', { count: failed })}` : subtitle,
+    buttonTitle: t('plantForm.doneButton'),
+    icon: 'hug',
+    nextScreen: 'MyPlants',
+  };
 }
 
 export function confirmationParams(t: TFunction, photoFailed: boolean): ConfirmationParams {

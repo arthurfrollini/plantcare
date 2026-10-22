@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,12 +18,16 @@ export function initials(name: string) {
     .join('');
 }
 
+/** The first word of the name, so a full name never crowds the greeting. */
+export function firstName(name: string) {
+  return name.trim().split(/\s+/)[0] ?? '';
+}
+
 export function Header() {
   const [localName, setLocalName] = useState<string>();
   const { status, user } = useAuth();
   const { top } = useSafeAreaInsets();
   const { t } = useTranslation();
-  const navigation = useNavigation();
 
   useEffect(() => {
     async function loadStorageUsername() {
@@ -39,21 +42,16 @@ export function Header() {
 
   return (
     <View style={[styles.container, { marginTop: top }]}>
-      <View>
+      <View style={styles.names}>
         <Text style={styles.greeting}>{t('header.greeting')}</Text>
-        <Text style={styles.userName}>{username}</Text>
+        <Text style={styles.userName} numberOfLines={1}>
+          {firstName(username ?? '')}
+        </Text>
       </View>
 
-      <TouchableOpacity
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={t('header.openProfile')}
-        onPress={() => navigation.navigate('Profile')}
-      >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
-        </View>
-      </TouchableOpacity>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
+      </View>
     </View>
   );
 }
@@ -65,6 +63,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 20,
+  },
+  // Shrinks before the avatar does; a very long single name ends in an ellipsis.
+  names: {
+    flexShrink: 1,
+    marginRight: 16,
   },
   avatar: {
     width: 80,
