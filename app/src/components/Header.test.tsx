@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthProvider } from '../auth/AuthProvider';
 import { initI18n } from '../i18n';
 import { Header, initials } from './Header';
 
@@ -37,9 +38,11 @@ describe('Header', () => {
           insets: { top: 0, left: 0, right: 0, bottom: 0 },
         }}
       >
-        <NavigationContainer>
-          <Header />
-        </NavigationContainer>
+        <AuthProvider>
+          <NavigationContainer>
+            <Header />
+          </NavigationContainer>
+        </AuthProvider>
       </SafeAreaProvider>,
     );
 

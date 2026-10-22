@@ -7,6 +7,7 @@ import { UserIdentification } from '../pages/UserIdentification';
 import { Confirmation, ConfirmationParams } from '../pages/Confirmation';
 import { PlantSave } from '../pages/PlantSave';
 import { Profile } from '../pages/Profile';
+import { Auth } from '../pages/Auth';
 import AuthRoutes, { TabParamList } from './tab.routes';
 import { PlantProps } from '../libs/storage';
 
@@ -20,6 +21,7 @@ export type RootStackParamList = {
   PlantSave: { plant: PlantProps };
   MyPlants: NavigatorScreenParams<TabParamList> | undefined;
   Profile: undefined;
+  Auth: { mode: 'signIn' | 'signUp'; afterAuth?: 'savePendingPlant' };
 };
 
 // Types every useNavigation() call against the routes above.
@@ -52,6 +54,7 @@ const AppRoutes = () => (
     <stackRoutes.Screen name="PlantSave" component={PlantSave} />
     <stackRoutes.Screen name="MyPlants" component={AuthRoutes} />
     <stackRoutes.Screen name="Profile" component={Profile} />
+    <stackRoutes.Screen name="Auth" component={Auth} />
   </stackRoutes.Navigator>
 );
 

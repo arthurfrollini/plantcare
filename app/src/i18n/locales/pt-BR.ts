@@ -3,6 +3,7 @@ import type en from './en';
 const ptBR: typeof en = {
   welcome: {
     title: 'Cuide das suas\nplantas sem esforço',
+    haveAccount: 'Já tenho uma conta',
     subtitle: 'Nunca mais esqueça de regar suas plantas. A gente te lembra na hora certa.',
   },
   identification: {
@@ -14,6 +15,28 @@ const ptBR: typeof en = {
     doneTitle: 'Tudo certo',
     doneSubtitle: 'Vamos começar a cuidar das suas plantas.',
     doneButton: 'Começar',
+  },
+  auth: {
+    signInTitle: 'Que bom te ver de novo',
+    signUpTitle: 'Crie sua conta',
+    name: 'Seu nome',
+    email: 'E-mail',
+    password: 'Senha',
+    signIn: 'Entrar',
+    signUp: 'Criar conta',
+    google: 'Continuar com Google',
+    toSignUp: 'Primeira vez aqui? Crie uma conta',
+    toSignIn: 'Já tem uma conta? Entrar',
+    back: 'Voltar',
+    loading: 'Aguarde',
+    errors: {
+      invalid_credentials: 'E-mail ou senha incorretos.',
+      email_taken: 'Esse e-mail já tem uma conta. Tente entrar.',
+      validation_error: 'Confira seus dados. A senha precisa ter pelo menos 8 caracteres.',
+      rate_limited: 'Muitas tentativas. Espere um pouco e tente de novo.',
+      network: 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.',
+      unknown: 'Algo deu errado. Tente de novo.',
+    },
   },
   header: {
     greeting: 'Olá,',
@@ -56,6 +79,12 @@ const ptBR: typeof en = {
     title: 'Perfil',
     back: 'Voltar',
     language: 'Idioma',
+    account: 'Conta',
+    signIn: 'Entrar',
+    signOut: 'Sair',
+    signedOutHint: 'Entre para ter suas plantas em todos os aparelhos.',
+    languageSyncError: 'O idioma mudou aqui, mas não foi possível salvar na sua conta.',
+    signOutError: 'Não foi possível sair. Tente de novo.',
   },
   languages: {
     en: 'English',

@@ -1,6 +1,7 @@
 const en = {
   welcome: {
     title: 'Manage your\nplants with ease',
+    haveAccount: 'I already have an account',
     subtitle: "Never forget to water your plants again. We'll remind you when it's time.",
   },
   identification: {
@@ -12,6 +13,28 @@ const en = {
     doneTitle: 'All set',
     doneSubtitle: "Let's start taking care of your plants.",
     doneButton: 'Get started',
+  },
+  auth: {
+    signInTitle: 'Welcome back',
+    signUpTitle: 'Create your account',
+    name: 'Your name',
+    email: 'Email',
+    password: 'Password',
+    signIn: 'Sign in',
+    signUp: 'Create account',
+    google: 'Continue with Google',
+    toSignUp: 'New here? Create an account',
+    toSignIn: 'Already have an account? Sign in',
+    back: 'Back',
+    loading: 'Please wait',
+    errors: {
+      invalid_credentials: 'Wrong email or password.',
+      email_taken: 'That email already has an account. Try signing in.',
+      validation_error: 'Check your details. The password needs at least 8 characters.',
+      rate_limited: 'Too many tries. Wait a bit and try again.',
+      network: "Can't reach the server. Check your connection and try again.",
+      unknown: 'Something went wrong. Try again.',
+    },
   },
   header: {
     greeting: 'Hello,',
@@ -54,6 +77,12 @@ const en = {
     title: 'Profile',
     back: 'Back',
     language: 'Language',
+    account: 'Account',
+    signIn: 'Sign in',
+    signOut: 'Sign out',
+    signedOutHint: 'Sign in to keep your plants on every device.',
+    languageSyncError: "Language changed here, but we couldn't save it to your account.",
+    signOutError: "Couldn't sign out. Try again.",
   },
   languages: {
     en: 'English',

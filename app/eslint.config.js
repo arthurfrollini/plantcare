@@ -16,6 +16,9 @@ module.exports = defineConfig([
       'src/auth/**/*.{ts,tsx}',
       'src/reminders/**/*.{ts,tsx}',
       'src/plants/**/*.{ts,tsx}',
+      'src/pages/Auth.tsx',
+      'src/pages/Profile.tsx',
+      'src/pages/Welcome.tsx',
     ],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
