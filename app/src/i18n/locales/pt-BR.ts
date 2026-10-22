@@ -148,7 +148,7 @@ const ptBR: typeof en = {
   },
   notification: {
     title: '🌱 Hora de regar',
-    body: 'Sua {{name}} está com sede.',
+    body: 'Em {{minutes}} min você precisa regar: {{name}}.',
   },
   profile: {
     title: 'Perfil',

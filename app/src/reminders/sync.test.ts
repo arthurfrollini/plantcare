@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import type { UserPlant } from '@plantcare/shared';
 
-import { initI18n } from '../i18n';
+import { changeLanguage, initI18n } from '../i18n';
 import { cancelAllReminders, ensureNotificationPermission, syncReminders } from './sync';
 
 const schedule = jest.mocked(Notifications.scheduleNotificationAsync);
@@ -19,7 +19,12 @@ function plant(overrides: Partial<UserPlant> = {}): UserPlant {
     frequency: { times: 4, per: 'week' },
     reminderTime: '08:30',
     timeZone: 'America/Sao_Paulo',
-    light: null,
+    light: 'partial_shade',
+    difficulty: 'easy',
+    wateringDays: [1, 3, 5, 7],
+    reminderLeadMinutes: 15,
+    scheduleStartsOn: null,
+    scheduleNeedsReview: false,
     notes: null,
     imageUrl: null,
     hasPhoto: false,
@@ -47,27 +52,87 @@ describe('syncReminders', () => {
 
     expect(result).toEqual({ scheduled: 4, skipped: 0 });
     expect(requests().map((r) => r.trigger)).toEqual(
-      [2, 4, 6, 1].map((weekday) => ({ type: 'weekly', weekday, hour: 8, minute: 30 })),
+      [2, 4, 6, 1].map((weekday) => ({
+        type: 'weekly',
+        weekday,
+        hour: 8,
+        minute: 15,
+      })),
     );
     expect(requests()[0]?.content.data).toEqual({ userPlantId: 'p1' });
   });
 
   it('schedules one DAILY trigger for a daily plant', async () => {
     const result = await syncReminders([
-      plant({ frequency: { times: 1, per: 'day' }, reminderTime: '21:05' }),
+      plant({ frequency: { times: 1, per: 'day' }, reminderTime: '21:20' }),
     ]);
 
     expect(result).toEqual({ scheduled: 1, skipped: 0 });
     expect(requests().map((r) => r.trigger)).toEqual([{ type: 'daily', hour: 21, minute: 5 }]);
   });
 
-  it('names the plant by nickname, else species', async () => {
-    await syncReminders([plant({ nickname: 'Fred', frequency: { times: 1, per: 'week' } })]);
-    await syncReminders([plant({ frequency: { times: 1, per: 'week' } })]);
+  it('names the plant by species with the lead time, in English and pt-BR', async () => {
+    await syncReminders([
+      plant({
+        nickname: 'Fred',
+        wateringDays: [1],
+        frequency: { times: 1, per: 'week' },
+      }),
+    ]);
+    expect(requests()[0]?.content.body).toBe('In 15 min you need to water your Monstera.');
 
-    const [first, second] = requests();
-    expect(first?.content.body).toContain('Fred');
-    expect(second?.content.body).toContain('Monstera');
+    await changeLanguage('pt-BR');
+    schedule.mockClear();
+    await syncReminders([plant({ wateringDays: [1], frequency: { times: 1, per: 'week' } })]);
+    expect(requests()[0]?.content.body).toBe('Em 15 min você precisa regar: Monstera.');
+    await changeLanguage('en');
+  });
+
+  it('schedules three DATE triggers for a monthly plant', async () => {
+    const result = await syncReminders([
+      plant({
+        frequency: { times: 1, per: 'month' },
+        wateringDays: [1],
+        scheduleStartsOn: '2999-01-01',
+      }),
+    ]);
+
+    expect(result).toEqual({ scheduled: 3, skipped: 0 });
+    const triggers = requests().map((r) => r.trigger);
+    triggers.forEach((t) => expect(t).toMatchObject({ type: 'date' }));
+    expect(triggers[0]).toEqual({
+      type: 'date',
+      date: new Date(2999, 0, 1, 8, 15),
+    });
+  });
+
+  it('moves a weekly reminder to the previous weekday when the lead crosses midnight', async () => {
+    await syncReminders([
+      plant({
+        frequency: { times: 1, per: 'week' },
+        wateringDays: [1],
+        reminderTime: '00:00',
+      }),
+    ]);
+
+    expect(requests().map((r) => r.trigger)).toEqual([
+      { type: 'weekly', weekday: 1, hour: 23, minute: 45 },
+    ]);
+  });
+
+  it('counts date triggers against the cap', async () => {
+    const plants = Array.from({ length: 21 }, (_, i) =>
+      plant({
+        id: `m${i}`,
+        frequency: { times: 1, per: 'month' },
+        wateringDays: [1],
+        scheduleStartsOn: '2999-01-01',
+      }),
+    );
+
+    const result = await syncReminders(plants);
+
+    expect(result).toEqual({ scheduled: 60, skipped: 3 });
   });
 
   it('cancels existing notifications before scheduling', async () => {
@@ -141,7 +206,10 @@ describe('syncReminders', () => {
     expect(failed).toEqual({ scheduled: 0, skipped: 5 });
     expect(schedule).not.toHaveBeenCalled();
 
-    expect(await syncReminders([plant()])).toEqual({ scheduled: 4, skipped: 0 });
+    expect(await syncReminders([plant()])).toEqual({
+      scheduled: 4,
+      skipped: 0,
+    });
   });
 
   it('runs concurrent syncs one after another; the second call wins', async () => {

@@ -146,7 +146,7 @@ const en = {
   },
   notification: {
     title: '🌱 Watering time',
-    body: 'Your {{name}} is thirsty.',
+    body: 'In {{minutes}} min you need to water your {{name}}.',
   },
   profile: {
     title: 'Profile',
