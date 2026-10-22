@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddPlantSheet, type AddPlantChoice } from '../components/AddPlantSheet';
 import { MyPlants } from '../pages/MyPlants';
@@ -13,9 +14,9 @@ import { pickPhoto } from '../plants/pickPhoto';
 import colors from '../styles/colors';
 
 export type TabParamList = {
-  Profile: undefined;
-  AddPlant: undefined;
   MyPlantsList: undefined;
+  AddPlant: undefined;
+  Profile: undefined;
 };
 
 const AppTab = createBottomTabNavigator<TabParamList>();
@@ -28,6 +29,7 @@ function Nothing() {
 const AuthRoutes = () => {
   const { t } = useTranslation();
   const navigation = useNavigation();
+  const { bottom } = useSafeAreaInsets();
   const [adding, setAdding] = useState(false);
   // What to do once the sheet has slid away: the camera cannot open on top of it.
   const pendingChoice = useRef<AddPlantChoice | null>(null);
@@ -69,19 +71,21 @@ const AuthRoutes = () => {
           tabBarActiveTintColor: colors.green,
           tabBarInactiveTintColor: colors.heading,
           tabBarLabelPosition: 'below-icon',
+          // The bar keeps the safe-area padding React Navigation adds at the bottom; the 60 px
+          // above it fit the icons, the labels and the + button with room to spare.
           tabBarStyle: {
-            paddingVertical: Platform.OS === 'ios' ? 20 : 0,
-            height: 88,
+            paddingTop: 10,
+            height: 70 + bottom,
           },
         }}
       >
         <AppTab.Screen
-          name="Profile"
-          component={Profile}
+          name="MyPlantsList"
+          component={MyPlants}
           options={{
-            tabBarLabel: t('tabs.profile'),
+            tabBarLabel: t('tabs.myPlants'),
             tabBarIcon: ({ size, color }) => (
-              <MaterialIcons name="person-outline" size={size} color={color} />
+              <MaterialCommunityIcons name="sprout-outline" size={size} color={color} />
             ),
           }}
         />
@@ -98,7 +102,7 @@ const AuthRoutes = () => {
                   style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
                   onPress={() => setAdding(true)}
                 >
-                  <Feather name="plus" size={28} color={colors.white} />
+                  <Feather name="plus" size={26} color={colors.white} />
                 </Pressable>
               </View>
             ),
@@ -106,12 +110,12 @@ const AuthRoutes = () => {
         />
 
         <AppTab.Screen
-          name="MyPlantsList"
-          component={MyPlants}
+          name="Profile"
+          component={Profile}
           options={{
-            tabBarLabel: t('tabs.myPlants'),
+            tabBarLabel: t('tabs.profile'),
             tabBarIcon: ({ size, color }) => (
-              <MaterialCommunityIcons name="sprout-outline" size={size} color={color} />
+              <MaterialIcons name="person-outline" size={size} color={color} />
             ),
           }}
         />
@@ -134,9 +138,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.green,
