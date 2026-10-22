@@ -194,3 +194,30 @@
 - [ ] **Step 4: Run** `npm test -w @plantcare/app && npx tsc --noEmit -p app && npm run lint -w @plantcare/app` and the whole repo `npm test`. Expected: all pass, no compile errors left from earlier tasks.
 - [ ] **Step 5: Check on the iOS simulator** (Metro on 8081; temporarily set the stack's `initialRouteName` to reach the screen, revert before committing): header cut through the photo, tiles on one row, days, time sheet, lead chips, fixed Save. Screenshot to the scratchpad.
 - [ ] **Step 6: Commit** `git commit -m "Replace the plant form with the plant detail screen"`.
+
+### Task 7: Detail screen UX revisions (Arthur's phone review, 2026-10-22)
+
+Arthur tried the screen on his phone: on a 3x plant he kept tapping days and nothing changed until he realised he had to unselect one first. This task replaces the inline day picking and the global Save with an edit sheet and saves each change at once. It overrides the spec where they differ: days become read-only with an edit sheet, there is no Save bar, and the defaults change.
+
+**Files:**
+- Modify: `packages/shared/src/schedule.ts` (+ test), `app/src/plants/usePlantDetail.ts` (+ test), `app/src/pages/PlantDetail.tsx` (+ test), both locale files, `app/src/styles/colors.ts`
+- Create: `app/src/components/DaysSheet.tsx`, `app/src/components/LeadInfoSheet.tsx`, `app/src/components/SickPlantCard.tsx`
+
+**Interfaces:**
+- `defaultWateringDays`: 1x `[1]` (Monday), 2x `[2,4]` (Tuesday, Thursday), 3x `[1,4,7]` (Monday, Thursday, Sunday). 4x to 7x, twoWeeks and month unchanged.
+- `usePlantDetail` drops `canSave` and `save`; adds `saveDays(days: number[]): Promise<boolean>`, `saveReminderTime(time: string): Promise<boolean>`, `saveLead(minutes: number): Promise<boolean>` (true on success), `savingField: 'days' | 'time' | 'lead' | null`, `saved: boolean` (true for 1.5 s after a successful save, for the "Saved" toast). Each PATCHes only that field (`timeZone` with the time), then replaces `plant` with the response and runs `syncAfterSave()`. On failure the shown value stays the stored one and `error` is set. No navigation to Confirmation. `toggleDay`, `setReminderTime`, `setLead` and the in-screen draft values go away.
+- `DaysSheet({ visible, required, initialDays, saving, onSave, onClose })`, a `BottomSheet`: opens with no day selected (ignore `initialDays` except for the title context); hint `plantDetail.pickDaysCount` "Pick {{count}} days · {{picked}} of {{count}}" / "Escolha {{count}} dias · {{picked}} de {{count}}" (plural `_one`: "Pick 1 day" / "Escolha 1 dia" without the counter); when `required === 1` a tap replaces the selection; otherwise a tap toggles, and an unselected day is ignored while full; button `plantDetail.saveDays` "Save days" / "Salvar dias" enabled only with exactly `required` days, spinner while `saving`; closes after a successful save.
+- Screen:
+  - Days section: header row with "Watering days" / "Dias de rega" and a pencil (`accessibilityLabel` `plantDetail.editDays` "Edit watering days" / "Editar dias de rega"), `justifyContent: 'space-between'`, `alignItems: 'center'`. Chips below are read-only (no press, `accessibilityRole` text, `accessibilityState.selected`). Hidden for daily plants. The review banner stays and its text ends with the pencil hint ("Tap the pencil to pick {{count}} days." / "Toque no lápis para escolher {{count}} dias.").
+  - Time: label "Watering time" / "Horário da rega"; picking a row saves at once.
+  - Remind me: label row with an info icon (`Feather` `info`, `accessibilityLabel` `plantDetail.leadInfo` "How reminders work" / "Como funcionam os lembretes") that opens `LeadInfoSheet`: title "Reminders" / "Lembretes", text "Your phone gets a notification {{minutes}} minutes before the watering time, so you never forget to water your plant." / "Você recebe uma notificação no celular {{minutes}} minutos antes do horário da rega, para nunca esquecer de regar sua planta.", button "Got it" / "Entendi". Tapping a lead chip saves at once.
+  - No Save bar. A small "Saved ✓" / "Salvo ✓" toast fades in and out near the bottom while `saved` is true.
+  - `SickPlantCard` below the schedule: a yellow box (`colors.yellow_light` `#FFF6D6` background, `colors.yellow_dark` `#8A6D00` text, add both tokens) with title "My plant is sick 🤒" / "Minha planta está doente 🤒", text "Take a photo and the AI ✨ will tell you what to do." / "Tire uma foto e a IA ✨ vai dizer o que fazer.", and the existing "Soon" / "Em breve" badge style; disabled (`accessibilityState.disabled`), no press handler.
+- Every sheet is the existing `BottomSheet`.
+
+- [ ] **Step 1: Write failing tests**: shared defaults for 1x/2x/3x; hook `saveDays([1,3,5])` PATCHes `{ wateringDays: [1,3,5] }` only and sets `saved`; `saveReminderTime('13:30')` sends `{ reminderTime, timeZone }`; `saveLead(20)` sends `{ reminderLeadMinutes: 20 }`; a failed save keeps the stored value and sets `error`; screen: day chips cannot be pressed to change days; pencil opens the sheet with nothing selected and the counter `Pick 3 days · 0 of 3`; a fourth tap is ignored; Save days enabled at three and PATCHes; time row pick PATCHes at once; lead chip PATCHes at once; info icon opens the reminder text with the minutes; the sick-plant card shows the Soon badge and is disabled; no Save bar. Sheet waits use `{ timeout: 5000 }`.
+- [ ] **Step 2: Run** `npm test -w @plantcare/shared && npm test -w @plantcare/app`. Expected: the new tests fail.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** the full repo checks: `npm run db:test:prepare -w @plantcare/api && npm test`, `cd app && npx tsc --noEmit`, `npm run lint`, `npx prettier --check api packages`. Expected: all pass.
+- [ ] **Step 5: Check on the iOS simulator** as in Task 6 (temporary preview route with fixture data, reverted before commit): days section with pencil, days sheet open, info sheet open, sick-plant card. Screenshots to the scratchpad.
+- [ ] **Step 6: Commit** `git commit -m "Edit watering days in a sheet and save each change at once"`.
