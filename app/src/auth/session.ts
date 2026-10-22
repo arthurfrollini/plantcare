@@ -21,7 +21,15 @@ export async function saveTokens(tokens: Tokens): Promise<void> {
   ]);
 }
 
+let epoch = 0;
+
+/** Changes every time the session is cleared, so in-flight work can tell it was signed out. */
+export function sessionEpoch(): number {
+  return epoch;
+}
+
 export async function clearTokens(): Promise<void> {
+  epoch += 1;
   await Promise.all([
     SecureStore.deleteItemAsync(ACCESS_KEY),
     SecureStore.deleteItemAsync(REFRESH_KEY),

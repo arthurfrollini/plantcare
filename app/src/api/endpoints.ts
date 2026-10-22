@@ -86,21 +86,12 @@ export async function deleteMyPlant(id: string): Promise<void> {
   await api.delete(`/me/plants/${encodeURIComponent(id)}`);
 }
 
-/** React Native's FormData reads an upload from a {uri, name, type} part; the DOM typings omit it. */
-type NativeFormData = {
-  append(name: string, part: { uri: string; name: string; type: string }): void;
-};
-
-function isNativeFormData(form: FormData): form is FormData & NativeFormData {
-  return typeof form.append === 'function';
-}
-
 export function uploadPlantPhoto(
   id: string,
   file: { uri: string; mimeType: string },
 ): Promise<UserPlant> {
   const form = new FormData();
-  if (!isNativeFormData(form)) throw new Error('FormData cannot hold a file reference');
+  // React Native reads the upload from this {uri, name, type} part (see form-data.d.ts).
   form.append('photo', { uri: file.uri, name: 'photo', type: file.mimeType });
   return api
     .post(`/me/plants/${encodeURIComponent(id)}/photo`, form)

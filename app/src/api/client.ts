@@ -1,9 +1,9 @@
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { create, isAxiosError, isCancel, type InternalAxiosRequestConfig } from 'axios';
 import { authResponseSchema } from '@plantcare/shared';
 import { z } from 'zod';
 
 import { currentLanguage } from '../i18n';
-import { clearTokens, loadTokens, saveTokens } from '../auth/session';
+import { clearTokens, loadTokens, saveTokens, sessionEpoch } from '../auth/session';
 import { apiUrl } from './config';
 
 declare module 'axios' {
@@ -32,7 +32,8 @@ const errorBodySchema = z.object({
 
 export function toApiError(e: unknown): ApiError {
   if (e instanceof ApiError) return e;
-  if (axios.isAxiosError(e)) {
+  if (isCancel(e)) return new ApiError(null, 'canceled', 'Request canceled');
+  if (isAxiosError(e)) {
     if (!e.response) return new ApiError(null, 'network', e.message);
     const body = errorBodySchema.safeParse(e.response.data);
     return body.success
@@ -48,7 +49,7 @@ export function setSignedOutHandler(fn: () => void): void {
   signedOutHandler = fn;
 }
 
-export const api = axios.create({ baseURL: apiUrl() });
+export const api = create({ baseURL: apiUrl(), timeout: 15000 });
 
 api.interceptors.request.use(async (config) => {
   config.headers.set('Accept-Language', currentLanguage());
@@ -72,6 +73,7 @@ function refreshOnce(): Promise<void> {
 async function doRefresh(): Promise<void> {
   const tokens = await loadTokens();
   if (!tokens) throw new ApiError(401, 'unauthorized', 'Not signed in');
+  const epoch = sessionEpoch();
   try {
     const res = await api.post(
       '/auth/refresh',
@@ -79,13 +81,17 @@ async function doRefresh(): Promise<void> {
       { skipAuthRefresh: true },
     );
     const parsed = authResponseSchema.parse(res.data);
+    // Signed out while the refresh was in flight: do not bring the session back.
+    if (sessionEpoch() !== epoch) throw new ApiError(401, 'unauthorized', 'Signed out');
     await saveTokens({ accessToken: parsed.accessToken, refreshToken: parsed.refreshToken });
   } catch (e) {
     const error = toApiError(e);
-    // An unreachable API says nothing about the session: keep the tokens.
-    if (error.status === null) throw error;
-    await clearTokens();
-    signedOutHandler();
+    // Only an unreachable API says nothing about the session: keep the tokens then.
+    if (error.code === 'network') throw error;
+    if (sessionEpoch() === epoch) {
+      await clearTokens();
+      signedOutHandler();
+    }
     throw error;
   }
 }
@@ -95,33 +101,25 @@ function sentToken(config: InternalAxiosRequestConfig): string | null {
   return typeof header === 'string' ? header.replace(/^Bearer /, '') : null;
 }
 
+function isAuthRoute(url: string | undefined): boolean {
+  return url?.startsWith('/auth/') ?? false;
+}
+
 api.interceptors.response.use(undefined, async (error: unknown) => {
   if (
-    axios.isAxiosError(error) &&
+    isAxiosError(error) &&
     error.response?.status === 401 &&
     error.config &&
     !error.config.skipAuthRefresh &&
     !error.config.retried &&
+    !isAuthRoute(error.config.url) &&
     sentToken(error.config) !== null
   ) {
-    const failed: AxiosError = error;
-    const config = failed.config;
-    if (config) {
-      // A request that failed with an already-replaced token only needs a retry.
-      const current = await loadTokens();
-      if (current && current.accessToken === sentToken(config)) {
-        try {
-          await refreshOnce();
-        } catch (e) {
-          throw toApiError(e);
-        }
-      }
-      try {
-        return await api.request({ ...config, retried: true });
-      } catch (e) {
-        throw toApiError(e);
-      }
-    }
+    const config = error.config;
+    // A request that failed with an already-replaced token only needs a retry.
+    const current = await loadTokens();
+    if (current?.accessToken === sentToken(config)) await refreshOnce();
+    return api.request({ ...config, retried: true });
   }
   throw toApiError(error);
 });
