@@ -1,6 +1,9 @@
 import {
+  DEFAULT_REMINDER_LEAD,
+  difficultySchema,
   frequencySchema,
   lightSchema,
+  requiredWateringDays,
   type CreateUserPlant,
   type Locale,
   type UpdateUserPlant,
@@ -15,6 +18,7 @@ import type {
 } from '../generated/prisma/client';
 import { pickTranslation } from '../plants/service';
 import type { PhotoStorage } from '../storage';
+import { nextOccurrenceDate } from './schedule-start';
 
 export type UserPlantWithSpecies = UserPlantRow & {
   catalogPlant: Plant & { translations: PlantTranslation[] };
@@ -24,10 +28,23 @@ const include = {
   catalogPlant: { include: { translations: true } },
 } as const;
 
+function isDateBased(frequency: { per: string }): boolean {
+  return frequency.per === 'twoWeeks' || frequency.per === 'month';
+}
+
 export function toUserPlantDto(
   row: UserPlantRow & { catalogPlant: Plant },
   translation: PlantTranslation | null,
 ): UserPlant {
+  const frequency = frequencySchema.parse({
+    times: row.catalogPlant.frequencyTimes,
+    per: row.catalogPlant.frequencyPer,
+  });
+  const required = requiredWateringDays(frequency);
+  const scheduleNeedsReview =
+    required > 0 &&
+    row.wateringDays.length > 0 &&
+    row.wateringDays.length !== required;
   return {
     id: row.id,
     catalogPlantId: row.catalogPlantId,
@@ -36,13 +53,15 @@ export function toUserPlantDto(
     scientificName: row.catalogPlant.scientificName,
     about: translation?.about ?? '',
     waterTips: translation?.waterTips ?? '',
-    frequency: frequencySchema.parse({
-      times: row.frequencyTimes,
-      per: row.frequencyPer,
-    }),
+    frequency,
+    light: lightSchema.parse(row.catalogPlant.light),
+    difficulty: difficultySchema.parse(row.catalogPlant.difficulty),
+    wateringDays: scheduleNeedsReview || required === 0 ? [] : row.wateringDays,
     reminderTime: row.reminderTime,
+    reminderLeadMinutes: row.reminderLeadMinutes,
+    scheduleStartsOn: row.scheduleStartsOn?.toISOString().slice(0, 10) ?? null,
+    scheduleNeedsReview,
     timeZone: row.timeZone,
-    light: row.light === null ? null : lightSchema.parse(row.light),
     notes: row.notes,
     imageUrl: row.catalogPlant.imageFile
       ? `/static/plants/${row.catalogPlant.imageFile}`
@@ -51,6 +70,32 @@ export function toUserPlantDto(
     photoVersion: row.photoUpdatedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+function assertWateringDays(days: number[], required: number): void {
+  if (days.length !== 0 && days.length !== required) {
+    throw new AppError(
+      400,
+      'invalid_watering_days',
+      `Expected ${required} watering days`,
+    );
+  }
+}
+
+function anchorFor(
+  species: Plant,
+  days: number[],
+  time: string,
+  timeZone: string,
+): Date | null {
+  const frequency = frequencySchema.parse({
+    times: species.frequencyTimes,
+    per: species.frequencyPer,
+  });
+  if (!isDateBased(frequency)) return null;
+  return new Date(
+    `${nextOccurrenceDate(days[0] ?? 1, time, timeZone, new Date())}T00:00:00Z`,
+  );
 }
 
 function present(row: UserPlantWithSpecies, locale: Locale): UserPlant {
@@ -78,10 +123,7 @@ export async function listUserPlants(
     .sort(
       (a, b) =>
         a.reminderTime.localeCompare(b.reminderTime) ||
-        (a.nickname ?? a.speciesName).localeCompare(
-          b.nickname ?? b.speciesName,
-          locale,
-        ) ||
+        a.speciesName.localeCompare(b.speciesName, locale) ||
         a.id.localeCompare(b.id),
     );
 }
@@ -102,21 +144,32 @@ export async function createUserPlant(
   if (!species) {
     throw new AppError(400, 'plant_not_found', 'Plant not found');
   }
-  const frequency = input.frequency ?? {
-    times: species.frequencyTimes,
-    per: species.frequencyPer,
-  };
+  const days = input.wateringDays ?? [];
+  assertWateringDays(
+    days,
+    requiredWateringDays(
+      frequencySchema.parse({
+        times: species.frequencyTimes,
+        per: species.frequencyPer,
+      }),
+    ),
+  );
   const row = await prisma.userPlant
     .create({
       data: {
         userId,
         catalogPlantId: species.id,
         nickname: input.nickname ?? null,
-        frequencyTimes: frequency.times,
-        frequencyPer: frequency.per,
+        wateringDays: days,
         reminderTime: input.reminderTime,
+        reminderLeadMinutes: input.reminderLeadMinutes ?? DEFAULT_REMINDER_LEAD,
+        scheduleStartsOn: anchorFor(
+          species,
+          days,
+          input.reminderTime,
+          input.timeZone,
+        ),
         timeZone: input.timeZone,
-        light: input.light ?? species.light,
         notes: input.notes ?? null,
       },
       include,
@@ -142,23 +195,45 @@ export async function updateUserPlant(
   locale: Locale,
   input: UpdateUserPlant,
 ): Promise<UserPlant> {
-  const owned = await prisma.userPlant.findFirst({ where: { id, userId } });
+  const owned = await prisma.userPlant.findFirst({
+    where: { id, userId },
+    include: { catalogPlant: true },
+  });
   if (!owned) throw notFound();
+  const species = owned.catalogPlant;
+  if (input.wateringDays !== undefined) {
+    assertWateringDays(
+      input.wateringDays,
+      requiredWateringDays(
+        frequencySchema.parse({
+          times: species.frequencyTimes,
+          per: species.frequencyPer,
+        }),
+      ),
+    );
+  }
+  const scheduleChanged =
+    input.wateringDays !== undefined || input.reminderTime !== undefined;
+  const days = input.wateringDays ?? owned.wateringDays;
+  const time = input.reminderTime ?? owned.reminderTime;
+  const zone = input.timeZone ?? owned.timeZone;
   const row = await prisma.userPlant.update({
     where: { id },
     data: {
       ...(input.nickname !== undefined ? { nickname: input.nickname } : {}),
-      ...(input.frequency !== undefined
-        ? {
-            frequencyTimes: input.frequency.times,
-            frequencyPer: input.frequency.per,
-          }
+      ...(input.wateringDays !== undefined
+        ? { wateringDays: input.wateringDays }
         : {}),
       ...(input.reminderTime !== undefined
         ? { reminderTime: input.reminderTime }
         : {}),
+      ...(input.reminderLeadMinutes !== undefined
+        ? { reminderLeadMinutes: input.reminderLeadMinutes }
+        : {}),
       ...(input.timeZone !== undefined ? { timeZone: input.timeZone } : {}),
-      ...(input.light !== undefined ? { light: input.light } : {}),
+      ...(scheduleChanged
+        ? { scheduleStartsOn: anchorFor(species, days, time, zone) }
+        : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
     },
     include,
@@ -197,6 +272,23 @@ export async function setUserPlantPhoto(
     include,
   });
   if (previous !== null && previous !== key) await storage.remove(previous);
+  return present(row, locale);
+}
+
+export async function removeUserPlantPhoto(
+  prisma: PrismaClient,
+  storage: PhotoStorage,
+  userId: string,
+  id: string,
+  locale: Locale,
+): Promise<UserPlant> {
+  const previous = await getPhotoKey(prisma, userId, id);
+  const row = await prisma.userPlant.update({
+    where: { id },
+    data: { photoPath: null, photoUpdatedAt: new Date() },
+    include,
+  });
+  if (previous !== null) await storage.remove(previous);
   return present(row, locale);
 }
 

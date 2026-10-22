@@ -83,7 +83,7 @@ describe('user plants routes', () => {
     await prisma.$disconnect();
   });
 
-  it('copies frequency and light from the species and localizes the name', async () => {
+  it('returns the species frequency, light and difficulty and the default lead', async () => {
     const species = await prisma.plant.findUniqueOrThrow({
       where: { id: catalogId },
     });
@@ -97,7 +97,9 @@ describe('user plants routes', () => {
         per: species.frequencyPer,
       },
       light: species.light,
+      difficulty: species.difficulty,
       reminderTime: '08:30',
+      reminderLeadMinutes: 15,
       timeZone: 'America/Sao_Paulo',
       hasPhoto: false,
     });
@@ -110,6 +112,102 @@ describe('user plants routes', () => {
       'pt-BR,pt;q=0.9,en;q=0.8',
     );
     expect(pt.json<UserPlant[]>()[0]?.speciesName).toBe(catalogPt);
+  });
+
+  it('rejects wateringDays of the wrong length', async () => {
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 3, frequencyPer: 'week' },
+    });
+    const res = await call('POST', '/me/plants', tokenA, {
+      ...valid(),
+      wateringDays: [1, 4],
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<ErrorBody>().error.code).toBe('invalid_watering_days');
+    const plant = await create(tokenA);
+    const patch = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
+      wateringDays: [1, 4],
+    });
+    expect(patch.statusCode).toBe(400);
+    expect(patch.json<ErrorBody>().error.code).toBe('invalid_watering_days');
+  });
+
+  it('saves days, time and lead', async () => {
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 2, frequencyPer: 'week' },
+    });
+    const plant = await create(tokenA, {
+      wateringDays: [2, 5],
+      reminderLeadMinutes: 30,
+    });
+    expect(plant).toMatchObject({
+      wateringDays: [2, 5],
+      reminderLeadMinutes: 30,
+      scheduleStartsOn: null,
+      scheduleNeedsReview: false,
+    });
+    const res = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
+      wateringDays: [1, 3],
+      reminderTime: '07:30',
+      reminderLeadMinutes: 10,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<UserPlant>()).toMatchObject({
+      wateringDays: [1, 3],
+      reminderTime: '07:30',
+      reminderLeadMinutes: 10,
+    });
+  });
+
+  it('rejects a reminder time off the half hour', async () => {
+    const res = await call('POST', '/me/plants', tokenA, {
+      ...valid(),
+      reminderTime: '08:15',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<ErrorBody>().error.code).toBe('validation_error');
+  });
+
+  it('sets scheduleStartsOn for a monthly species', async () => {
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 1, frequencyPer: 'month' },
+    });
+    const plant = await create(tokenA, { wateringDays: [3] });
+    expect(plant.scheduleStartsOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(plant.wateringDays).toEqual([3]);
+    const before = plant.scheduleStartsOn;
+    const patched = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
+      wateringDays: [5],
+    });
+    expect(patched.json<UserPlant>().scheduleStartsOn).toMatch(
+      /^\d{4}-\d{2}-\d{2}$/,
+    );
+    const row = await prisma.userPlant.findUniqueOrThrow({
+      where: { id: plant.id },
+    });
+    expect(row.scheduleStartsOn).not.toBeNull();
+    expect(before).not.toBeNull();
+  });
+
+  it('flags scheduleNeedsReview when the species frequency changed', async () => {
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 2, frequencyPer: 'week' },
+    });
+    await create(tokenA, { wateringDays: [1, 4] });
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 3, frequencyPer: 'week' },
+    });
+    const list = await call('GET', '/me/plants', tokenA);
+    expect(list.json<UserPlant[]>()[0]).toMatchObject({
+      wateringDays: [],
+      scheduleNeedsReview: true,
+      frequency: { times: 3, per: 'week' },
+    });
   });
 
   it('keeps the nickname in both locales while the species name follows the locale', async () => {
@@ -171,8 +269,8 @@ describe('user plants routes', () => {
     ['reminderTime 25:00', { reminderTime: '25:00' }],
     ['reminderTime 9:5', { reminderTime: '9:5' }],
     ['timeZone Mars/Olympus', { timeZone: 'Mars/Olympus' }],
-    ['2 times per day', { frequency: { times: 2, per: 'day' } }],
-    ['8 times per week', { frequency: { times: 8, per: 'week' } }],
+    ['a frequency key', { frequency: { times: 2, per: 'week' } }],
+    ['a light key', { light: 'shade' }],
   ])('rejects malformed input: %s', async (_label, extra) => {
     const res = await call('POST', '/me/plants', tokenA, {
       ...valid(),
@@ -202,19 +300,28 @@ describe('user plants routes', () => {
     expect(res.json<ErrorBody>().error.code).toBe('plant_not_found');
   });
 
-  it('updates frequency and clears the nickname with null', async () => {
+  it('clears the nickname with null', async () => {
     const plant = await create(tokenA, { nickname: 'Pikachu' });
     const res = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
-      frequency: { times: 3, per: 'week' },
       nickname: null,
     });
     expect(res.statusCode).toBe(200);
     expect(res.json<UserPlant>()).toMatchObject({
       id: plant.id,
       nickname: null,
-      frequency: { times: 3, per: 'week' },
       reminderTime: '08:30',
     });
+  });
+
+  it('rejects frequency and light in a PATCH', async () => {
+    const plant = await create(tokenA);
+    for (const body of [
+      { frequency: { times: 3, per: 'week' } },
+      { light: 'shade' },
+    ]) {
+      const res = await call('PATCH', `/me/plants/${plant.id}`, tokenA, body);
+      expect(res.statusCode).toBe(400);
+    }
   });
 
   it('rejects catalogPlantId in a PATCH', async () => {
@@ -259,15 +366,41 @@ describe('user plants routes', () => {
     expect(list.json<UserPlant[]>()).toEqual([]);
   });
 
-  it('orders by reminder time of day, then name', async () => {
-    await create(tokenA, { nickname: 'Zed', reminderTime: '07:00' });
-    await create(tokenA, { nickname: 'Bob', reminderTime: '09:00' });
-    await create(tokenA, { nickname: 'Amy', reminderTime: '09:00' });
+  it('orders by reminder time of day, then species name', async () => {
+    const species = await prisma.plant.findMany({
+      include: { translations: true },
+      orderBy: { slug: 'asc' },
+      take: 2,
+    });
+    const named = species
+      .map((plant) => ({
+        id: plant.id,
+        name: plant.translations.find((t) => t.locale === 'en')?.name ?? '',
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'en'));
+    const [first, second] = named;
+    if (!first || !second) throw new Error('need two species');
+    await create(tokenA, {
+      catalogPlantId: second.id,
+      nickname: 'Aaa',
+      reminderTime: '09:00',
+    });
+    await create(tokenA, {
+      catalogPlantId: first.id,
+      nickname: 'Zzz',
+      reminderTime: '09:00',
+    });
+    await create(tokenA, {
+      catalogPlantId: second.id,
+      reminderTime: '07:00',
+    });
     const list = await call('GET', '/me/plants', tokenA);
-    expect(list.json<UserPlant[]>().map((p) => p.nickname)).toEqual([
-      'Zed',
-      'Amy',
-      'Bob',
+    expect(
+      list.json<UserPlant[]>().map((p) => [p.reminderTime, p.speciesName]),
+    ).toEqual([
+      ['07:00', second.name],
+      ['09:00', first.name],
+      ['09:00', second.name],
     ]);
   });
 

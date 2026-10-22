@@ -6,7 +6,11 @@ import { AppError } from '../errors';
 import { resolveLocale } from '../i18n';
 import type { PhotoStorage } from '../storage';
 import { contentTypeForKey, detectPhotoType } from './photo';
-import { getPhotoKey, setUserPlantPhoto } from './service';
+import {
+  getPhotoKey,
+  removeUserPlantPhoto,
+  setUserPlantPhoto,
+} from './service';
 
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
@@ -151,5 +155,29 @@ export function photoRoutes(app: FastifyInstance, storage: PhotoStorage): void {
         .header('Cache-Control', 'private')
         .send(data);
     },
+  );
+
+  typed.delete(
+    '/me/plants/:id/photo',
+    {
+      onRequest: app.authenticate,
+      schema: {
+        tags,
+        summary: "Remove a plant's photo",
+        description:
+          'Deletes the stored file and returns the plant. Answers 200 when there was no photo.',
+        security,
+        params,
+        response: { 200: userPlantSchema },
+      },
+    },
+    (request) =>
+      removeUserPlantPhoto(
+        app.prisma,
+        storage,
+        request.userId,
+        request.params.id,
+        resolveLocale(request.headers['accept-language']),
+      ),
   );
 }
