@@ -70,7 +70,6 @@ export function PlantForm() {
   }
 
   const { species, frequency } = form;
-  const editing = route.params.mode === 'edit';
   const illustration = species.imageUrl ? assetUrl(species.imageUrl) : null;
 
   return (
@@ -196,13 +195,7 @@ export function PlantForm() {
               </View>
             ) : (
               <Button
-                title={t(
-                  form.error === 'network'
-                    ? 'plantForm.retry'
-                    : editing
-                      ? 'plantForm.saveEdit'
-                      : 'plantForm.saveAdd',
-                )}
+                title={t(form.error === 'network' ? 'plantForm.retry' : 'plantForm.saveEdit')}
                 onPress={() => void form.submit()}
                 disabled={form.status === 'loading'}
               />

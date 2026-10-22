@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { toApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
 import { takePendingSave, setPendingSave, type PendingSave } from '../plants/pendingSave';
-import { confirmationParams, createPlantWithPhoto, syncAfterSave } from '../plants/savePlant';
+import { addedConfirmationParams, addPlants, syncAfterSave } from '../plants/savePlant';
 import { GoogleSignInButton, type GoogleIdTokenProvider } from '../auth/GoogleSignInButton';
 import { Button } from '../components/Button';
 import type { RootStackParamList } from '../routes/stack.routes';
@@ -108,16 +108,20 @@ export function Auth({ googleProvider }: Props) {
         navigation.dispatch(StackActions.popTo('PlantSelect'));
         return;
       }
-      const { catalogPlantId, ...values } = pending;
-      const { photoFailed } = await createPlantWithPhoto(catalogPlantId, values);
+      const { added, failed, error } = await addPlants(pending.plants);
+      // Nothing was created: the retry below sends them all again.
+      if (added.length === 0) throw error;
       await syncAfterSave();
-      // The stack becomes catalog, then confirmation: Back must not land on the filled form.
+      // The stack becomes the tabs, then confirmation: Back must not land on the catalog or here.
       navigation.dispatch(
         CommonActions.reset({
           index: 1,
           routes: [
             { name: 'PlantSelect' },
-            { name: 'Confirmation', params: confirmationParams(t, photoFailed) },
+            {
+              name: 'Confirmation',
+              params: addedConfirmationParams(t, added.length, failed.length),
+            },
           ],
         }),
       );
@@ -145,7 +149,7 @@ export function Auth({ googleProvider }: Props) {
   useEffect(() => {
     if (status !== 'signedIn') return;
     if (route.params.afterAuth === 'savePendingPlant') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- the state is only set after awaiting the request
+       
       void finishPendingSave();
       return;
     }

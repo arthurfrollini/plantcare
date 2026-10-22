@@ -9,7 +9,7 @@ import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, loadTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
-import { PENDING_SAVE_KEY, setPendingSave } from '../plants/pendingSave';
+import { PENDING_SAVE_KEY, setPendingSave, type PendingSave } from '../plants/pendingSave';
 import { userPlantFixture } from '../plants/testFixtures';
 import { Auth } from './Auth';
 
@@ -237,14 +237,14 @@ describe('Auth', () => {
     await act(async () => undefined);
   });
   describe('after sign up with a pending plant', () => {
-    const pending = {
-      catalogPlantId: 'c1',
-      nickname: 'Pikachu',
-      frequency: { times: 2, per: 'week' as const },
-      reminderTime: '09:30',
-      light: null,
-      notes: '',
-      photo: null,
+    const pending: PendingSave = {
+      plants: [
+        { catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'partial_shade' },
+        { catalogPlantId: 'c2', frequency: { times: 1, per: 'day' }, light: 'full_sun' },
+      ],
+    };
+    const onePlant: PendingSave = {
+      plants: [{ catalogPlantId: 'c1', frequency: { times: 2, per: 'week' }, light: 'partial_shade' }],
     };
 
     beforeEach(() => {
@@ -259,7 +259,7 @@ describe('Auth', () => {
       fireEvent.press(screen.getByText('Create account'));
     }
 
-    it('creates the plant exactly once, clears the pending save and confirms', async () => {
+    it('creates each picked plant exactly once, clears the pending save and confirms', async () => {
       await setPendingSave(pending);
       mock.onPost('/me/plants').reply(201, userPlantFixture);
       const view = renderAuth();
@@ -269,20 +269,55 @@ describe('Auth', () => {
       view.rerender(<></>);
 
       const created = mock.history.post.filter((r) => r.url === '/me/plants');
-      expect(created).toHaveLength(1);
-      expect(JSON.parse(String(created[0]?.data))).toMatchObject({
-        catalogPlantId: 'c1',
-        nickname: 'Pikachu',
-      });
+      expect(created.map((r) => JSON.parse(String(r.data)) as unknown)).toEqual([
+        expect.objectContaining({ catalogPlantId: 'c1', reminderTime: '08:00' }),
+        expect.objectContaining({ catalogPlantId: 'c2', reminderTime: '08:00' }),
+      ]);
       expect(await AsyncStorage.getItem(PENDING_SAVE_KEY)).toBeNull();
-      // Reset, so Back from the confirmation cannot reach the filled form.
+      // Reset, so Back from the confirmation cannot reach the catalog or this screen.
       expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
         type: 'RESET',
         payload: {
           index: 1,
           routes: [
             { name: 'PlantSelect' },
-            { name: 'Confirmation', params: { nextScreen: 'MyPlants' } },
+            {
+              name: 'Confirmation',
+              params: {
+                nextScreen: 'MyPlants',
+                subtitle:
+                  "Your 2 plants are in your garden. We'll remind you when it's time to water them.",
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('confirms the plants that were added and names the ones that were not', async () => {
+      await setPendingSave(pending);
+      mock
+        .onPost('/me/plants')
+        .replyOnce(201, userPlantFixture)
+        .onPost('/me/plants')
+        .replyOnce(500, { error: { code: 'internal', message: 'boom' } });
+      renderAuth();
+
+      signUp();
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+
+      expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
+        payload: {
+          routes: [
+            { name: 'PlantSelect' },
+            {
+              name: 'Confirmation',
+              params: {
+                subtitle:
+                  "Your plant is in your garden. We'll remind you when it's time to water it.\n\n" +
+                  "1 plant couldn't be added. Pick it again in the catalog.",
+              },
+            },
           ],
         },
       });
@@ -312,7 +347,7 @@ describe('Auth', () => {
     });
 
     it('does not create twice when the effect re-fires mid-save', async () => {
-      await setPendingSave(pending);
+      await setPendingSave(onePlant);
       mock.onPost('/me/plants').reply(
         () => new Promise((resolve) => setTimeout(() => resolve([201, userPlantFixture]), 50)),
       );
@@ -328,7 +363,7 @@ describe('Auth', () => {
     });
 
     it('retries from memory when the pending save cannot be written back', async () => {
-      await setPendingSave(pending);
+      await setPendingSave(onePlant);
       let attempts = 0;
       mock.onPost('/me/plants').reply(() => {
         attempts += 1;
@@ -347,7 +382,7 @@ describe('Auth', () => {
     });
 
     it('offers a way out next to the retry when the create fails', async () => {
-      await setPendingSave(pending);
+      await setPendingSave(onePlant);
       mock.onPost('/me/plants').networkError();
       renderAuth();
 
@@ -359,7 +394,7 @@ describe('Auth', () => {
     });
 
     it('keeps the form and offers a retry when the create fails', async () => {
-      await setPendingSave(pending);
+      await setPendingSave(onePlant);
       mock.onPost('/me/plants').networkErrorOnce();
       mock.onPost('/me/plants').reply(201, userPlantFixture);
       renderAuth();

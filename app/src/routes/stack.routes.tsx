@@ -9,7 +9,6 @@ import { PlantForm } from '../pages/PlantForm';
 import { Auth } from '../pages/Auth';
 import { PlantSelect } from '../pages/PlantSelect';
 import AuthRoutes, { TabParamList } from './tab.routes';
-import type { PlantPhoto } from '../plants/pickPhoto';
 
 import colors from '../styles/colors';
 
@@ -18,10 +17,8 @@ export type RootStackParamList = {
   UserIdentification: undefined;
   Confirmation: ConfirmationParams;
   PlantSelect: NavigatorScreenParams<TabParamList> | undefined;
-  Catalog: { photo?: PlantPhoto } | undefined;
-  PlantForm:
-    | { mode: 'create'; catalogPlantId: string; photo?: PlantPhoto }
-    | { mode: 'edit'; userPlantId: string };
+  Catalog: undefined;
+  PlantForm: { userPlantId: string };
   Auth: { mode: 'signIn' | 'signUp'; afterAuth?: 'savePendingPlant' };
 };
 

@@ -6,6 +6,7 @@ import {
   View,
   type TouchableOpacityProps,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { SvgFromUri } from 'react-native-svg';
 
 import { assetUrl } from '../api/config';
@@ -17,11 +18,23 @@ interface PlantProps extends TouchableOpacityProps {
     name: string;
     imageUrl: string | null;
   };
+  selected?: boolean;
 }
 
-export const PlantCardPrimary = ({ data, ...rest }: PlantProps) => {
+export const PlantCardPrimary = ({ data, selected = false, ...rest }: PlantProps) => {
   return (
-    <TouchableOpacity style={styles.container} activeOpacity={0.7} {...rest}>
+    <TouchableOpacity
+      style={[styles.container, selected && styles.containerSelected]}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      {...rest}
+    >
+      {selected && (
+        <View style={styles.check}>
+          <Feather name="check" size={14} color={colors.white} />
+        </View>
+      )}
       {data.imageUrl ? (
         <SvgFromUri uri={assetUrl(data.imageUrl)} width={70} height={70} />
       ) : (
@@ -41,6 +54,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 10,
     alignItems: 'center',
+    // Always 2 px wide, so selecting a card never shifts its content.
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  containerSelected: {
+    borderColor: colors.green,
+    backgroundColor: colors.green_light,
+  },
+  check: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.green,
   },
   placeholder: {
     width: 70,

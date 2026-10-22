@@ -14,16 +14,24 @@ export const plantFormValuesSchema = z.object({
 });
 export type PlantFormValues = z.infer<typeof plantFormValuesSchema>;
 
-const pendingSaveSchema = plantFormValuesSchema.extend({ catalogPlantId: z.string().min(1) });
+/** A species picked in the catalog, with the care plan it starts with in the garden. */
+export const speciesPickSchema = z.object({
+  catalogPlantId: z.string().min(1),
+  frequency: frequencySchema,
+  light: lightSchema,
+});
+export type SpeciesPick = z.infer<typeof speciesPickSchema>;
+
+const pendingSaveSchema = z.object({ plants: z.array(speciesPickSchema).min(1) });
 export type PendingSave = z.infer<typeof pendingSaveSchema>;
 
-/** Keeps a form the user filled in while signed out, until they have an account. */
+/** Keeps the plants picked while signed out, until the user has an account. */
 export async function setPendingSave(value: PendingSave): Promise<void> {
   await AsyncStorage.setItem(PENDING_SAVE_KEY, JSON.stringify(value));
 }
 
 /**
- * Returns the stored form and removes it BEFORE returning, so a repeat call (an effect that fires
+ * Returns the stored plants and removes it BEFORE returning, so a repeat call (an effect that fires
  * twice) finds nothing and the plant cannot be created twice. A malformed value is dropped.
  */
 export function takePendingSave(): Promise<PendingSave | null> {
