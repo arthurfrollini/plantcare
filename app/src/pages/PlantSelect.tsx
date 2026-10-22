@@ -32,7 +32,7 @@ export function PlantSelect() {
 
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const { plants, loading, loadingMore, error, loadMore, retry } = useCatalog({
+  const { plants, loading, refreshing, loadingMore, error, loadMore, retry } = useCatalog({
     search,
     light,
     difficulty,
@@ -67,6 +67,7 @@ export function PlantSelect() {
         renderItem={({ item }) => (
           <PlantCardPrimary data={item} onPress={() => handlePlantSelect(item.id)} />
         )}
+        style={refreshing && styles.refreshing}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         numColumns={2}
@@ -213,6 +214,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     marginTop: 16,
+  },
+  refreshing: {
+    opacity: 0.5,
   },
   message: {
     alignItems: 'center',

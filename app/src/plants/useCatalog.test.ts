@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CanceledError } from 'axios';
 import { z } from 'zod';
 import MockAdapter from 'axios-mock-adapter';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
@@ -113,6 +114,87 @@ describe('useCatalog', () => {
 
     act(() => result.current.loadMore());
     expect(mock.history.get).toHaveLength(2);
+  });
+
+  it('keeps the old results visible while a new query loads', async () => {
+    let release: () => void = () => undefined;
+    mock.onGet('/plants').reply((config) => {
+      if (paramsOf(config).light === 'shade') {
+        return new Promise((resolve) => {
+          release = () => resolve([200, page(['Fern'], null)]);
+        });
+      }
+      return [200, page(['Aloe'], null)];
+    });
+    const { result, rerender } = renderHook((f: CatalogFilters) => useCatalog(f), {
+      initialProps: none,
+    });
+    await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+    rerender({ ...none, light: 'shade' });
+
+    expect(result.current.plants.map((p) => p.name)).toEqual(['Aloe']);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.refreshing).toBe(true);
+    await waitFor(() => expect(mock.history.get).toHaveLength(2));
+    act(() => release());
+    await waitFor(() => expect(result.current.plants.map((p) => p.name)).toEqual(['Fern']));
+    expect(result.current.refreshing).toBe(false);
+  });
+
+  it('never appends an in-flight page 2 after the filters change', async () => {
+    let releasePage2: () => void = () => undefined;
+    mock.onGet('/plants').reply((config) => {
+      const params = paramsOf(config);
+      if (params.page === 2) {
+        return new Promise((resolve) => {
+          releasePage2 = () => resolve([200, page(['OldPage2'], null)]);
+        });
+      }
+      return [200, page([params.light === 'shade' ? 'Fern' : 'Aloe'], 2)];
+    });
+    const { result, rerender } = renderHook((f: CatalogFilters) => useCatalog(f), {
+      initialProps: none,
+    });
+    await waitFor(() => expect(result.current.plants).toHaveLength(1));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(mock.history.get).toHaveLength(2));
+
+    rerender({ ...none, light: 'shade' });
+    await waitFor(() => expect(result.current.plants.map((p) => p.name)).toEqual(['Fern']));
+    act(() => releasePage2());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.plants.map((p) => p.name)).toEqual(['Fern']);
+  });
+
+  it('sends one request for two loadMore calls in the same tick', async () => {
+    mock.onGet('/plants').reply((config) =>
+      paramsOf(config).page === 2 ? [200, page(['B'], null)] : [200, page(['A'], 2)],
+    );
+    const { result } = renderHook(() => useCatalog(none));
+    await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+    act(() => {
+      result.current.loadMore();
+      result.current.loadMore();
+    });
+
+    await waitFor(() => expect(result.current.plants).toHaveLength(2));
+    expect(mock.history.get).toHaveLength(2);
+  });
+
+  it('shows no error for a canceled request', async () => {
+    mock.onGet('/plants').reply(() => Promise.reject(new CanceledError()));
+    const { result } = renderHook(() => useCatalog(none));
+    await waitFor(() => expect(mock.history.get).toHaveLength(1));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.error).toBeNull();
   });
 
   it('drops a slow response from an older query', async () => {

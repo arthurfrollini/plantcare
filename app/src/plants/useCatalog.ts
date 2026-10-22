@@ -40,6 +40,7 @@ export function useCatalog(filters: CatalogFilters) {
   const [state, setState] = useState<CatalogState | null>(null);
   const requestId = useRef(0);
   const moreController = useRef<AbortController | null>(null);
+  const moreInFlight = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(
@@ -55,6 +56,7 @@ export function useCatalog(filters: CatalogFilters) {
     const controller = new AbortController();
     const id = ++requestId.current;
     const search = debouncedSearch || undefined;
+    moreInFlight.current = false;
 
     listCatalog(
       { search, light: light ?? undefined, difficulty: difficulty ?? undefined },
@@ -77,10 +79,13 @@ export function useCatalog(filters: CatalogFilters) {
   }, [key, debouncedSearch, light, difficulty]);
 
   const current = state?.key === key ? state : null;
+  // Results of the previous query stay on screen while the new one loads, unless they were an error.
+  const stale = state !== null && current === null && state.error === null;
 
   const fetchMore = useCallback(
     (from: CatalogState) => {
-      if (from.nextPage === null || from.loadingMore) return;
+      if (from.nextPage === null || from.loadingMore || moreInFlight.current) return;
+      moreInFlight.current = true;
       const controller = new AbortController();
       moreController.current = controller;
       const id = ++requestId.current;
@@ -98,6 +103,7 @@ export function useCatalog(filters: CatalogFilters) {
       )
         .then((result) => {
           if (id !== requestId.current) return;
+          moreInFlight.current = false;
           setState({
             key: from.key,
             plants: [...from.plants, ...result.items],
@@ -108,7 +114,9 @@ export function useCatalog(filters: CatalogFilters) {
         })
         .catch((e: unknown) => {
           const error = toApiError(e);
-          if (error.code === 'canceled' || id !== requestId.current) return;
+          if (id !== requestId.current) return;
+          moreInFlight.current = false;
+          if (error.code === 'canceled') return;
           setState({ ...from, loadingMore: false, error });
         });
     },
@@ -126,8 +134,9 @@ export function useCatalog(filters: CatalogFilters) {
   }, [current, fetchMore]);
 
   return {
-    plants: current?.plants ?? [],
-    loading: current === null,
+    plants: current?.plants ?? (stale ? state.plants : []),
+    loading: current === null && !stale,
+    refreshing: stale,
     loadingMore: current?.loadingMore ?? false,
     error: current?.error ?? null,
     loadMore,

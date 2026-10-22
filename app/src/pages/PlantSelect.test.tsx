@@ -60,19 +60,19 @@ describe('PlantSelect', () => {
     });
   });
 
-  it('filters by light and difficulty with translated labels', async () => {
+  it('sends both filters together, from page 1, with translated labels', async () => {
     mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
     renderScreen();
     await screen.findByText('Monstera');
 
     fireEvent.press(screen.getByText('Shade'));
-    await waitFor(() =>
-      expect(mock.history.get.some((r) => (r.params as { light?: string }).light === 'shade')).toBe(true),
-    );
     fireEvent.press(screen.getByText('Hard'));
-    await waitFor(() =>
-      expect(mock.history.get.some((r) => (r.params as { difficulty?: string }).difficulty === 'hard')).toBe(true),
-    );
+
+    await waitFor(() => {
+      const last = mock.history.get[mock.history.get.length - 1];
+      expect(last?.params).toMatchObject({ light: 'shade', difficulty: 'hard' });
+      expect(last?.params).not.toHaveProperty('page', expect.anything());
+    });
   });
 
   it('says so when nothing matches', async () => {
