@@ -1,18 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { frequencySchema, lightSchema, reminderTimeSchema } from '@plantcare/shared';
 import { z } from 'zod';
 
 export const PENDING_SAVE_KEY = '@plantcare:pendingSave';
-
-export const plantFormValuesSchema = z.object({
-  nickname: z.string(),
-  frequency: frequencySchema,
-  reminderTime: reminderTimeSchema,
-  light: lightSchema.nullable(),
-  notes: z.string(),
-  photo: z.object({ uri: z.string(), mimeType: z.string() }).nullable(),
-});
-export type PlantFormValues = z.infer<typeof plantFormValuesSchema>;
 
 /** A species picked in the catalog; the API gives it the species' own care plan. */
 export const speciesPickSchema = z.strictObject({ catalogPlantId: z.string().min(1) });

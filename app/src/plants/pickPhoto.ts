@@ -1,8 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 
-import type { PlantFormValues } from './pendingSave';
-
-export type PlantPhoto = NonNullable<PlantFormValues['photo']>;
+/** A picked image, ready to upload. */
+export type PlantPhoto = { uri: string; mimeType: string };
 export type PhotoMessage = 'denied' | 'cancelled' | 'unsupported' | 'failed';
 export type PhotoSource = 'camera' | 'gallery';
 

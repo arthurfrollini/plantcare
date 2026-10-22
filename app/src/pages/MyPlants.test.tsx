@@ -102,14 +102,14 @@ describe('MyPlants', () => {
     );
   });
 
-  it('opens the form in edit mode when online', async () => {
+  it('opens the plant detail when online', async () => {
     await signIn();
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('PlantForm', { userPlantId: 'p1' });
+    expect(mockNavigate).toHaveBeenCalledWith('PlantDetail', { userPlantId: 'p1' });
   });
 
   it('removes a plant after the confirm dialog', async () => {

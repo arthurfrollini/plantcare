@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type ReactNode } from 'react';
+import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Modal, Pressable, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,17 +11,27 @@ const INITIAL_SHEET_HEIGHT = 600;
 interface BottomSheetProps {
   visible: boolean;
   onClose: () => void;
+  /** Runs once the sheet has slid out and its modal is gone. */
+  onClosed?: () => void;
   children: ReactNode;
 }
 
 /** A sheet that slides up over a blurred, darkened backdrop, and slides back down to close. */
-export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
+export function BottomSheet({ visible, onClose, onClosed, children }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   const [progress] = useState(() => new Animated.Value(0));
   const [sheetHeight, setSheetHeight] = useState(INITIAL_SHEET_HEIGHT);
   // Stays true while the sheet slides out, so the modal closes only after the animation.
   const [mounted, setMounted] = useState(visible);
   if (visible && !mounted) setMounted(true);
+  // Set when the slide-out ends; onClosed runs once the render that removes the modal commits.
+  const closedPending = useRef(false);
+  useEffect(() => {
+    if (closedPending.current && !mounted) {
+      closedPending.current = false;
+      onClosed?.();
+    }
+  });
 
   useEffect(() => {
     const animation = Animated.timing(progress, {
@@ -31,7 +41,10 @@ export function BottomSheet({ visible, onClose, children }: BottomSheetProps) {
       useNativeDriver: true,
     });
     animation.start(({ finished }) => {
-      if (finished && !visible) setMounted(false);
+      if (finished && !visible) {
+        closedPending.current = true;
+        setMounted(false);
+      }
     });
     return () => animation.stop();
   }, [visible, progress]);

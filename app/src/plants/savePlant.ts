@@ -5,7 +5,7 @@ import type { TFunction } from 'i18next';
 import { createMyPlant, listMyPlants } from '../api/endpoints';
 import type { ConfirmationParams } from '../pages/Confirmation';
 import { ensureNotificationPermission, syncReminders, warnIfCapped } from '../reminders/sync';
-import type { PlantFormValues, SpeciesPick } from './pendingSave';
+import type { SpeciesPick } from './pendingSave';
 
 /** Every plant added from the catalog starts with its reminder at this time; it can be edited. */
 export const DEFAULT_REMINDER_TIME = '08:00';
@@ -54,27 +54,6 @@ export function scheduleChanges(saved: UserPlant, values: ScheduleValues): Updat
   if (values.reminderLeadMinutes !== saved.reminderLeadMinutes) {
     body.reminderLeadMinutes = values.reminderLeadMinutes;
   }
-  return body;
-}
-
-/** Only the fields that differ from the saved plant; empty when nothing changed. */
-export function changesBody(saved: UserPlant, values: PlantFormValues): UpdateUserPlant {
-  const body: UpdateUserPlant = {};
-  const nickname = values.nickname.trim();
-  const notes = values.notes.trim();
-  if ((nickname || null) !== saved.nickname) body.nickname = nickname || null;
-  if (
-    values.frequency.per !== saved.frequency.per ||
-    values.frequency.times !== saved.frequency.times
-  ) {
-    body.frequency = values.frequency;
-  }
-  if (values.reminderTime !== saved.reminderTime) {
-    body.reminderTime = values.reminderTime;
-    body.timeZone = deviceTimeZone();
-  }
-  if (values.light !== saved.light) body.light = values.light;
-  if ((notes || null) !== saved.notes) body.notes = notes || null;
   return body;
 }
 
@@ -139,11 +118,11 @@ export function addedConfirmationParams(
   };
 }
 
-export function confirmationParams(t: TFunction, photoFailed: boolean): ConfirmationParams {
-  const subtitle = t('plantForm.doneSubtitle');
+/** The confirmation after a plant's schedule was saved. */
+export function confirmationParams(t: TFunction): ConfirmationParams {
   return {
     title: t('plantForm.doneTitle'),
-    subtitle: photoFailed ? `${subtitle}\n\n${t('plantForm.photoNotSaved')}` : subtitle,
+    subtitle: t('plantForm.doneSubtitle'),
     buttonTitle: t('plantForm.doneButton'),
     icon: 'hug',
     nextScreen: 'MyPlants',

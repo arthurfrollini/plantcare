@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import {
   useFonts,
   Jost_400Regular,
+  Jost_400Regular_Italic,
   Jost_600SemiBold,
 } from '@expo-google-fonts/jost';
 
@@ -34,6 +35,7 @@ export default function App() {
   const [i18nReady, setI18nReady] = useState(false);
   const [fontsLoaded, fontError] = useFonts({
     Jost_400Regular,
+    Jost_400Regular_Italic,
     Jost_600SemiBold,
   });
 

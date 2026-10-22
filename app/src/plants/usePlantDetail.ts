@@ -123,7 +123,7 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
       const changes = scheduleChanges(plant, values);
       if (Object.keys(changes).length > 0) await updateMyPlant(plant.id, changes);
       await syncAfterSave();
-      navigation.dispatch(StackActions.replace('Confirmation', confirmationParams(t, false)));
+      navigation.dispatch(StackActions.replace('Confirmation', confirmationParams(t)));
     } catch (e) {
       setError(formError(e));
     } finally {
@@ -202,8 +202,11 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
     }
   }
 
-  const loadState =
-    loaded ? ('ready' as const) : typeof load === 'object' ? load : ('loading' as const);
+  const loadState: 'ready' | 'loading' | { error: FormError } = loaded
+    ? 'ready'
+    : typeof load === 'object' && 'error' in load
+      ? load
+      : 'loading';
 
   const photoSource =
     loaded && loaded.accessToken && !savedPhotoFailed
