@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SvgFromUri } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -22,6 +21,7 @@ import { assetUrl } from '../api/config';
 import type { plantPhotoSource } from '../api/endpoints';
 import { Button } from '../components/Button';
 import { CareTiles } from '../components/CareTiles';
+import { HeroHeader } from '../components/HeroHeader';
 import { DaysSheet } from '../components/DaysSheet';
 import { LeadInfoSheet } from '../components/LeadInfoSheet';
 import { Load } from '../components/Load';
@@ -40,9 +40,6 @@ import type { RootStackParamList } from '../routes/stack.routes';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-const PHOTO_SIZE = 120;
-/** Gradient height below the status bar; the photo circle sits on its bottom edge. */
-const HEADER_HEIGHT = 112;
 const LEADS = [5, 10, 15, 20, 25, 30];
 
 /** "Saved ✓", faded in while `visible` and out after; gone from the tree once faded out. */
@@ -97,7 +94,7 @@ export interface PlantDetailViewProps {
 export function PlantDetailView(props: PlantDetailViewProps) {
   const { plant, values, requiredDays, needsReview, savingField, error } = props;
   const { t } = useTranslation();
-  const { top, bottom } = useSafeAreaInsets();
+  const { bottom } = useSafeAreaInsets();
   const [daysOpen, setDaysOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
   const [leadInfoOpen, setLeadInfoOpen] = useState(false);
@@ -131,11 +128,8 @@ export function PlantDetailView(props: PlantDetailViewProps) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[colors.green, colors.green_light]}
-        style={[styles.header, { paddingTop: top, height: top + HEADER_HEIGHT }]}
-      >
-        <View style={styles.topBar}>
+      <HeroHeader
+        left={
           <TouchableOpacity
             style={styles.headerButton}
             onPress={props.onBack}
@@ -145,6 +139,8 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           >
             <Feather name="chevron-left" size={28} color={colors.white} />
           </TouchableOpacity>
+        }
+        right={
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => setPhotoOpen(true)}
@@ -155,19 +151,15 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           >
             <Feather name="edit-2" size={20} color={colors.white} />
           </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      <View style={styles.photoWrap}>
-        <View style={styles.photoCircle}>
-          {renderPicture()}
-          {props.photoBusy && (
-            <View style={styles.photoBusy}>
-              <ActivityIndicator color={colors.white} />
-            </View>
-          )}
-        </View>
-      </View>
+        }
+      >
+        {renderPicture()}
+        {props.photoBusy && (
+          <View style={styles.photoBusy}>
+            <ActivityIndicator color={colors.white} />
+          </View>
+        )}
+      </HeroHeader>
 
       {/* Only this part scrolls; the header above stays put. */}
       <ScrollView
@@ -404,15 +396,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    paddingHorizontal: 30,
-  },
-  topBar: {
-    height: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   headerButton: {
     width: 40,
     height: 40,
@@ -420,21 +403,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
-  },
-  photoWrap: {
-    alignItems: 'center',
-    marginTop: -PHOTO_SIZE / 2,
-  },
-  photoCircle: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE,
-    borderRadius: PHOTO_SIZE / 2,
-    borderWidth: 4,
-    borderColor: colors.white,
-    backgroundColor: colors.shape,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
   },
   photo: {
     width: '100%',

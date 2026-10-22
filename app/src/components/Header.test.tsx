@@ -1,9 +1,13 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
-import { render, screen } from '@testing-library/react-native';
+import MockAdapter from 'axios-mock-adapter';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { api } from '../api/client';
+import { assetUrl } from '../api/config';
+import { saveTokens } from '../auth/session';
 import { AuthProvider } from '../auth/AuthProvider';
 import { initI18n } from '../i18n';
 import { Header, firstName, initials } from './Header';
@@ -63,5 +67,48 @@ describe('Header', () => {
     expect(await screen.findByText('Arthur')).toBeTruthy();
     expect(screen.queryByText('Arthur Frollini')).toBeNull();
     expect(screen.getByText('AF')).toBeTruthy();
+  });
+
+  it('shows the avatar photo instead of the initials when the user has one', async () => {
+    await saveTokens({ accessToken: 'tok', refreshToken: 'r' });
+    const mock = new MockAdapter(api);
+    mock.onGet('/me').reply(200, {
+      id: 'u1',
+      name: 'Ana',
+      email: 'ana@example.com',
+      language: 'en',
+      hasPassword: true,
+      hasGoogle: false,
+      hasAvatar: true,
+      avatarVersion: 'v3',
+    });
+    mock.onGet('/me/plants').reply(200, []);
+
+    render(
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 390, height: 844 },
+          insets: { top: 0, left: 0, right: 0, bottom: 0 },
+        }}
+      >
+        <AuthProvider>
+          <NavigationContainer>
+            <Header />
+          </NavigationContainer>
+        </AuthProvider>
+      </SafeAreaProvider>,
+    );
+
+    const image = await screen.findByTestId('header-avatar');
+    await waitFor(() =>
+      expect(screen.getByTestId('header-avatar').props.source).toEqual({
+        uri: assetUrl('/me/avatar'),
+        headers: { Authorization: 'Bearer tok' },
+        cacheKey: 'avatar-v3',
+      }),
+    );
+    expect(image).toBeOnTheScreen();
+    expect(screen.queryByText('A')).not.toBeOnTheScreen();
+    mock.restore();
   });
 });

@@ -17,6 +17,8 @@ import {
 } from '@plantcare/shared';
 import { z } from 'zod';
 
+import { loadTokens } from '../auth/session';
+import type { PlantPhoto } from '../plants/pickPhoto';
 import { api } from './client';
 import { assetUrl } from './config';
 
@@ -119,4 +121,42 @@ export function plantPhotoSource(
     headers: { Authorization: `Bearer ${accessToken}` },
     cacheKey: `${plant.id}-${plant.photoVersion ?? ''}`,
   };
+}
+
+export function uploadAvatar(photo: PlantPhoto): Promise<User> {
+  const form = new FormData();
+  form.append('photo', { uri: photo.uri, name: 'photo', type: photo.mimeType });
+  return api
+    .post('/me/avatar', form, { timeout: 60000 })
+    .then((r) => userSchema.parse(r.data));
+}
+
+export function deleteAvatar(): Promise<User> {
+  return api.delete('/me/avatar').then((r) => userSchema.parse(r.data));
+}
+
+export function avatarSource(
+  user: User,
+  accessToken: string,
+): { uri: string; headers: Record<string, string>; cacheKey: string } | null {
+  if (!user.hasAvatar) return null;
+  return {
+    uri: assetUrl('/me/avatar'),
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cacheKey: `avatar-${user.avatarVersion ?? ''}`,
+  };
+}
+
+/** Changes the password; this device keeps its session, every other one is signed out. */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const tokens = await loadTokens();
+  await api.post('/me/password', {
+    currentPassword,
+    newPassword,
+    refreshToken: tokens?.refreshToken ?? '',
+  });
+}
+
+export async function deleteAccount(): Promise<void> {
+  await api.delete('/me');
 }

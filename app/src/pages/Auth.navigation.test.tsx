@@ -46,6 +46,8 @@ const account = {
   language: 'en',
   hasPassword: true,
   hasGoogle: false,
+  hasAvatar: false,
+  avatarVersion: null,
 };
 
 let mock: MockAdapter;

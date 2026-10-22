@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { avatarSource } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
+import { loadTokens } from '../auth/session';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -25,6 +28,7 @@ export function firstName(name: string) {
 
 export function Header() {
   const [localName, setLocalName] = useState<string>();
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const { status, user } = useAuth();
   const { top } = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -36,6 +40,23 @@ export function Header() {
     }
     void loadStorageUsername();
   }, [status, user?.name]);
+
+  // The photo request needs the access token, as for plant photos.
+  const avatarVersion = user?.avatarVersion;
+  const hasAvatar = user?.hasAvatar;
+  useEffect(() => {
+    if (!hasAvatar) return;
+    let active = true;
+    void loadTokens()
+      .then((tokens) => {
+        if (active) setAccessToken(tokens?.accessToken ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [hasAvatar, avatarVersion]);
+  const photo = user && accessToken ? avatarSource(user, accessToken) : null;
 
   // The account name wins; the name typed on the first screen covers signed-out and offline use.
   const username = user?.name ?? localName;
@@ -50,7 +71,16 @@ export function Header() {
       </View>
 
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
+        {photo ? (
+          <Image
+            testID="header-avatar"
+            source={photo}
+            style={styles.avatarImage}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
+        )}
       </View>
     </View>
   );
@@ -76,6 +106,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.green_light,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 28,

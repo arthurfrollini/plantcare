@@ -14,6 +14,9 @@ import type { AuthResponse, Locale, User } from '@plantcare/shared';
 
 import { setSignedOutHandler } from '../api/client';
 import {
+  changePassword as changePasswordRequest,
+  deleteAccount as deleteAccountRequest,
+  deleteAvatar,
   getMe,
   listMyPlants,
   login,
@@ -21,7 +24,9 @@ import {
   logout,
   register,
   updateMe,
+  uploadAvatar,
 } from '../api/endpoints';
+import type { PlantPhoto } from '../plants/pickPhoto';
 import { changeLanguage, currentLanguage } from '../i18n';
 import { MY_PLANTS_CACHE_KEY } from '../plants/myPlantsCache';
 import { cancelAllReminders, syncReminders } from '../reminders/sync';
@@ -40,6 +45,13 @@ export type AuthContextValue = {
   signInWithGoogle: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
   setLanguage: (language: Locale) => Promise<void>;
+  updateName: (name: string) => Promise<void>;
+  changeAvatar: (photo: PlantPhoto) => Promise<void>;
+  removeAvatar: () => Promise<void>;
+  /** Rejects with the ApiError; never signs out. */
+  changePassword: (current: string, next: string) => Promise<void>;
+  /** API first; local data is cleared only once the account is gone. */
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -255,9 +267,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [status, syncFromApi],
   );
 
+  const updateName = useCallback(async (name: string) => {
+    const me = await updateMe({ name });
+    await adoptName(me);
+    setUser(me);
+  }, []);
+
+  const changeAvatar = useCallback(async (photo: PlantPhoto) => {
+    setUser(await uploadAvatar(photo));
+  }, []);
+
+  const removeAvatar = useCallback(async () => {
+    setUser(await deleteAvatar());
+  }, []);
+
+  const changePassword = useCallback(async (current: string, next: string) => {
+    await changePasswordRequest(current, next);
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    await deleteAccountRequest();
+    statusRef.current = 'signedOut';
+    try {
+      await clearTokens();
+    } catch {
+      // The account is gone; the user still leaves the session.
+    }
+    setUser(null);
+    setStatus('signedOut');
+    await clearLocalData();
+    try {
+      await AsyncStorage.removeItem(USER_KEY);
+    } catch {
+      // Best effort.
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ status, user, signIn, signUp, signInWithGoogle, signOut, setLanguage }),
-    [status, user, signIn, signUp, signInWithGoogle, signOut, setLanguage],
+    () => ({
+      status,
+      user,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      setLanguage,
+      updateName,
+      changeAvatar,
+      removeAvatar,
+      changePassword,
+      deleteAccount,
+    }),
+    [
+      status,
+      user,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      setLanguage,
+      updateName,
+      changeAvatar,
+      removeAvatar,
+      changePassword,
+      deleteAccount,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

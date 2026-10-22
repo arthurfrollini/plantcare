@@ -12,6 +12,8 @@ const user = {
   language: 'en',
   hasPassword: true,
   hasGoogle: false,
+  hasAvatar: false,
+  avatarVersion: null,
 };
 
 beforeAll(initI18n);

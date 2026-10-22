@@ -7,6 +7,8 @@ export const accountFixture = {
   language: 'en',
   hasPassword: true,
   hasGoogle: false,
+  hasAvatar: false,
+  avatarVersion: null,
 };
 
 export const catalogFixture: CatalogPlant = {
