@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { difficultySchema, lightSchema, type Difficulty, type Light } from '@plantcare/shared';
@@ -73,7 +73,7 @@ export function FilterSheet({
         </View>
 
         <Text style={styles.label}>{t('plantSelect.lightLabel')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.row}>
+        <View style={styles.row}>
           <FilterChip
             title={t('plantSelect.all')}
             active={light === null}
@@ -88,10 +88,10 @@ export function FilterSheet({
               onPress={() => onLightChange(value)}
             />
           ))}
-        </ScrollView>
+        </View>
 
         <Text style={styles.label}>{t('plantSelect.difficultyLabel')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.row}>
+        <View style={styles.row}>
           <FilterChip
             title={t('plantSelect.all')}
             active={difficulty === null}
@@ -106,7 +106,7 @@ export function FilterSheet({
               onPress={() => onDifficultyChange(value)}
             />
           ))}
-        </ScrollView>
+        </View>
 
         <View style={styles.done}>
           <Button title={t('plantSelect.done')} onPress={onClose} />
@@ -150,7 +150,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   row: {
-    flexGrow: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 10,
     marginTop: 8,
   },
   done: {
