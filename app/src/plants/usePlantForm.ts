@@ -99,7 +99,9 @@ async function loadForm(params: PlantFormParams): Promise<{ ready: Ready; values
       values: { ...DEFAULT_VALUES, frequency: plant.frequency, light: plant.light },
     };
   }
-  const [plants, tokens] = await Promise.all([listMyPlants(), loadTokens()]);
+  // The list request refreshes an expired token first, so the token is read after it.
+  const plants = await listMyPlants();
+  const tokens = await loadTokens();
   const saved = plants.find((p) => p.id === params.userPlantId);
   if (!saved) throw new Error('Plant not found');
   return {
@@ -132,12 +134,17 @@ export function usePlantForm(params: PlantFormParams) {
   // Read synchronously, so two taps in the same frame cannot both submit.
   const submitting = useRef(false);
 
+  const { mode } = params;
   const targetId = params.mode === 'create' ? params.catalogPlantId : params.userPlantId;
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
-    loadForm(params).then(
+    const target: PlantFormParams =
+      mode === 'create'
+        ? { mode, catalogPlantId: targetId }
+        : { mode, userPlantId: targetId };
+    loadForm(target).then(
       (result) => {
         if (!active) return;
         setValues(result.values);
@@ -150,9 +157,7 @@ export function usePlantForm(params: PlantFormParams) {
     return () => {
       active = false;
     };
-    // The params object changes identity on every render; its id and mode are what matter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.mode, targetId, attempt]);
+  }, [mode, targetId, attempt]);
 
   const retryLoad = useCallback(() => {
     setLoad({ state: 'loading' });
@@ -192,10 +197,16 @@ export function usePlantForm(params: PlantFormParams) {
       const result =
         source === 'camera'
           ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync(options);
+          : await ImagePicker.launchImageLibraryAsync({
+              ...options,
+              // Makes iOS convert HEIC photos to JPEG, which the API accepts.
+              preferredAssetRepresentationMode:
+                ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+            });
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) {
-        setPhotoMessage('cancelled');
+        // With a saved photo showing, "no photo" would be misleading: nothing changed.
+        if (!(load.state === 'ready' && load.saved?.hasPhoto)) setPhotoMessage('cancelled');
         return;
       }
       const mimeType = imageType(asset);
@@ -212,6 +223,19 @@ export function usePlantForm(params: PlantFormParams) {
   function removePhoto() {
     setPhotoMessage(null);
     update({ photo: null });
+  }
+
+  /** The saved photo failed to load, maybe on an expired token: refresh it and read it again. */
+  async function refreshPhotoToken() {
+    try {
+      await listMyPlants();
+      const tokens = await loadTokens();
+      setLoad((current) =>
+        current.state === 'ready' ? { ...current, accessToken: tokens?.accessToken ?? null } : current,
+      );
+    } catch {
+      // The image stays as it was.
+    }
   }
 
   async function submit(): Promise<void> {
@@ -277,6 +301,7 @@ export function usePlantForm(params: PlantFormParams) {
     setNotes: (notes: string) => update({ notes }),
     pickPhoto,
     removePhoto,
+    refreshPhotoToken,
     submit,
   };
 }

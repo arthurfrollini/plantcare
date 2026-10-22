@@ -13,13 +13,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { StackActions, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { CommonActions, StackActions, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 
 import { toApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
-import { takePendingSave, setPendingSave } from '../plants/pendingSave';
+import { takePendingSave, setPendingSave, type PendingSave } from '../plants/pendingSave';
 import { confirmationParams, createPlantWithPhoto, syncAfterSave } from '../plants/savePlant';
 import { GoogleSignInButton, type GoogleIdTokenProvider } from '../auth/GoogleSignInButton';
 import { Button } from '../components/Button';
@@ -92,12 +92,18 @@ export function Auth({ googleProvider }: Props) {
   const pendingStarted = useRef(false);
   const [pendingError, setPendingError] = useState<PendingError | null>(null);
 
+  // Kept in memory too, so a retry works even when writing it back to storage failed.
+  const pendingInMemory = useRef<PendingSave | null>(null);
+
   const finishPendingSave = useCallback(async () => {
     if (pendingStarted.current) return;
     pendingStarted.current = true;
-    let pending: Awaited<ReturnType<typeof takePendingSave>> = null;
+    let pending: PendingSave | null = null;
     try {
-      pending = await takePendingSave();
+      // Always take: it also clears a copy stored by an earlier failed attempt.
+      const stored = await takePendingSave();
+      pending = pendingInMemory.current ?? stored;
+      pendingInMemory.current = null;
       if (!pending) {
         navigation.dispatch(StackActions.replace('PlantSelect'));
         return;
@@ -105,10 +111,24 @@ export function Auth({ googleProvider }: Props) {
       const { catalogPlantId, ...values } = pending;
       const { photoFailed } = await createPlantWithPhoto(catalogPlantId, values);
       await syncAfterSave();
-      navigation.dispatch(StackActions.replace('Confirmation', confirmationParams(t, photoFailed)));
+      // The stack becomes catalog, then confirmation: Back must not land on the filled form.
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 1,
+          routes: [
+            { name: 'PlantSelect' },
+            { name: 'Confirmation', params: confirmationParams(t, photoFailed) },
+          ],
+        }),
+      );
     } catch (e) {
       // Nothing was created: keep the form so the retry button can send it again.
-      if (pending) await setPendingSave(pending);
+      pendingInMemory.current = pending;
+      try {
+        if (pending) await setPendingSave(pending);
+      } catch {
+        // The in-memory copy covers the retry.
+      }
       setPendingError(toApiError(e).code === 'network' ? 'network' : 'unknown');
       // Stays marked as started: only the retry button runs it again, not a re-fired effect.
     }
@@ -133,6 +153,30 @@ export function Auth({ googleProvider }: Props) {
   }, [status, navigation, route.params.afterAuth, finishPendingSave]);
 
   const signingUp = mode === 'signUp';
+
+  // Signed in and saving the plant from before sign-up: no form, just progress or the retry.
+  if (route.params.afterAuth === 'savePendingPlant' && status === 'signedIn') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          {pendingError ? (
+            <>
+              <Text style={styles.error} accessibilityRole="alert">
+                {t('plantForm.errors.pendingSave')} {t(`plantForm.errors.${pendingError}`)}
+              </Text>
+              <View style={styles.footer}>
+                <Button title={t('plantForm.retry')} onPress={retryPendingSave} />
+              </View>
+            </>
+          ) : (
+            <View accessibilityLabel={t('plantForm.saving')}>
+              <ActivityIndicator color={colors.green} size="large" />
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   async function handleSubmit() {
     if (submitting.current) return;
@@ -221,17 +265,6 @@ export function Auth({ googleProvider }: Props) {
             <Text style={styles.error} accessibilityRole="alert">
               {t(`auth.errors.${error}`)}
             </Text>
-          )}
-
-          {pendingError && (
-            <View>
-              <Text style={styles.error} accessibilityRole="alert">
-                {t('plantForm.errors.pendingSave')} {t(`plantForm.errors.${pendingError}`)}
-              </Text>
-              <View style={styles.footer}>
-                <Button title={t('plantForm.retry')} onPress={retryPendingSave} />
-              </View>
-            </View>
           )}
 
           <View style={styles.footer}>

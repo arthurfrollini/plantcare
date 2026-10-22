@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -80,7 +81,16 @@ export function PlantForm() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            {illustration && <SvgFromUri uri={illustration} width={120} height={120} />}
+            {form.photo || form.savedPhoto ? (
+              <Image
+                source={form.photo ? { uri: form.photo.uri } : form.savedPhoto ?? undefined}
+                style={styles.headerPhoto}
+                onError={form.photo ? undefined : () => void form.refreshPhotoToken()}
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              illustration && <SvgFromUri uri={illustration} width={120} height={120} />
+            )}
             <Text style={styles.speciesName}>{species.name}</Text>
             <Text style={styles.scientific}>{species.scientificName}</Text>
           </View>
@@ -165,8 +175,7 @@ export function PlantForm() {
 
           <Text style={styles.label}>{t('plantForm.photo')}</Text>
           <PhotoPicker
-            pickedUri={form.photo?.uri ?? null}
-            saved={form.savedPhoto}
+            hasPicked={form.photo !== null}
             message={form.photoMessage}
             disabled={form.saving}
             onCamera={() => void form.pickPhoto('camera')}
@@ -237,6 +246,7 @@ const styles = StyleSheet.create({
   },
   content: { padding: 24, paddingBottom: 40 },
   header: { alignItems: 'center', marginBottom: 16 },
+  headerPhoto: { width: 160, height: 160, borderRadius: 80, backgroundColor: colors.shape },
   speciesName: {
     fontFamily: fonts.heading,
     fontSize: 24,

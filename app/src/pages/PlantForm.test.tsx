@@ -76,7 +76,9 @@ describe('PlantForm', () => {
     mock.onPost('/me/plants').reply(201, userPlantFixture);
     renderForm();
     await screen.findByText('Monstera');
-    await waitFor(() => expect(screen.getByText('Add plant').props.disabled).not.toBe(true));
+    await waitFor(() =>
+      expect(screen.getByText('Add plant')).toBeEnabled(),
+    );
 
     fireEvent.changeText(screen.getByLabelText('Nickname (optional)'), 'Pikachu');
     const save = screen.getByText('Add plant');
@@ -93,7 +95,10 @@ describe('PlantForm', () => {
     renderForm();
     await screen.findByText('Monstera');
 
-    await waitFor(() => fireEvent.press(screen.getByText('Add plant')));
+    await waitFor(() =>
+      expect(screen.getByText('Add plant')).toBeEnabled(),
+    );
+    fireEvent.press(screen.getByText('Add plant'));
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('Auth', {
         mode: 'signUp',
@@ -125,7 +130,9 @@ describe('PlantForm', () => {
     mock.onPost('/me/plants').reply(201, userPlantFixture);
     renderForm();
     await screen.findByText('Monstera');
-    await waitFor(() => expect(screen.getByText('Add plant').props.disabled).not.toBe(true));
+    await waitFor(() =>
+      expect(screen.getByText('Add plant')).toBeEnabled(),
+    );
 
     fireEvent.press(screen.getByText('Add plant'));
 

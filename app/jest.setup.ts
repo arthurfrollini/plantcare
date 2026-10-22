@@ -31,6 +31,7 @@ jest.mock('expo-notifications', () => ({
 
 jest.mock('expo-image-picker', () => ({
   PermissionStatus: { GRANTED: 'granted', DENIED: 'denied', UNDETERMINED: 'undetermined' },
+  UIImagePickerPreferredAssetRepresentationMode: { Automatic: 'automatic', Compatible: 'compatible', Current: 'current' },
   requestCameraPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
   requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
   launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),

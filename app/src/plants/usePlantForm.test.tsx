@@ -8,10 +8,11 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
+import { plantPhotoSource } from '../api/endpoints';
 import { changeLanguage, initI18n } from '../i18n';
 import { PENDING_SAVE_KEY } from './pendingSave';
 import { accountFixture, catalogFixture, userPlantFixture } from './testFixtures';
-import { deviceTimeZone } from './savePlant';
+import { deviceTimeZone, normalizeTimeZone } from './savePlant';
 import { usePlantForm, type PlantFormParams } from './usePlantForm';
 
 const mockNavigate = jest.fn();
@@ -238,5 +239,127 @@ describe('usePlantForm', () => {
     await waitFor(() => expect(result.current.load).toEqual({ state: 'error', error: 'network' }));
     act(() => result.current.retryLoad());
     await waitFor(() => expect(result.current.load.state).toBe('ready'));
+  });
+  it('asks iOS for the compatible representation so HEIC arrives as JPEG', async () => {
+    const { result } = await renderCreate();
+
+    await act(() => result.current.pickPhoto('gallery'));
+
+    expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredAssetRepresentationMode: 'compatible' }),
+    );
+  });
+
+  it('rejects an unsupported photo type with its own message and keeps no photo', async () => {
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ ...photoAsset, uri: 'file:///tmp/leaf.heic', mimeType: 'image/heic' }],
+    });
+    const { result } = await renderCreate();
+
+    await act(() => result.current.pickPhoto('gallery'));
+
+    expect(result.current.photoMessage).toBe('unsupported');
+    expect(result.current.photo).toBeNull();
+  });
+
+  it('accepts a photo without a mime type when the extension is known', async () => {
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///tmp/leaf.PNG', width: 1, height: 1 }],
+    });
+    const { result } = await renderCreate();
+
+    await act(() => result.current.pickPhoto('gallery'));
+
+    expect(result.current.photo).toEqual({ uri: 'file:///tmp/leaf.PNG', mimeType: 'image/png' });
+  });
+
+  describe('editing', () => {
+    async function renderEdit(plant = userPlantFixture) {
+      await signIn();
+      mock.onGet('/me/plants').reply(200, [plant]);
+      mock.onPatch('/me/plants/p1').reply(200, plant);
+      const hook = renderHook(() => usePlantForm({ mode: 'edit', userPlantId: 'p1' }), { wrapper });
+      await waitFor(() => expect(hook.result.current.load.state).toBe('ready'));
+      await waitFor(() => expect(hook.result.current.status).toBe('signedIn'));
+      return hook;
+    }
+
+    it('sends the time zone with a changed reminder time, and nothing else', async () => {
+      const { result } = await renderEdit();
+
+      act(() => result.current.setReminderTime('06:45'));
+      await act(() => result.current.submit());
+
+      expect(JSON.parse(String(mock.history.patch[0]?.data))).toEqual({
+        reminderTime: '06:45',
+        timeZone: deviceTimeZone(),
+      });
+    });
+
+    it('only uploads when just the photo changed', async () => {
+      mock.onPost('/me/plants/p1/photo').reply(200, { ...userPlantFixture, hasPhoto: true });
+      jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+        canceled: false,
+        assets: [photoAsset],
+      });
+      const { result } = await renderEdit();
+
+      await act(() => result.current.pickPhoto('gallery'));
+      await act(() => result.current.submit());
+
+      expect(mock.history.patch).toHaveLength(0);
+      expect(mock.history.post.map((r) => r.url)).toEqual(['/me/plants/p1/photo']);
+      expect(mockDispatch).toHaveBeenCalledTimes(1);
+    });
+
+    it('confirms with the photo notice when the upload fails', async () => {
+      mock.onPost('/me/plants/p1/photo').reply(500);
+      jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+        canceled: false,
+        assets: [photoAsset],
+      });
+      const { result } = await renderEdit();
+
+      act(() => result.current.setNotes('Near the window'));
+      await act(() => result.current.pickPhoto('gallery'));
+      await act(() => result.current.submit());
+
+      expect(mock.history.patch).toHaveLength(1);
+      expect(JSON.stringify(mockDispatch.mock.calls[0]?.[0])).toContain("the photo wasn't");
+    });
+
+    it('says nothing about a missing photo when the picker is cancelled over a saved one', async () => {
+      const { result } = await renderEdit({ ...userPlantFixture, hasPhoto: true, photoVersion: 'v1' });
+
+      await act(() => result.current.pickPhoto('gallery'));
+
+      expect(result.current.photoMessage).toBeNull();
+    });
+
+    it('builds the saved photo source with the token as it is after the list request', async () => {
+      await signIn();
+      const saved = { ...userPlantFixture, hasPhoto: true, photoVersion: 'v1' };
+      mock.onGet('/me/plants').reply(async () => {
+        // A refresh during the list request leaves a newer token behind.
+        await saveTokens({ accessToken: 'fresh', refreshToken: 'r2' });
+        return [200, [saved]];
+      });
+      const { result } = renderHook(() => usePlantForm({ mode: 'edit', userPlantId: 'p1' }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.load.state).toBe('ready'));
+
+      expect(result.current.savedPhoto).toEqual(plantPhotoSource(saved, 'fresh'));
+    });
+  });
+
+  it('falls back to UTC for a time zone the API would reject', () => {
+    expect(normalizeTimeZone('GMT')).toBe('UTC');
+    expect(normalizeTimeZone('')).toBe('UTC');
+    expect(normalizeTimeZone(undefined)).toBe('UTC');
+    expect(normalizeTimeZone('Not/AZone')).toBe('UTC');
+    expect(normalizeTimeZone('America/Sao_Paulo')).toBe('America/Sao_Paulo');
   });
 });

@@ -61,7 +61,6 @@ const ptBR: typeof en = {
     notes: 'Anotações (opcional)',
     notesPlaceholder: 'Qualquer coisa que valha lembrar',
     photo: 'Foto (opcional)',
-    addPhoto: 'Adicionar foto',
     takePhoto: 'Tirar uma foto',
     choosePhoto: 'Escolher da galeria',
     removePhoto: 'Remover foto',

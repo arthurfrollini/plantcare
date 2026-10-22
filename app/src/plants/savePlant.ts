@@ -1,4 +1,4 @@
-import type { CreateUserPlant, UpdateUserPlant, UserPlant } from '@plantcare/shared';
+import { timeZoneSchema, type CreateUserPlant, UpdateUserPlant, UserPlant } from '@plantcare/shared';
 import type { TFunction } from 'i18next';
 
 import { createMyPlant, listMyPlants, uploadPlantPhoto } from '../api/endpoints';
@@ -6,11 +6,16 @@ import type { ConfirmationParams } from '../pages/Confirmation';
 import { ensureNotificationPermission, syncReminders } from '../reminders/sync';
 import type { PlantFormValues } from './pendingSave';
 
+/** Keeps a zone only when the API will accept it; devices may report "GMT" or an empty value. */
+export function normalizeTimeZone(zone: string | undefined): string {
+  const parsed = timeZoneSchema.safeParse(zone);
+  return parsed.success ? parsed.data : 'UTC';
+}
+
 /** The device time zone as a canonical IANA name; the API rejects anything else. */
 export function deviceTimeZone(): string {
   try {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return zone || 'UTC';
+    return normalizeTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   } catch {
     return 'UTC';
   }

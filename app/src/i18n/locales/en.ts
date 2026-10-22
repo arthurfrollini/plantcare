@@ -59,7 +59,6 @@ const en = {
     notes: 'Notes (optional)',
     notesPlaceholder: 'Anything worth remembering',
     photo: 'Photo (optional)',
-    addPhoto: 'Add a photo',
     takePhoto: 'Take a photo',
     choosePhoto: 'Choose from gallery',
     removePhoto: 'Remove photo',

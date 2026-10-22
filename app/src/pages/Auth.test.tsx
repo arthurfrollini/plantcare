@@ -273,8 +273,16 @@ describe('Auth', () => {
         nickname: 'Pikachu',
       });
       expect(await AsyncStorage.getItem(PENDING_SAVE_KEY)).toBeNull();
+      // Reset, so Back from the confirmation cannot reach the filled form.
       expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
-        payload: { name: 'Confirmation', params: { nextScreen: 'MyPlants' } },
+        type: 'RESET',
+        payload: {
+          index: 1,
+          routes: [
+            { name: 'PlantSelect' },
+            { name: 'Confirmation', params: { nextScreen: 'MyPlants' } },
+          ],
+        },
       });
     });
 
@@ -287,6 +295,55 @@ describe('Auth', () => {
       expect(mock.history.post.filter((r) => r.url === '/me/plants')).toHaveLength(0);
     });
 
+    it('shows progress, not the sign up form, while the plant saves', async () => {
+      await setPendingSave(pending);
+      mock.onPost('/me/plants').reply(
+        () => new Promise((resolve) => setTimeout(() => resolve([201, userPlantFixture]), 50)),
+      );
+      renderAuth();
+
+      signUp();
+
+      expect(await screen.findByLabelText('Saving')).toBeTruthy();
+      expect(screen.queryByText('Create account')).toBeNull();
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+    });
+
+    it('does not create twice when the effect re-fires mid-save', async () => {
+      await setPendingSave(pending);
+      mock.onPost('/me/plants').reply(
+        () => new Promise((resolve) => setTimeout(() => resolve([201, userPlantFixture]), 50)),
+      );
+      renderAuth();
+
+      signUp();
+      await screen.findByLabelText('Saving');
+      // A new translate function makes the finishing callback, and so the effect, run again.
+      await act(() => changeLanguage('pt-BR'));
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+
+      expect(mock.history.post.filter((r) => r.url === '/me/plants')).toHaveLength(1);
+    });
+
+    it('retries from memory when the pending save cannot be written back', async () => {
+      await setPendingSave(pending);
+      let attempts = 0;
+      mock.onPost('/me/plants').reply(() => {
+        attempts += 1;
+        if (attempts > 1) return [201, userPlantFixture];
+        // The write that puts the form back fails right after the create does.
+        jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('disk full'));
+        return Promise.reject(new Error('boom'));
+      });
+      renderAuth();
+
+      signUp();
+      fireEvent.press(await screen.findByText('Try again'));
+
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+      expect(mock.history.post.filter((r) => r.url === '/me/plants')).toHaveLength(2);
+    });
+
     it('keeps the form and offers a retry when the create fails', async () => {
       await setPendingSave(pending);
       mock.onPost('/me/plants').networkErrorOnce();
@@ -295,6 +352,7 @@ describe('Auth', () => {
 
       signUp();
       expect(await screen.findByText('Try again')).toBeTruthy();
+      expect(screen.queryByText('Create account')).toBeNull();
       expect(await AsyncStorage.getItem(PENDING_SAVE_KEY)).not.toBeNull();
 
       fireEvent.press(screen.getByText('Try again'));
