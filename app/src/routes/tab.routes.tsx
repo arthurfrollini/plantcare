@@ -132,10 +132,13 @@ const AuthRoutes = () => {
 };
 
 const styles = StyleSheet.create({
+  // The side tabs sit at the top of their slot (React Navigation's 5 px padding), so the + is
+  // pinned to the top too, at the offset that puts its centre level with theirs.
   addSlot: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 2.5,
   },
   addButton: {
     width: 48,
