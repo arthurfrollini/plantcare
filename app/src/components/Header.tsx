@@ -19,6 +19,11 @@ export function initials(name: string) {
     .join('');
 }
 
+/** The first word of the name, so a full name never crowds the greeting. */
+export function firstName(name: string) {
+  return name.trim().split(/\s+/)[0] ?? '';
+}
+
 export function Header() {
   const [localName, setLocalName] = useState<string>();
   const { status, user } = useAuth();
@@ -39,9 +44,11 @@ export function Header() {
 
   return (
     <View style={[styles.container, { marginTop: top }]}>
-      <View>
+      <View style={styles.names}>
         <Text style={styles.greeting}>{t('header.greeting')}</Text>
-        <Text style={styles.userName}>{username}</Text>
+        <Text style={styles.userName} numberOfLines={1}>
+          {firstName(username ?? '')}
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -65,6 +72,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 20,
+  },
+  // Shrinks before the avatar does; a very long single name ends in an ellipsis.
+  names: {
+    flexShrink: 1,
+    marginRight: 16,
   },
   avatar: {
     width: 80,
