@@ -9,10 +9,12 @@ import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, loadTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
+import { PENDING_SAVE_KEY, setPendingSave } from '../plants/pendingSave';
+import { userPlantFixture } from '../plants/testFixtures';
 import { Auth } from './Auth';
 
 const mockDispatch = jest.fn();
-let mockParams: { mode: 'signIn' | 'signUp' } = { mode: 'signIn' };
+let mockParams: { mode: 'signIn' | 'signUp'; afterAuth?: 'savePendingPlant' } = { mode: 'signIn' };
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual<object>('@react-navigation/native'),
@@ -231,5 +233,75 @@ describe('Auth', () => {
     fireEvent.press(screen.getByText('New here? Create an account'));
     expect(screen.getByText('Create your account')).toBeTruthy();
     await act(async () => undefined);
+  });
+  describe('after sign up with a pending plant', () => {
+    const pending = {
+      catalogPlantId: 'c1',
+      nickname: 'Pikachu',
+      frequency: { times: 2, per: 'week' as const },
+      reminderTime: '09:30',
+      light: null,
+      notes: '',
+      photo: null,
+    };
+
+    beforeEach(() => {
+      mockParams = { mode: 'signUp', afterAuth: 'savePendingPlant' };
+      mock.onPost('/auth/register').reply(201, { accessToken: 'a', refreshToken: 'r', user });
+      mock.onGet('/me/plants').reply(200, []);
+    });
+
+    function signUp() {
+      fireEvent.changeText(screen.getByLabelText('Your name'), 'Ana');
+      fill('ana@example.com', 'secret123');
+      fireEvent.press(screen.getByText('Create account'));
+    }
+
+    it('creates the plant exactly once, clears the pending save and confirms', async () => {
+      await setPendingSave(pending);
+      mock.onPost('/me/plants').reply(201, userPlantFixture);
+      const view = renderAuth();
+
+      signUp();
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+      view.rerender(<></>);
+
+      const created = mock.history.post.filter((r) => r.url === '/me/plants');
+      expect(created).toHaveLength(1);
+      expect(JSON.parse(String(created[0]?.data))).toMatchObject({
+        catalogPlantId: 'c1',
+        nickname: 'Pikachu',
+      });
+      expect(await AsyncStorage.getItem(PENDING_SAVE_KEY)).toBeNull();
+      expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
+        payload: { name: 'Confirmation', params: { nextScreen: 'MyPlants' } },
+      });
+    });
+
+    it('goes to the catalog when nothing is pending', async () => {
+      renderAuth();
+
+      signUp();
+
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')));
+      expect(mock.history.post.filter((r) => r.url === '/me/plants')).toHaveLength(0);
+    });
+
+    it('keeps the form and offers a retry when the create fails', async () => {
+      await setPendingSave(pending);
+      mock.onPost('/me/plants').networkErrorOnce();
+      mock.onPost('/me/plants').reply(201, userPlantFixture);
+      renderAuth();
+
+      signUp();
+      expect(await screen.findByText('Try again')).toBeTruthy();
+      expect(await AsyncStorage.getItem(PENDING_SAVE_KEY)).not.toBeNull();
+
+      fireEvent.press(screen.getByText('Try again'));
+
+      await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+      expect(mock.history.post.filter((r) => r.url === '/me/plants')).toHaveLength(2);
+      expect(await AsyncStorage.getItem(PENDING_SAVE_KEY)).toBeNull();
+    });
   });
 });

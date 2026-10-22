@@ -17,6 +17,8 @@ module.exports = defineConfig([
       'src/reminders/**/*.{ts,tsx}',
       'src/plants/**/*.{ts,tsx}',
       'src/pages/Auth.tsx',
+      'src/pages/PlantForm.tsx',
+      'src/components/PhotoPicker.tsx',
       'src/pages/Profile.tsx',
       'src/pages/Welcome.tsx',
     ],

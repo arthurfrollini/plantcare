@@ -5,11 +5,10 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 import Welcome from '../pages/Welcome';
 import { UserIdentification } from '../pages/UserIdentification';
 import { Confirmation, ConfirmationParams } from '../pages/Confirmation';
-import { PlantSave } from '../pages/PlantSave';
+import { PlantForm } from '../pages/PlantForm';
 import { Profile } from '../pages/Profile';
 import { Auth } from '../pages/Auth';
 import AuthRoutes, { TabParamList } from './tab.routes';
-import { PlantProps } from '../libs/storage';
 
 import colors from '../styles/colors';
 
@@ -18,7 +17,7 @@ export type RootStackParamList = {
   UserIdentification: undefined;
   Confirmation: ConfirmationParams;
   PlantSelect: NavigatorScreenParams<TabParamList> | undefined;
-  PlantSave: { plant: PlantProps };
+  PlantForm: { mode: 'create'; catalogPlantId: string } | { mode: 'edit'; userPlantId: string };
   MyPlants: NavigatorScreenParams<TabParamList> | undefined;
   Profile: undefined;
   Auth: { mode: 'signIn' | 'signUp'; afterAuth?: 'savePendingPlant' };
@@ -51,7 +50,7 @@ const AppRoutes = () => (
     />
     <stackRoutes.Screen name="Confirmation" component={Confirmation} />
     <stackRoutes.Screen name="PlantSelect" component={AuthRoutes} />
-    <stackRoutes.Screen name="PlantSave" component={PlantSave} />
+    <stackRoutes.Screen name="PlantForm" component={PlantForm} />
     <stackRoutes.Screen name="MyPlants" component={AuthRoutes} />
     <stackRoutes.Screen name="Profile" component={Profile} />
     <stackRoutes.Screen name="Auth" component={Auth} />

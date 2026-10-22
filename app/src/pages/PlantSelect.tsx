@@ -76,7 +76,7 @@ export function PlantSelect() {
   }
 
   function handlePlantSelect(plant: PlantProps) {
-    navigation.navigate('PlantSave', { plant });
+    navigation.navigate('PlantForm', { mode: 'create', catalogPlantId: String(plant.id) });
   }
 
   useEffect(() => {

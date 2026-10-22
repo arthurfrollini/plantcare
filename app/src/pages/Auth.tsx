@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -19,6 +19,8 @@ import { useTranslation } from 'react-i18next';
 
 import { toApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
+import { takePendingSave, setPendingSave } from '../plants/pendingSave';
+import { confirmationParams, createPlantWithPhoto, syncAfterSave } from '../plants/savePlant';
 import { GoogleSignInButton, type GoogleIdTokenProvider } from '../auth/GoogleSignInButton';
 import { Button } from '../components/Button';
 import type { RootStackParamList } from '../routes/stack.routes';
@@ -33,6 +35,8 @@ type ErrorKey =
   | 'rate_limited'
   | 'network'
   | 'unknown';
+
+type PendingError = 'network' | 'unknown';
 
 function errorKey(error: unknown): ErrorKey {
   const { code } = toApiError(error);
@@ -83,10 +87,50 @@ export function Auth({ googleProvider }: Props) {
     };
   }, []);
 
-  // Signing in (or arriving here already signed in) leaves this screen for the catalog.
+  // Finishes the form the user filled in before signing up. The stored copy is removed before the
+  // request, and the ref keeps a re-fired effect from starting a second run.
+  const pendingStarted = useRef(false);
+  const [pendingError, setPendingError] = useState<PendingError | null>(null);
+
+  const finishPendingSave = useCallback(async () => {
+    if (pendingStarted.current) return;
+    pendingStarted.current = true;
+    let pending: Awaited<ReturnType<typeof takePendingSave>> = null;
+    try {
+      pending = await takePendingSave();
+      if (!pending) {
+        navigation.dispatch(StackActions.replace('PlantSelect'));
+        return;
+      }
+      const { catalogPlantId, ...values } = pending;
+      const { photoFailed } = await createPlantWithPhoto(catalogPlantId, values);
+      await syncAfterSave();
+      navigation.dispatch(StackActions.replace('Confirmation', confirmationParams(t, photoFailed)));
+    } catch (e) {
+      // Nothing was created: keep the form so the retry button can send it again.
+      if (pending) await setPendingSave(pending);
+      setPendingError(toApiError(e).code === 'network' ? 'network' : 'unknown');
+      // Stays marked as started: only the retry button runs it again, not a re-fired effect.
+    }
+  }, [navigation, t]);
+
+  function retryPendingSave() {
+    pendingStarted.current = false;
+    setPendingError(null);
+    void finishPendingSave();
+  }
+
+  // Signing in (or arriving here already signed in) leaves this screen for the catalog, or for the
+  // confirmation once the plant saved before sign-up exists.
   useEffect(() => {
-    if (status === 'signedIn') navigation.dispatch(StackActions.replace('PlantSelect'));
-  }, [status, navigation]);
+    if (status !== 'signedIn') return;
+    if (route.params.afterAuth === 'savePendingPlant') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the state is only set after awaiting the request
+      void finishPendingSave();
+      return;
+    }
+    navigation.dispatch(StackActions.replace('PlantSelect'));
+  }, [status, navigation, route.params.afterAuth, finishPendingSave]);
 
   const signingUp = mode === 'signUp';
 
@@ -177,6 +221,17 @@ export function Auth({ googleProvider }: Props) {
             <Text style={styles.error} accessibilityRole="alert">
               {t(`auth.errors.${error}`)}
             </Text>
+          )}
+
+          {pendingError && (
+            <View>
+              <Text style={styles.error} accessibilityRole="alert">
+                {t('plantForm.errors.pendingSave')} {t(`plantForm.errors.${pendingError}`)}
+              </Text>
+              <View style={styles.footer}>
+                <Button title={t('plantForm.retry')} onPress={retryPendingSave} />
+              </View>
+            </View>
           )}
 
           <View style={styles.footer}>
