@@ -170,31 +170,47 @@ export function PlantSelect() {
   return (
     <View style={[styles.container, { paddingTop: top }]}>
       <View style={styles.header}>
-        <View style={styles.segments} accessibilityRole="tablist">
-          {(['catalog', 'ai'] as const).map((value) => {
-            const active = mode === value;
-            return (
-              <Pressable
-                key={value}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                style={[styles.segment, active && styles.segmentActive]}
-                onPress={() => setMode(value)}
-              >
-                {value === 'ai' && (
-                  <MaterialCommunityIcons
-                    name="creation"
-                    size={16}
-                    color={active ? colors.green_dark : colors.body_dark}
-                    style={styles.segmentIcon}
-                  />
-                )}
-                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                  {t(value === 'catalog' ? 'plantSelect.tabCatalog' : 'plantSelect.tabAi')}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.back}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel={t('plantSelect.back')}
+            hitSlop={12}
+          >
+            <Feather name="chevron-left" size={28} color={colors.heading} />
+          </TouchableOpacity>
+          <View style={styles.segments} accessibilityRole="tablist">
+            {(['catalog', 'ai'] as const).map((value) => {
+              const active = mode === value;
+              return (
+                <Pressable
+                  key={value}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.segment, active && styles.segmentActive]}
+                  onPress={() => setMode(value)}
+                >
+                  {value === 'ai' && (
+                    <MaterialCommunityIcons
+                      name="creation"
+                      size={16}
+                      color={active ? colors.green_dark : colors.body_dark}
+                      style={styles.segmentIcon}
+                    />
+                  )}
+                  <Text
+                    style={[styles.segmentText, active && styles.segmentTextActive]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.85}
+                  >
+                    {t(value === 'catalog' ? 'plantSelect.tabCatalog' : 'plantSelect.tabAi')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
         {mode === 'catalog' && (
           <>
@@ -383,9 +399,18 @@ const styles = StyleSheet.create({
   addButtonOff: {
     opacity: 0.5,
   },
-  segments: {
+  topBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 16,
+  },
+  back: {
+    marginLeft: -6,
+    marginRight: 8,
+  },
+  segments: {
+    flex: 1,
+    flexDirection: 'row',
     padding: 4,
     borderRadius: 14,
     backgroundColor: colors.shape,

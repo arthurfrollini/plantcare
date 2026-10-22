@@ -15,10 +15,11 @@ import { PlantSelect } from './PlantSelect';
 
 const mockNavigate = jest.fn();
 const mockDispatch = jest.fn();
+const mockGoBack = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual<object>('@react-navigation/native'),
-  useNavigation: () => ({ navigate: mockNavigate, dispatch: mockDispatch, goBack: jest.fn() }),
+  useNavigation: () => ({ navigate: mockNavigate, dispatch: mockDispatch, goBack: mockGoBack }),
 }));
 
 const cactusFixture = {
@@ -38,6 +39,7 @@ beforeEach(async () => {
   mock = new MockAdapter(api);
   mockNavigate.mockClear();
   mockDispatch.mockClear();
+  mockGoBack.mockClear();
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');
@@ -87,7 +89,18 @@ describe('PlantSelect', () => {
 
     expect(screen.getByText('Soon')).toBeTruthy();
     expect(screen.queryByText('Monstera')).toBeNull();
-    expect(screen.queryByText('Add plants')).toBeNull();
+    expect(screen.queryByText('Add plant(s)')).toBeNull();
+  });
+
+  it('goes back from either tab', async () => {
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    renderScreen();
+    await screen.findByText('Monstera');
+
+    fireEvent.press(screen.getByRole('tab', { name: 'Add with AI' }));
+    fireEvent.press(screen.getByLabelText('Back'));
+
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the add button in place but off until a plant is picked', async () => {
@@ -95,7 +108,7 @@ describe('PlantSelect', () => {
     renderScreen();
     await screen.findByText('Monstera');
 
-    expect(screen.getByRole('button', { name: 'Add plants', disabled: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add plant(s)', disabled: true })).toBeTruthy();
     expect(screen.queryByText('Clear')).toBeNull();
 
     fireEvent.press(screen.getByText('Monstera'));
