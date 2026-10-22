@@ -94,7 +94,7 @@ export function uploadPlantPhoto(
   // React Native reads the upload from this {uri, name, type} part (see form-data.d.ts).
   form.append('photo', { uri: file.uri, name: 'photo', type: file.mimeType });
   return api
-    .post(`/me/plants/${encodeURIComponent(id)}/photo`, form)
+    .post(`/me/plants/${encodeURIComponent(id)}/photo`, form, { timeout: 60000 })
     .then((r) => userPlantSchema.parse(r.data));
 }
 

@@ -1,6 +1,7 @@
 import MockAdapter from 'axios-mock-adapter';
 
 import { changeLanguage, initI18n } from '../i18n';
+import * as session from '../auth/session';
 import { clearTokens, loadTokens, saveTokens } from '../auth/session';
 import { ApiError, api, setSignedOutHandler } from './client';
 
@@ -12,8 +13,6 @@ const user = {
   hasPassword: true,
   hasGoogle: false,
 };
-
-beforeAll(initI18n);
 
 beforeAll(initI18n);
 
@@ -165,6 +164,60 @@ describe('refresh', () => {
     await expect(api.get('/data')).rejects.toBeInstanceOf(ApiError);
     expect(await loadTokens()).toBeNull();
     expect(onSignedOut).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([429, 503])('keeps the session when the refresh answers %i', async (status) => {
+    await saveTokens({ accessToken: 'old', refreshToken: 'old-r' });
+    mock.onPost('/auth/refresh').reply(status, { error: { code: 'busy', message: 'later' } });
+    mock.onGet('/data').reply(401, {});
+
+    await expect(api.get('/data')).rejects.toMatchObject({ status, code: 'busy' });
+    expect(await loadTokens()).not.toBeNull();
+    expect(onSignedOut).not.toHaveBeenCalled();
+  });
+
+  it('signs out when the refresh answers 400', async () => {
+    await saveTokens({ accessToken: 'old', refreshToken: 'old-r' });
+    mock.onPost('/auth/refresh').reply(400, { error: { code: 'bad_request', message: 'x' } });
+    mock.onGet('/data').reply(401, {});
+
+    await expect(api.get('/data')).rejects.toMatchObject({ status: 400 });
+    expect(await loadTokens()).toBeNull();
+    expect(onSignedOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('turns a secure-store read failure into ApiError(null, storage) and signs out', async () => {
+    await saveTokens({ accessToken: 'old', refreshToken: 'old-r' });
+    mock.onGet('/data').reply(401, {});
+    // The request interceptor reads tokens once; only the refresh's own read fails.
+    const real = session.loadTokens;
+    const spy = jest.spyOn(session, 'loadTokens');
+    spy.mockImplementation(real);
+    spy.mockImplementationOnce(real); // request interceptor
+    spy.mockImplementationOnce(real); // stale-token check
+    spy.mockRejectedValueOnce(new Error('keychain locked'));
+
+    await expect(api.get('/data')).rejects.toMatchObject({ status: null, code: 'storage' });
+    spy.mockRestore();
+    expect(onSignedOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not sign out when the user signed out before the refresh read tokens', async () => {
+    await saveTokens({ accessToken: 'old', refreshToken: 'old-r' });
+    mock.onGet('/data').reply(401, {});
+    const real = session.loadTokens;
+    const spy = jest.spyOn(session, 'loadTokens');
+    spy.mockImplementation(real);
+    spy.mockImplementationOnce(real); // request interceptor
+    spy.mockImplementationOnce(real); // stale-token check
+    spy.mockImplementationOnce(async () => {
+      await clearTokens(); // sign-out lands while doRefresh awaits its read
+      throw new Error('gone');
+    });
+
+    await expect(api.get('/data')).rejects.toBeInstanceOf(ApiError);
+    spy.mockRestore();
+    expect(onSignedOut).not.toHaveBeenCalled();
   });
 
   it('keeps the session when the refresh cannot reach the API', async () => {

@@ -70,11 +70,26 @@ function refreshOnce(): Promise<void> {
   return refreshing;
 }
 
+/** Secure-store failures leave the client as ApiError like everything else. */
+async function fromStorage<T>(work: Promise<T>): Promise<T> {
+  try {
+    return await work;
+  } catch (e) {
+    throw new ApiError(null, 'storage', e instanceof Error ? e.message : 'Storage failed');
+  }
+}
+
+/** Only a refresh the server rejects, or one that fails locally, ends the session. */
+function endsSession(error: ApiError): boolean {
+  if (error.status === null) return error.code !== 'network';
+  return error.status === 400 || error.status === 401;
+}
+
 async function doRefresh(): Promise<void> {
-  const tokens = await loadTokens();
-  if (!tokens) throw new ApiError(401, 'unauthorized', 'Not signed in');
   const epoch = sessionEpoch();
   try {
+    const tokens = await fromStorage(loadTokens());
+    if (!tokens) throw new ApiError(401, 'unauthorized', 'Not signed in');
     const res = await api.post(
       '/auth/refresh',
       { refreshToken: tokens.refreshToken },
@@ -83,12 +98,12 @@ async function doRefresh(): Promise<void> {
     const parsed = authResponseSchema.parse(res.data);
     // Signed out while the refresh was in flight: do not bring the session back.
     if (sessionEpoch() !== epoch) throw new ApiError(401, 'unauthorized', 'Signed out');
-    await saveTokens({ accessToken: parsed.accessToken, refreshToken: parsed.refreshToken });
+    await fromStorage(
+      saveTokens({ accessToken: parsed.accessToken, refreshToken: parsed.refreshToken }),
+    );
   } catch (e) {
     const error = toApiError(e);
-    // Only an unreachable API says nothing about the session: keep the tokens then.
-    if (error.code === 'network') throw error;
-    if (sessionEpoch() === epoch) {
+    if (endsSession(error) && sessionEpoch() === epoch) {
       await clearTokens();
       signedOutHandler();
     }
