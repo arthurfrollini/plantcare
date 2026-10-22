@@ -18,7 +18,7 @@ Requires Node.js 22+.
 3. From `app/`, start the app: `npx expo start`
 4. Open it on your phone with [Expo Go](https://expo.dev/go) (SDK 57) by scanning the QR code, or press `i` for the iOS simulator or `a` for the Android emulator.
 
-The app finds the API on its own: it uses the address of the machine running Metro, on port 3333, so the phone and the computer only need to be on the same network. If they are not (on different networks, or through a tunnel), set `EXPO_PUBLIC_API_URL`. The web build uses the address of the page, so it does not need it:
+The app finds the API on its own: it uses the address of the machine running Metro, on port 3333, so the phone and the computer only need to be on the same network. If they are not (on different networks, or through a tunnel), set `EXPO_PUBLIC_API_URL`.:
 
 ```sh
 EXPO_PUBLIC_API_URL=http://192.168.0.10:3333 npx expo start
@@ -30,13 +30,9 @@ Reminders are local notifications, which work in Expo Go. Allow notifications wh
 
 The Google button is hidden. Real Google sign-in needs a development build with OAuth client IDs, which this setup does not have. Email and password sign-up and sign-in work in Expo Go.
 
-## Web
-
-`npx expo start --web` runs the app in a browser, which is handy for a quick look. The web build cannot schedule notifications or take a camera photo, and the remove confirmation does not show, so use a phone for those.
-
 ## Checks to do on a phone
 
-These cannot be covered by tests or the web build:
+These cannot be covered by tests:
 
 - Notifications: save a plant, allow notifications, and confirm a reminder arrives at the chosen time.
 - Photo: take one with the camera and pick one from the gallery, then check it shows on My Plants.
