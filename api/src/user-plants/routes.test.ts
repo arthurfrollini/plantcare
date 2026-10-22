@@ -170,26 +170,104 @@ describe('user plants routes', () => {
     expect(res.json<ErrorBody>().error.code).toBe('validation_error');
   });
 
-  it('sets scheduleStartsOn for a monthly species', async () => {
+  /** ISO weekday (1 = Monday) of a YYYY-MM-DD anchor. */
+  const anchorWeekday = (date: string | null) => {
+    expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const day = new Date(`${date ?? ''}T00:00:00Z`).getUTCDay();
+    return day === 0 ? 7 : day;
+  };
+  /** Whole days from today (UTC) to a YYYY-MM-DD anchor. */
+  const daysAhead = (date: string | null) =>
+    Math.round(
+      (Date.parse(`${date ?? ''}T00:00:00Z`) -
+        Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`)) /
+        86_400_000,
+    );
+
+  it('sets scheduleStartsOn for a monthly species on the chosen weekday', async () => {
     await prisma.plant.update({
       where: { id: catalogId },
       data: { frequencyTimes: 1, frequencyPer: 'month' },
     });
     const plant = await create(tokenA, { wateringDays: [3] });
-    expect(plant.scheduleStartsOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(plant.wateringDays).toEqual([3]);
-    const before = plant.scheduleStartsOn;
+    expect(anchorWeekday(plant.scheduleStartsOn)).toBe(3);
+    expect(daysAhead(plant.scheduleStartsOn)).toBeGreaterThanOrEqual(-1);
+    expect(daysAhead(plant.scheduleStartsOn)).toBeLessThanOrEqual(8);
+
     const patched = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
       wateringDays: [5],
     });
-    expect(patched.json<UserPlant>().scheduleStartsOn).toMatch(
-      /^\d{4}-\d{2}-\d{2}$/,
-    );
+    const moved = patched.json<UserPlant>().scheduleStartsOn;
+    expect(anchorWeekday(moved)).toBe(5);
+    expect(daysAhead(moved)).toBeGreaterThanOrEqual(-1);
+    expect(daysAhead(moved)).toBeLessThanOrEqual(8);
     const row = await prisma.userPlant.findUniqueOrThrow({
       where: { id: plant.id },
     });
-    expect(row.scheduleStartsOn).not.toBeNull();
-    expect(before).not.toBeNull();
+    expect(row.scheduleStartsOn?.toISOString().slice(0, 10)).toBe(moved);
+  });
+
+  it('anchors a time-only change on the default day while the days need a review', async () => {
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 2, frequencyPer: 'week' },
+    });
+    const plant = await create(tokenA, { wateringDays: [2, 5] });
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 1, frequencyPer: 'month' },
+    });
+
+    const timed = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
+      reminderTime: '07:00',
+    });
+    expect(timed.statusCode).toBe(200);
+    expect(timed.json<UserPlant>()).toMatchObject({
+      wateringDays: [],
+      scheduleNeedsReview: true,
+    });
+    // The reminders water on the default Monday, so the anchor is a Monday, not the stale Tuesday.
+    expect(anchorWeekday(timed.json<UserPlant>().scheduleStartsOn)).toBe(1);
+
+    const picked = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
+      wateringDays: [4],
+    });
+    expect(picked.json<UserPlant>()).toMatchObject({
+      wateringDays: [4],
+      scheduleNeedsReview: false,
+    });
+    expect(anchorWeekday(picked.json<UserPlant>().scheduleStartsOn)).toBe(4);
+  });
+
+  it('asks for a review when a date-based plant has no anchor, until a day is picked', async () => {
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 1, frequencyPer: 'week' },
+    });
+    const plant = await create(tokenA, { wateringDays: [3] });
+    expect(plant.scheduleStartsOn).toBeNull();
+    await prisma.plant.update({
+      where: { id: catalogId },
+      data: { frequencyTimes: 1, frequencyPer: 'twoWeeks' },
+    });
+
+    const list = await call('GET', '/me/plants', tokenA);
+    expect(list.json<UserPlant[]>()[0]).toMatchObject({
+      wateringDays: [],
+      scheduleStartsOn: null,
+      scheduleNeedsReview: true,
+      frequency: { times: 1, per: 'twoWeeks' },
+    });
+
+    const picked = await call('PATCH', `/me/plants/${plant.id}`, tokenA, {
+      wateringDays: [3],
+    });
+    expect(picked.json<UserPlant>()).toMatchObject({
+      wateringDays: [3],
+      scheduleNeedsReview: false,
+    });
+    expect(anchorWeekday(picked.json<UserPlant>().scheduleStartsOn)).toBe(3);
   });
 
   it('flags scheduleNeedsReview when the species frequency changed', async () => {

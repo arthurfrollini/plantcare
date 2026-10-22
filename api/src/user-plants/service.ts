@@ -1,6 +1,7 @@
 import {
   DEFAULT_REMINDER_LEAD,
   difficultySchema,
+  effectiveWateringDays,
   frequencySchema,
   lightSchema,
   requiredWateringDays,
@@ -41,10 +42,13 @@ export function toUserPlantDto(
     per: row.catalogPlant.frequencyPer,
   });
   const required = requiredWateringDays(frequency);
+  // A date-based plant without an anchor (its species changed to one) has no
+  // fixed start: picking the day again sets it.
   const scheduleNeedsReview =
-    required > 0 &&
-    row.wateringDays.length > 0 &&
-    row.wateringDays.length !== required;
+    (required > 0 &&
+      row.wateringDays.length > 0 &&
+      row.wateringDays.length !== required) ||
+    (isDateBased(frequency) && row.scheduleStartsOn === null);
   return {
     id: row.id,
     catalogPlantId: row.catalogPlantId,
@@ -82,6 +86,7 @@ function assertWateringDays(days: number[], required: number): void {
   }
 }
 
+/** Next occurrence of the day the reminders use: the stored one, or the default while it is wrong. */
 function anchorFor(
   species: Plant,
   days: number[],
@@ -93,8 +98,9 @@ function anchorFor(
     per: species.frequencyPer,
   });
   if (!isDateBased(frequency)) return null;
+  const weekday = effectiveWateringDays(frequency, days)[0] ?? 1;
   return new Date(
-    `${nextOccurrenceDate(days[0] ?? 1, time, timeZone, new Date())}T00:00:00Z`,
+    `${nextOccurrenceDate(weekday, time, timeZone, new Date())}T00:00:00Z`,
   );
 }
 

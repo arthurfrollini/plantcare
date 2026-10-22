@@ -45,10 +45,18 @@ export function defaultWateringDays(f: Frequency): number[] {
   return [1];
 }
 
+/** The stored days when their count fits the frequency, else the defaults. */
+export function effectiveWateringDays(
+  frequency: Frequency,
+  wateringDays: number[],
+): number[] {
+  return wateringDays.length === requiredWateringDays(frequency)
+    ? wateringDays
+    : defaultWateringDays(frequency);
+}
+
 function effectiveDays(input: ScheduleInput): number[] {
-  return input.wateringDays.length === requiredWateringDays(input.frequency)
-    ? input.wateringDays
-    : defaultWateringDays(input.frequency);
+  return effectiveWateringDays(input.frequency, input.wateringDays);
 }
 
 function parseTime(time: string): { hour: number; minute: number } | null {
@@ -81,26 +89,14 @@ function* dateOccurrences(
   const at = (y: number, m: number, d: number) =>
     new Date(y, m, d, time.hour, time.minute);
 
-  let anchor: Date | null = null;
   const parsed = input.scheduleStartsOn
     ? parseDate(input.scheduleStartsOn)
     : null;
-  if (parsed) {
-    anchor = at(...parsed);
-  } else {
-    const weekday = effectiveDays(input)[0] ?? 1;
-    for (let offset = 0; offset <= 7 && !anchor; offset++) {
-      const candidate = at(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + offset,
-      );
-      if (isoWeekday(candidate) === weekday && candidate > now) {
-        anchor = candidate;
-      }
-    }
-  }
-  if (!anchor) return;
+  // Without an anchor, the phase counts from a fixed Monday (2024-01-01), so
+  // it stays the same from one sync to the next instead of restarting at now.
+  const anchor = parsed
+    ? at(...parsed)
+    : at(2024, 0, effectiveDays(input)[0] ?? 1);
 
   const y = anchor.getFullYear();
   const m = anchor.getMonth();

@@ -143,18 +143,49 @@ describe('reminderTriggers', () => {
     });
   });
 
-  it('twoWeeks without an anchor starts on the next chosen weekday', () => {
+  it('twoWeeks without an anchor keeps a fixed phase between syncs', () => {
     const input: ScheduleInput = {
       ...base,
       frequency: { times: 1, per: 'twoWeeks' },
       wateringDays: [3],
       reminderTime: '09:00',
     };
-    // Thursday Oct 22 -> next Wednesday is Oct 28
+    // Every 14 days from Wednesday 2024-01-03, the chosen weekday after the reference Monday.
+    const expectedFrom = (at: Date): ReminderTrigger[] => {
+      const expected: ReminderTrigger[] = [];
+      for (let k = 0; expected.length < 3; k++) {
+        const d = new Date(2024, 0, 3 + 14 * k, 8, 45);
+        if (d > at) expected.push({ kind: 'date', date: d });
+      }
+      return expected;
+    };
+    const weekLater = new Date(2026, 9, 29, 12, 0);
+    // Thursday Oct 22: the phase lands on Nov 4, not the Wednesday right after.
+    expect(reminderTriggers(input, now)).toEqual(expectedFrom(now));
     expect(reminderTriggers(input, now)[0]).toEqual({
       kind: 'date',
-      date: new Date(2026, 9, 28, 8, 45),
+      date: new Date(2026, 10, 4, 8, 45),
     });
+    // A sync a week later still waters on Nov 4, so the plant is not watered weekly.
+    expect(reminderTriggers(input, weekLater)).toEqual(expectedFrom(weekLater));
+    expect(reminderTriggers(input, weekLater)[0]).toEqual({
+      kind: 'date',
+      date: new Date(2026, 10, 4, 8, 45),
+    });
+  });
+
+  it('monthly without an anchor waters every 28 days whenever it syncs', () => {
+    const input: ScheduleInput = {
+      ...base,
+      frequency: { times: 1, per: 'month' },
+      wateringDays: [1],
+      reminderTime: '09:00',
+    };
+    const first = nextWatering(input, now);
+    const later = nextWatering(input, new Date(2026, 9, 29, 12, 0));
+    // 28-day steps from Monday 2024-01-01: Oct 5, Nov 2, ...
+    expect(first).toEqual(new Date(2026, 10, 2, 9, 0));
+    expect(later).toEqual(first);
   });
 
   it.each(['25:00', '', '9:5'])('throws on malformed time %j', (time) => {
