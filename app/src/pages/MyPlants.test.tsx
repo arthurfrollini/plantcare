@@ -2,18 +2,24 @@ import React from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MockAdapter from 'axios-mock-adapter';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
+import { resetCapWarning } from '../reminders/sync';
 import { MY_PLANTS_CACHE_KEY } from '../plants/myPlantsCache';
 import { accountFixture, userPlantFixture } from '../plants/testFixtures';
 import { MyPlants } from './MyPlants';
 
 const mockNavigate = jest.fn();
+
+jest.mock('react-native-svg', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  return { SvgFromUri: (props: object) => createElement('SvgFromUri', { testID: 'plant-illustration', ...props }) };
+});
 
 jest.mock('@react-navigation/native', () => {
   const { useEffect } = jest.requireActual<typeof import('react')>('react');
@@ -31,6 +37,7 @@ beforeAll(initI18n);
 beforeEach(async () => {
   mock = new MockAdapter(api);
   mockNavigate.mockClear();
+  resetCapWarning();
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');
@@ -152,5 +159,76 @@ describe('MyPlants', () => {
     fireEvent.press(await screen.findByText('Try again'));
 
     expect(await screen.findByText('Monstera')).toBeTruthy();
+  });
+
+  it('keeps the card and says so when the delete fails', async () => {
+    await signIn();
+    mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+    mock.onDelete('/me/plants/p1').reply(500, { error: { code: 'internal', message: 'boom' } });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    renderScreen();
+
+    fireEvent.press(await screen.findByLabelText('Remove'));
+    alert.mock.calls[0]?.[2]?.find((b) => b.text === 'Remove')?.onPress?.();
+
+    await waitFor(() =>
+      expect(alert).toHaveBeenCalledWith("Couldn't remove the plant. Try again."),
+    );
+    expect(screen.getByText('Monstera')).toBeTruthy();
+  });
+
+  it('retries a failed photo once with a fresh token, then the illustration, then the mascot', async () => {
+    await signIn();
+    const plant = {
+      ...userPlantFixture,
+      hasPhoto: true,
+      photoVersion: 'v1',
+      imageUrl: '/img/monstera.svg',
+    };
+    mock.onGet('/me/plants').reply(200, [plant]);
+    renderScreen();
+
+    const photo = await screen.findByTestId('plant-photo');
+    // The launch sync and the screen's own load have both finished.
+    await waitFor(() =>
+      expect(mock.history.get.filter((r) => r.url === '/me/plants')).toHaveLength(2),
+    );
+    // The retry's list call finds the token expired; the client refreshes it.
+    mock.resetHandlers();
+    mock.onGet('/me/plants').replyOnce(401, { error: { code: 'unauthorized', message: 'x' } });
+    mock.onPost('/auth/refresh').reply(200, {
+      accessToken: 'new-a',
+      refreshToken: 'new-r',
+      user: accountFixture,
+    });
+    mock.onGet('/me/plants').reply(200, [plant]);
+
+    await act(async () => photo.props.onError());
+    await waitFor(() =>
+      expect(screen.getByTestId('plant-photo').props.source.headers).toEqual({
+        Authorization: 'Bearer new-a',
+      }),
+    );
+    expect(screen.queryByTestId('plant-illustration')).toBeNull();
+
+    await act(async () => screen.getByTestId('plant-photo').props.onError());
+    const illustration = await screen.findByTestId('plant-illustration');
+    expect(screen.queryByTestId('plant-photo')).toBeNull();
+
+    await act(async () => illustration.props.onError());
+    expect(await screen.findByTestId('plant-mascot')).toBeTruthy();
+  });
+
+  it('goes straight to the illustration when the retry brings no new token', async () => {
+    await signIn();
+    const plant = { ...userPlantFixture, hasPhoto: true, photoVersion: 'v1', imageUrl: '/img/m.svg' };
+    mock.onGet('/me/plants').reply(200, [plant]);
+    renderScreen();
+
+    const photo = await screen.findByTestId('plant-photo');
+    await act(async () => photo.props.onError());
+
+    expect(await screen.findByTestId('plant-illustration')).toBeTruthy();
+    expect(screen.queryByTestId('plant-photo')).toBeNull();
   });
 });

@@ -417,9 +417,39 @@ describe('reminder sync', () => {
     await renderAuth();
 
     act(() => fire('active'));
+    // Give a wrongly started sync time to reach the API before asserting that none did.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
 
     expect(mock.history.get).toHaveLength(0);
     expect(scheduled()).not.toHaveBeenCalled();
+  });
+
+  it('runs one sync for foreground events while one is in flight', async () => {
+    const fire = captureAppState();
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    let release: () => void = () => undefined;
+    mock.onGet('/me/plants').reply(
+      () => new Promise((resolve) => (release = () => resolve([200, [plant]]))),
+    );
+    await renderAuth();
+    await waitFor(() => expect(mock.history.get.filter((r) => r.url === '/me/plants')).toHaveLength(1));
+
+    act(() => {
+      fire('active');
+      fire('active');
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(mock.history.get.filter((r) => r.url === '/me/plants')).toHaveLength(1);
+    act(() => {
+      release();
+    });
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
   });
 
   it('keeps existing reminders when the API is unreachable', async () => {

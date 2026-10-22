@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import MockAdapter from 'axios-mock-adapter';
@@ -12,6 +13,7 @@ import { plantPhotoSource } from '../api/endpoints';
 import { changeLanguage, initI18n } from '../i18n';
 import { PENDING_SAVE_KEY } from './pendingSave';
 import { accountFixture, catalogFixture, userPlantFixture } from './testFixtures';
+import { resetCapWarning } from '../reminders/sync';
 import { deviceTimeZone, normalizeTimeZone } from './savePlant';
 import { usePlantForm, type PlantFormParams } from './usePlantForm';
 
@@ -31,13 +33,17 @@ beforeEach(async () => {
   mock = new MockAdapter(api);
   mockNavigate.mockClear();
   mockDispatch.mockClear();
+  resetCapWarning();
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockClear();
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');
 });
 
-afterEach(() => mock.restore());
+afterEach(() => {
+  mock.restore();
+  jest.restoreAllMocks();
+});
 
 function wrapper({ children }: { children: ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;
@@ -105,6 +111,33 @@ describe('usePlantForm', () => {
       type: StackActions.replace('Confirmation').type,
       payload: { name: 'Confirmation', params: { title: 'Done', nextScreen: 'MyPlants' } },
     });
+  });
+
+  it('warns once that only 60 reminders fit when a save hits the cap', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const daily = { ...userPlantFixture, frequency: { times: 1, per: 'day' as const } };
+    mock.onPost('/me/plants').reply(201, userPlantFixture);
+    const { result } = await renderCreate();
+    mock.onGet('/me/plants').reply(
+      200,
+      Array.from({ length: 62 }, (_, i) => ({ ...daily, id: `d${i}` })),
+    );
+
+    await act(() => result.current.submit());
+    await act(() => result.current.submit());
+
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledWith(expect.stringContaining('60 reminders'));
+  });
+
+  it('does not warn when the reminders all fit', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mock.onPost('/me/plants').reply(201, userPlantFixture);
+    const { result } = await renderCreate();
+
+    await act(() => result.current.submit());
+
+    expect(alert).not.toHaveBeenCalled();
   });
 
   it('creates once when Save is tapped twice', async () => {

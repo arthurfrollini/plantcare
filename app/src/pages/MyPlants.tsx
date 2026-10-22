@@ -25,9 +25,7 @@ export function MyPlants() {
   const navigation = useNavigation();
   const { status } = useAuth();
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const { plants, offline, loading, error, refresh, remove } = useMyPlants({
-    onCapReached: () => Alert.alert(t('myPlants.capReached')),
-  });
+  const { plants, offline, loading, error, refresh, remove } = useMyPlants();
 
   // The token is read after each load: that request may have refreshed it.
   useEffect(() => {
@@ -42,12 +40,15 @@ export function MyPlants() {
     };
   }, [plants]);
 
+  // Asks for any list so an expired token is refreshed, then returns the token now in use.
   const refreshToken = useCallback(async () => {
     try {
       await listMyPlants();
-      setAccessToken((await loadTokens())?.accessToken ?? null);
+      const next = (await loadTokens())?.accessToken ?? null;
+      setAccessToken(next);
+      return next;
     } catch {
-      // The card gives the photo up on its next error.
+      return null;
     }
   }, []);
 

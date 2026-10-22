@@ -41,15 +41,6 @@ export default function App() {
     initI18n().finally(() => setI18nReady(true));
   }, []);
 
-  useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        console.log(notification.request.content.data);
-      }
-    );
-    return () => subscription.remove();
-  }, []);
-
   if ((!fontsLoaded && !fontError) || !i18nReady) return null;
 
   return (

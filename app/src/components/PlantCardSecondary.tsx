@@ -20,8 +20,8 @@ interface PlantProps {
   readOnly: boolean;
   onPress: () => void;
   handleRemove: () => void;
-  /** The photo failed once; refresh the session so the retry carries a fresh token. */
-  onPhotoError: () => Promise<void>;
+  /** The photo failed once; refreshes the session and returns the token now in use. */
+  onPhotoError: () => Promise<string | null>;
 }
 
 export const PlantCardSecondary = ({
@@ -40,13 +40,17 @@ export const PlantCardSecondary = ({
   const photo = !photoGone && accessToken ? plantPhotoSource(plant, accessToken) : null;
   const name = plant.nickname ?? plant.speciesName;
 
+  // One retry with a refreshed token; any other failure falls back to the illustration.
   function handlePhotoError() {
     if (photoRetried) {
       setPhotoGone(true);
       return;
     }
     setPhotoRetried(true);
-    void onPhotoError();
+    const failedWith = accessToken;
+    void onPhotoError().then((next) => {
+      if (next === null || next === failedWith) setPhotoGone(true);
+    });
   }
 
   function renderPicture() {
@@ -71,7 +75,12 @@ export const PlantCardSecondary = ({
         />
       );
     }
-    return <NativeImage source={mascot} style={styles.photo} accessibilityIgnoresInvertColors />;
+    return <NativeImage
+        testID="plant-mascot"
+        source={mascot}
+        style={styles.photo}
+        accessibilityIgnoresInvertColors
+      />;
   }
 
   return (

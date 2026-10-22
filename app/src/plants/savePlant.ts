@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
 
 import { createMyPlant, listMyPlants, uploadPlantPhoto } from '../api/endpoints';
 import type { ConfirmationParams } from '../pages/Confirmation';
-import { ensureNotificationPermission, syncReminders } from '../reminders/sync';
+import { ensureNotificationPermission, syncReminders, warnIfCapped } from '../reminders/sync';
 import type { PlantFormValues } from './pendingSave';
 
 /** Keeps a zone only when the API will accept it; devices may report "GMT" or an empty value. */
@@ -77,18 +77,22 @@ export async function createPlantWithPhoto(
 
 /**
  * Runs after a save the user asked for, so it may prompt for notification permission. A denial,
- * or a list that cannot be fetched, never blocks the save: the plant already exists.
+ * or a list that cannot be fetched, never blocks the save: the plant already exists. Warns once
+ * per session when the phone's reminder cap was hit.
  */
-export async function syncAfterSave(): Promise<void> {
+export async function syncAfterSave(): Promise<{ scheduled: number; skipped: number } | null> {
   try {
     await ensureNotificationPermission();
   } catch {
     // Reminders just stay off.
   }
   try {
-    await syncReminders(await listMyPlants());
+    const result = await syncReminders(await listMyPlants());
+    warnIfCapped(result);
+    return result;
   } catch {
-    // The next time My Plants loads, it syncs again.
+    // The next time a sync runs (sign-in, foreground), it tries again.
+    return null;
   }
 }
 

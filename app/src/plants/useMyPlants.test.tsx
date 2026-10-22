@@ -6,9 +6,10 @@ import MockAdapter from 'axios-mock-adapter';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { api } from '../api/client';
-import { AuthProvider } from '../auth/AuthProvider';
+import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
+import { resetCapWarning } from '../reminders/sync';
 import { MY_PLANTS_CACHE_KEY } from './myPlantsCache';
 import { accountFixture, userPlantFixture } from './testFixtures';
 import { useMyPlants } from './useMyPlants';
@@ -33,6 +34,7 @@ beforeEach(async () => {
   await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
   mock.onGet('/me').reply(200, accountFixture);
   jest.mocked(Notifications.scheduleNotificationAsync).mockClear();
+  resetCapWarning();
 });
 
 afterEach(() => {
@@ -113,18 +115,52 @@ describe('useMyPlants', () => {
   });
 
   it('reports the 60-reminder cap once, and only when it was hit', async () => {
-    const onCapReached = jest.fn();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const daily = { ...userPlantFixture, frequency: { times: 1, per: 'day' as const } };
     const many = Array.from({ length: 62 }, (_, i) => ({ ...daily, id: `d${i}` }));
     mock.onGet('/me/plants').reply(200, many);
     mock.onDelete(/\/me\/plants\/.*/).reply(204);
-    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const { result } = renderHook(() => useMyPlants({ onCapReached }), { wrapper });
+    const { result } = renderHook(() => useMyPlants(), { wrapper });
     await waitFor(() => expect(result.current.plants).toHaveLength(62));
 
     await act(() => result.current.remove('d0'));
     await act(() => result.current.remove('d1'));
 
-    expect(onCapReached).toHaveBeenCalledTimes(1);
+    expect(alert).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a deleted plant gone when a refresh started before the delete answers late', async () => {
+    const second = { ...userPlantFixture, id: 'p2' };
+    mock.onGet('/me/plants').replyOnce(200, [userPlantFixture, second]);
+    mock.onDelete('/me/plants/p1').reply(204);
+    const { result } = renderHook(() => useMyPlants(), { wrapper });
+    await waitFor(() => expect(result.current.plants).toHaveLength(2));
+    let release: () => void = () => undefined;
+    mock.onGet('/me/plants').replyOnce(
+      () => new Promise((resolve) => (release = () => resolve([200, [userPlantFixture, second]]))),
+    );
+
+    let pending: Promise<void> = Promise.resolve();
+    act(() => {
+      pending = result.current.refresh();
+    });
+    await act(() => result.current.remove('p1'));
+    await act(async () => {
+      release();
+      await pending;
+    });
+
+    expect(result.current.plants.map((p) => p.id)).toEqual(['p2']);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('clears the list when the user signs out', async () => {
+    mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+    const { result } = renderHook(() => ({ my: useMyPlants(), auth: useAuth() }), { wrapper });
+    await waitFor(() => expect(result.current.my.plants).toHaveLength(1));
+
+    await act(() => result.current.auth.signOut());
+
+    expect(result.current.my.plants).toHaveLength(0);
   });
 });

@@ -5,20 +5,8 @@ import type { UserPlant } from '@plantcare/shared';
 import { ApiError, toApiError } from '../api/client';
 import { deleteMyPlant, listMyPlants } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
-import { syncReminders } from '../reminders/sync';
+import { syncReminders, warnIfCapped } from '../reminders/sync';
 import { readMyPlantsCache, writeMyPlantsCache } from './myPlantsCache';
-
-/** The phone schedules at most this many reminders (see reminders/sync.ts). */
-const REMINDER_CAP = 60;
-
-let capWarned = false;
-
-/** True once per app session, and only when the cap was actually the reason reminders were left out. */
-function shouldWarnAboutCap(result: { scheduled: number; skipped: number }): boolean {
-  if (capWarned || result.scheduled !== REMINDER_CAP || result.skipped === 0) return false;
-  capWarned = true;
-  return true;
-}
 
 export type MyPlantsResult = {
   plants: UserPlant[];
@@ -30,23 +18,34 @@ export type MyPlantsResult = {
   remove: (id: string) => Promise<void>;
 };
 
-export function useMyPlants(options: { onCapReached?: () => void } = {}): MyPlantsResult {
-  const { status } = useAuth();
+export function useMyPlants(): MyPlantsResult {
+  const { status, user } = useAuth();
+  const userId = user?.id ?? null;
   const [plants, setPlants] = useState<UserPlant[]>([]);
   const [offline, setOffline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
   const latest = useRef(0);
   const plantsRef = useRef<UserPlant[]>([]);
-  const onCapReached = useRef(options.onCapReached);
-  useEffect(() => {
-    onCapReached.current = options.onCapReached;
-  });
+  const shownFor = useRef<string | null>(null);
 
   const apply = useCallback((next: UserPlant[]) => {
     plantsRef.current = next;
     setPlants(next);
   }, []);
+
+  // Another account (or none) must never see the previous list.
+  useEffect(() => {
+    const switched = userId !== null && shownFor.current !== null && shownFor.current !== userId;
+    if (userId !== null) shownFor.current = userId;
+    if (status === 'signedIn' && !switched) return;
+    if (status !== 'signedIn') shownFor.current = null;
+    latest.current += 1;
+    apply([]);
+    setOffline(false);
+    setError(null);
+    setLoading(true);
+  }, [status, userId, apply]);
 
   const refresh = useCallback(async () => {
     if (status !== 'signedIn') return;
@@ -85,11 +84,14 @@ export function useMyPlants(options: { onCapReached?: () => void } = {}): MyPlan
     async (id: string) => {
       if (offline) return;
       await deleteMyPlant(id);
+      // A refresh already in flight may still carry the deleted plant.
+      latest.current += 1;
+      setLoading(false);
       const remaining = plantsRef.current.filter((p) => p.id !== id);
       apply(remaining);
       void writeMyPlantsCache(remaining);
       const result = await syncReminders(remaining);
-      if (shouldWarnAboutCap(result)) onCapReached.current?.();
+      warnIfCapped(result);
     },
     [offline, apply],
   );
