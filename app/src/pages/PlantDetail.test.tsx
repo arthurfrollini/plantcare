@@ -183,7 +183,7 @@ describe('PlantDetail', () => {
 
     fireEvent.press(screen.getByRole('radio', { name: '13:30' }));
 
-    await waitFor(() => expect(screen.queryByRole('radio', { name: '13:30' })).toBeNull(), {
+    await waitFor(() => expect(screen.queryByRole('radio', { name: '13:30' })).not.toBeOnTheScreen(), {
       timeout: 5000,
     });
     await waitFor(() => expect(mock.history.patch).toHaveLength(1), { timeout: 5000 });
@@ -209,7 +209,7 @@ describe('PlantDetail', () => {
     expect(patchBody()).toEqual({ reminderLeadMinutes: 20 });
     expect(screen.getByRole('radio', { name: '20 min' })).toBeChecked();
     expect(mockDispatch).not.toHaveBeenCalled();
-  });
+  }, 15000);
 
   it('keeps the stored lead and shows the error when the save fails', async () => {
     mock.onPatch('/me/plants/p1').networkErrorOnce();
@@ -224,7 +224,7 @@ describe('PlantDetail', () => {
     ).toBeTruthy();
     expect(screen.getByRole('radio', { name: '15 min' })).toBeChecked();
     expect(screen.getByRole('radio', { name: '20 min' })).not.toBeChecked();
-  });
+  }, 15000);
 
   it('explains the reminders with the chosen lead', async () => {
     await renderScreen();
@@ -241,7 +241,7 @@ describe('PlantDetail', () => {
     ).toBeTruthy();
     expect(screen.getByText('Reminders')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Got it' }));
-    await waitFor(() => expect(screen.queryByText('Reminders')).toBeNull(), { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByText('Reminders')).not.toBeOnTheScreen(), { timeout: 5000 });
   }, 15000);
 
   it('offers to ask the AI about a sick plant, disabled until it ships', async () => {
@@ -303,7 +303,9 @@ describe('PlantDetail', () => {
       fireEvent.press(screen.getByRole('button', { name: 'Remove photo' }));
 
       await waitFor(() => expect(mock.history.delete).toHaveLength(1), { timeout: 5000 });
-      await waitFor(() => expect(screen.queryByText('Remove photo')).toBeNull(), { timeout: 5000 });
+      await waitFor(() => expect(screen.queryByText('Remove photo')).not.toBeOnTheScreen(), {
+        timeout: 5000,
+      });
     }, 15000);
   });
 });

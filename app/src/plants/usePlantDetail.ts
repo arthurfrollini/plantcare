@@ -54,6 +54,20 @@ function shownValues(plant: UserPlant): ScheduleValues {
   };
 }
 
+function storedValues(plant: UserPlant): ScheduleValues {
+  return {
+    wateringDays: plant.wateringDays,
+    reminderTime: plant.reminderTime,
+    reminderLeadMinutes: plant.reminderLeadMinutes,
+  };
+}
+
+const FIELD_KEYS: Record<SavingField, keyof ScheduleValues> = {
+  days: 'wateringDays',
+  time: 'reminderTime',
+  lead: 'reminderLeadMinutes',
+};
+
 const EMPTY_VALUES: ScheduleValues = { wateringDays: [], reminderTime: '08:00', reminderLeadMinutes: 15 };
 
 /** A plant in the garden: each schedule field and the photo are saved as soon as they change. */
@@ -70,8 +84,15 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
   const [photoMessage, setPhotoMessage] = useState<PhotoMessage | null>(null);
   const [savedPhotoFailed, setSavedPhotoFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  // Read synchronously, so two taps in the same frame cannot both run.
-  const submitting = useRef(false);
+  // The plant as last stored, read by queued saves that run after this render.
+  const plantRef = useRef<UserPlant | null>(null);
+  // Schedule saves run one after another; the newest change to a field is the one stored.
+  const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const latestSave = useRef<Record<SavingField, number>>({ days: 0, time: 0, lead: 0 });
+  const queuedSaves = useRef(0);
+  // Reminder syncs run one at a time, outside the save queue.
+  const syncQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const syncWaiting = useRef(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const photoWorking = useRef(false);
   const photoRetried = useRef(false);
@@ -87,7 +108,9 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
       return { plant, accessToken: tokens?.accessToken ?? null };
     })().then(
       (loaded) => {
-        if (active) setLoad(loaded);
+        if (!active) return;
+        plantRef.current = loaded.plant;
+        setLoad(loaded);
       },
       (e: unknown) => {
         if (active) setLoad({ error: formError(e) });
@@ -125,52 +148,88 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
     }, SAVED_TOAST_MS);
   }
 
-  /**
-   * Saves one schedule field on its own, then re-syncs the reminders. One save runs at a time; a
-   * second one while it runs is dropped. Resolves true once the change is stored.
-   */
-  async function saveField(
-    field: SavingField,
-    change: Partial<ScheduleValues>,
-  ): Promise<boolean> {
-    if (submitting.current || !plant || status === 'loading') return false;
-    const stored: ScheduleValues = {
-      wateringDays: plant.wateringDays,
-      reminderTime: plant.reminderTime,
-      reminderLeadMinutes: plant.reminderLeadMinutes,
-    };
-    const body: UpdateUserPlant = scheduleChanges(plant, { ...stored, ...change });
-    if (Object.keys(body).length === 0) return true;
+  function storePlant(next: UserPlant) {
+    plantRef.current = next;
+    setLoad((current) =>
+      typeof current === 'object' && 'plant' in current ? { ...current, plant: next } : current,
+    );
+  }
 
-    submitting.current = true;
-    setSavingField(field);
-    setPending(change);
+  /** Re-syncs the reminders after a save. A sync still waiting to start covers this save too. */
+  function queueSync() {
+    if (syncWaiting.current) return;
+    syncWaiting.current = true;
+    syncQueue.current = syncQueue.current
+      .then(() => {
+        syncWaiting.current = false;
+        return syncAfterSave();
+      })
+      .catch(() => undefined);
+  }
+
+  /** Stops showing a field's unsaved value, unless a newer change to it is still on its way. */
+  function settlePending(field: SavingField, save: number) {
+    if (save !== latestSave.current[field]) return;
+    const key = FIELD_KEYS[field];
+    setPending((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  /**
+   * Saves one schedule field on its own. Saves run in order, and a change replaced by a newer one
+   * to the same field before its turn is skipped, so the last change is the one stored; the
+   * screen shows it from the tap on. The reminders re-sync after each stored change, outside the
+   * queue. Resolves true once the change is stored (or replaced by a newer one), false when the
+   * save failed and the stored value is back on screen with `error` set.
+   */
+  function saveField(field: SavingField, change: Partial<ScheduleValues>): Promise<boolean> {
+    if (!plantRef.current || status === 'loading') return Promise.resolve(false);
+    latestSave.current[field] += 1;
+    const save = latestSave.current[field];
+    queuedSaves.current += 1;
+    setPending((current) => ({ ...current, ...change }));
     setError(null);
-    try {
-      const next = await updateMyPlant(plant.id, body);
-      setLoad((current) =>
-        typeof current === 'object' && 'plant' in current ? { ...current, plant: next } : current,
-      );
-      setPending({});
-      showSaved();
-      await syncAfterSave();
-      return true;
-    } catch (e) {
-      setPending({});
-      setError(formError(e));
-      return false;
-    } finally {
-      submitting.current = false;
-      setSavingField(null);
-    }
+
+    const run = saveQueue.current
+      .then(async () => {
+        const current = plantRef.current;
+        if (!current || save !== latestSave.current[field]) return true;
+        const body: UpdateUserPlant = scheduleChanges(current, {
+          ...storedValues(current),
+          ...change,
+        });
+        if (Object.keys(body).length === 0) {
+          settlePending(field, save);
+          return true;
+        }
+        setSavingField(field);
+        try {
+          storePlant(await updateMyPlant(current.id, body));
+          settlePending(field, save);
+          showSaved();
+          queueSync();
+          return true;
+        } catch (e) {
+          settlePending(field, save);
+          setError(formError(e));
+          return false;
+        }
+      })
+      .finally(() => {
+        queuedSaves.current -= 1;
+        if (queuedSaves.current === 0) setSavingField(null);
+      });
+    saveQueue.current = run.catch(() => undefined);
+    return run;
   }
 
   function replacePlant(next: UserPlant) {
     setSavedPhotoFailed(false);
     photoRetried.current = false;
-    setLoad((current) =>
-      typeof current === 'object' && 'plant' in current ? { ...current, plant: next } : current,
-    );
+    storePlant(next);
   }
 
   async function changePhoto(source: PhotoSource): Promise<void> {

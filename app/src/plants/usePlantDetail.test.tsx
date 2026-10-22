@@ -210,15 +210,21 @@ describe('usePlantDetail', () => {
       200,
       Array.from({ length: 62 }, (_, i) => ({ ...daily, id: `d${i}` })),
     );
+    const lists = () => mock.history.get.filter((r) => r.url === '/me/plants').length;
 
     await act(() => result.current.saveLead(10));
+    await waitFor(() => expect(alert).toHaveBeenCalledTimes(1), { timeout: 5000 });
+    const before = lists();
     await act(() => result.current.saveLead(5));
+    await waitFor(() => expect(lists()).toBe(before + 1), { timeout: 5000 });
+    // Lets the second sync finish scheduling and decide about the warning.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
     expect(alert).toHaveBeenCalledTimes(1);
     expect(alert).toHaveBeenCalledWith(expect.stringContaining('60 reminders'));
   });
 
-  it('runs one save at a time', async () => {
+  it('stores the last of two quick lead changes', async () => {
     const { result } = await renderDetail();
 
     let results: boolean[] = [];
@@ -226,8 +232,79 @@ describe('usePlantDetail', () => {
       results = await Promise.all([result.current.saveLead(10), result.current.saveLead(20)]);
     });
 
-    expect(mock.history.patch).toHaveLength(1);
-    expect(results).toEqual([true, false]);
+    expect(results).toEqual([true, true]);
+    expect(JSON.parse(String(mock.history.patch.at(-1)?.data))).toEqual({ reminderLeadMinutes: 20 });
+    expect(result.current.plant?.reminderLeadMinutes).toBe(20);
+    expect(result.current.values.reminderLeadMinutes).toBe(20);
+  });
+
+  it('keeps showing a newer change while an older save answers, then stores it', async () => {
+    const replies: (() => void)[] = [];
+    const { result } = await renderDetail();
+    mock.onPatch('/me/plants/p1').reply(
+      (config) =>
+        new Promise<[number, unknown]>((resolve) => {
+          replies.push(() => resolve([200, { ...userPlantFixture, ...bodyOf(config.data) }]));
+        }),
+    );
+
+    let first: Promise<boolean> = Promise.resolve(false);
+    let second: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      first = result.current.saveLead(10);
+    });
+    await waitFor(() => expect(replies).toHaveLength(1), { timeout: 5000 });
+    act(() => {
+      second = result.current.saveLead(20);
+    });
+    expect(result.current.values.reminderLeadMinutes).toBe(20);
+
+    await act(async () => {
+      replies[0]?.();
+      await first;
+    });
+    expect(result.current.plant?.reminderLeadMinutes).toBe(10);
+    expect(result.current.values.reminderLeadMinutes).toBe(20);
+
+    await waitFor(() => expect(replies).toHaveLength(2), { timeout: 5000 });
+    await act(async () => {
+      replies[1]?.();
+      await second;
+    });
+    expect(JSON.parse(String(mock.history.patch[1]?.data))).toEqual({ reminderLeadMinutes: 20 });
+    expect(result.current.plant?.reminderLeadMinutes).toBe(20);
+    expect(result.current.values.reminderLeadMinutes).toBe(20);
+    expect(result.current.savingField).toBeNull();
+  });
+
+  it('saves while the reminder sync of the previous save is still running', async () => {
+    let releaseList: () => void = () => undefined;
+    const { result } = await renderDetail();
+    mock.onGet('/me/plants').reply(
+      () =>
+        new Promise<[number, unknown]>((resolve) => {
+          releaseList = () => resolve([200, [userPlantFixture]]);
+        }),
+    );
+    const lists = () => mock.history.get.filter((r) => r.url === '/me/plants').length;
+    const before = lists();
+
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.saveLead(10);
+    });
+    expect(ok).toBe(true);
+    await waitFor(() => expect(lists()).toBe(before + 1), { timeout: 5000 });
+
+    await act(async () => {
+      ok = await result.current.saveDays([2, 4]);
+    });
+    expect(ok).toBe(true);
+    expect(mock.history.patch).toHaveLength(2);
+    expect(JSON.parse(String(mock.history.patch[1]?.data))).toEqual({ wateringDays: [2, 4] });
+    expect(result.current.savingField).toBeNull();
+
+    act(() => releaseList());
   });
 
   it('reports a load failure with a retry', async () => {
