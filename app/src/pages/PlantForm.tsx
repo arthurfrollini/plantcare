@@ -85,7 +85,7 @@ export function PlantForm() {
               <Image
                 source={form.photo ? { uri: form.photo.uri } : form.savedPhoto ?? undefined}
                 style={styles.headerPhoto}
-                onError={form.photo ? undefined : () => void form.refreshPhotoToken()}
+                onError={form.photo ? undefined : () => void form.handleSavedPhotoError()}
                 accessibilityIgnoresInvertColors
               />
             ) : (

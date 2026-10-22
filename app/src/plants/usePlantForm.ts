@@ -133,6 +133,8 @@ export function usePlantForm(params: PlantFormParams) {
   const [photoMessage, setPhotoMessage] = useState<PhotoMessage | null>(null);
   // Read synchronously, so two taps in the same frame cannot both submit.
   const submitting = useRef(false);
+  const photoRetried = useRef(false);
+  const [savedPhotoFailed, setSavedPhotoFailed] = useState(false);
 
   const { mode } = params;
   const targetId = params.mode === 'create' ? params.catalogPlantId : params.userPlantId;
@@ -205,8 +207,9 @@ export function usePlantForm(params: PlantFormParams) {
             });
       const asset = result.canceled ? undefined : result.assets[0];
       if (!asset) {
-        // With a saved photo showing, "no photo" would be misleading: nothing changed.
-        if (!(load.state === 'ready' && load.saved?.hasPhoto)) setPhotoMessage('cancelled');
+        // With a photo showing (just picked, or saved), "no photo" would be misleading.
+        const showingPhoto = values.photo !== null || (load.state === 'ready' && load.saved?.hasPhoto);
+        if (!showingPhoto) setPhotoMessage('cancelled');
         return;
       }
       const mimeType = imageType(asset);
@@ -225,8 +228,16 @@ export function usePlantForm(params: PlantFormParams) {
     update({ photo: null });
   }
 
-  /** The saved photo failed to load, maybe on an expired token: refresh it and read it again. */
-  async function refreshPhotoToken() {
+  /**
+   * The saved photo failed to load. The first time, maybe the token expired: refresh it and read
+   * it again. After that the photo is given up on and the species illustration shows instead.
+   */
+  async function handleSavedPhotoError() {
+    if (photoRetried.current) {
+      setSavedPhotoFailed(true);
+      return;
+    }
+    photoRetried.current = true;
     try {
       await listMyPlants();
       const tokens = await loadTokens();
@@ -234,7 +245,7 @@ export function usePlantForm(params: PlantFormParams) {
         current.state === 'ready' ? { ...current, accessToken: tokens?.accessToken ?? null } : current,
       );
     } catch {
-      // The image stays as it was.
+      setSavedPhotoFailed(true);
     }
   }
 
@@ -280,7 +291,7 @@ export function usePlantForm(params: PlantFormParams) {
 
   const ready = load.state === 'ready' ? load : null;
   const savedPhoto =
-    ready?.saved && ready.accessToken ? plantPhotoSource(ready.saved, ready.accessToken) : null;
+    ready?.saved && ready.accessToken && !savedPhotoFailed ? plantPhotoSource(ready.saved, ready.accessToken) : null;
 
   return {
     load,
@@ -301,7 +312,7 @@ export function usePlantForm(params: PlantFormParams) {
     setNotes: (notes: string) => update({ notes }),
     pickPhoto,
     removePhoto,
-    refreshPhotoToken,
+    handleSavedPhotoError,
     submit,
   };
 }

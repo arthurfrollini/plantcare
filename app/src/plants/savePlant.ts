@@ -1,4 +1,5 @@
-import { timeZoneSchema, type CreateUserPlant, UpdateUserPlant, UserPlant } from '@plantcare/shared';
+import { timeZoneSchema } from '@plantcare/shared';
+import type { CreateUserPlant, UpdateUserPlant, UserPlant } from '@plantcare/shared';
 import type { TFunction } from 'i18next';
 
 import { createMyPlant, listMyPlants, uploadPlantPhoto } from '../api/endpoints';

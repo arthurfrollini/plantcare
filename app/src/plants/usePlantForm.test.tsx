@@ -338,6 +338,35 @@ describe('usePlantForm', () => {
       expect(result.current.photoMessage).toBeNull();
     });
 
+    it('refreshes once when the saved photo fails, then gives up on it', async () => {
+      const { result } = await renderEdit({ ...userPlantFixture, hasPhoto: true, photoVersion: 'v1' });
+      const lists = () => mock.history.get.filter((r) => r.url === '/me/plants').length;
+      expect(result.current.savedPhoto).not.toBeNull();
+      expect(lists()).toBe(1);
+
+      await act(() => result.current.handleSavedPhotoError());
+      expect(lists()).toBe(2);
+      expect(result.current.savedPhoto).not.toBeNull();
+
+      await act(() => result.current.handleSavedPhotoError());
+      expect(lists()).toBe(2);
+      expect(result.current.savedPhoto).toBeNull();
+    });
+
+    it('says nothing about a missing photo when the picker is cancelled after one was picked', async () => {
+      jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+        canceled: false,
+        assets: [photoAsset],
+      });
+      const { result } = await renderEdit();
+
+      await act(() => result.current.pickPhoto('gallery'));
+      await act(() => result.current.pickPhoto('gallery'));
+
+      expect(result.current.photo).not.toBeNull();
+      expect(result.current.photoMessage).toBeNull();
+    });
+
     it('builds the saved photo source with the token as it is after the list request', async () => {
       await signIn();
       const saved = { ...userPlantFixture, hasPhoto: true, photoVersion: 'v1' };
