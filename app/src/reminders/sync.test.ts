@@ -34,6 +34,7 @@ beforeAll(initI18n);
 beforeEach(() => {
   schedule.mockClear();
   cancelAll.mockClear();
+  jest.mocked(Notifications.requestPermissionsAsync).mockClear();
 });
 
 function requests() {
@@ -102,7 +103,10 @@ describe('syncReminders', () => {
     ]);
 
     expect(result).toEqual({ scheduled: 2, skipped: 1 });
-    expect(requests().every((r) => JSON.stringify(r.content.data).includes('good'))).toBe(true);
+    expect(requests().map((r) => r.content.data)).toEqual([
+      { userPlantId: 'good' },
+      { userPlantId: 'good' },
+    ]);
   });
 
   it('skips a slot whose scheduling fails and keeps going', async () => {
@@ -127,6 +131,45 @@ describe('syncReminders', () => {
 
     expect(result).toEqual({ scheduled: 0, skipped: 4 });
     expect(schedule).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('never rejects: a failed cancel skips every slot, and the queue keeps working', async () => {
+    cancelAll.mockRejectedValueOnce(new Error('boom'));
+
+    const failed = await syncReminders([plant(), plant({ reminderTime: 'x' })]);
+    expect(failed).toEqual({ scheduled: 0, skipped: 5 });
+    expect(schedule).not.toHaveBeenCalled();
+
+    expect(await syncReminders([plant()])).toEqual({ scheduled: 4, skipped: 0 });
+  });
+
+  it('runs concurrent syncs one after another; the second call wins', async () => {
+    const active = new Set<string>();
+    let next = 0;
+    const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 5));
+    cancelAll.mockImplementation(async () => {
+      await tick();
+      active.clear();
+    });
+    schedule.mockImplementation(async (request) => {
+      await tick();
+      next += 1;
+      active.add(`${next}:${JSON.stringify(request.content.data)}`);
+      return String(next);
+    });
+
+    const first = syncReminders([plant({ id: 'first', frequency: { times: 2, per: 'week' } })]);
+    const second = syncReminders([plant({ id: 'second', frequency: { times: 3, per: 'week' } })]);
+    await Promise.all([first, second]);
+
+    expect(active.size).toBe(3);
+    expect([...active].every((entry) => entry.includes('second'))).toBe(true);
+
+    cancelAll.mockReset();
+    cancelAll.mockResolvedValue(undefined);
+    schedule.mockReset();
+    schedule.mockResolvedValue('notification-id');
   });
 });
 

@@ -6,9 +6,15 @@ import i18n from '../i18n';
 /** iOS keeps at most 64 pending local notifications; stay under it. */
 const MAX_SCHEDULED = 60;
 
-export async function ensureNotificationPermission(): Promise<boolean> {
+/** Reads the permission without ever prompting; for background syncs. */
+export async function hasNotificationPermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
-  if (current.granted) return true;
+  return current.granted;
+}
+
+/** Prompts when needed; for moments the user initiated, such as saving a plant. */
+export async function ensureNotificationPermission(): Promise<boolean> {
+  if (await hasNotificationPermission()) return true;
   const request = await Notifications.requestPermissionsAsync();
   return request.granted;
 }
@@ -41,22 +47,28 @@ function slotsOf(plant: UserPlant): ReminderSlot[] | null {
   }
 }
 
-/**
- * Replaces every scheduled reminder with one per watering slot of the given plants, in the order
- * given, up to MAX_SCHEDULED. `skipped` counts slots over the cap, one per plant with a malformed
- * reminder time, and every slot when notifications are not allowed.
- */
-export async function syncReminders(
-  plants: UserPlant[],
-): Promise<{ scheduled: number; skipped: number }> {
-  await cancelAllReminders();
+let queue: Promise<unknown> = Promise.resolve();
 
-  const allowed = await ensureNotificationPermission();
+async function runSync(plants: UserPlant[]): Promise<{ scheduled: number; skipped: number }> {
+  const planned = plants.map((plant) => ({ plant, slots: slotsOf(plant) }));
+  const totalSkipped = planned.reduce((n, { slots }) => n + (slots ? slots.length : 1), 0);
+
+  try {
+    await cancelAllReminders();
+  } catch {
+    return { scheduled: 0, skipped: totalSkipped };
+  }
+
+  let allowed = false;
+  try {
+    allowed = await hasNotificationPermission();
+  } catch {
+    // Treated as not allowed.
+  }
   let scheduled = 0;
   let skipped = 0;
 
-  for (const plant of plants) {
-    const slots = slotsOf(plant);
+  for (const { plant, slots } of planned) {
     if (!slots) {
       skipped += 1;
       continue;
@@ -83,4 +95,18 @@ export async function syncReminders(
     }
   }
   return { scheduled, skipped };
+}
+
+/**
+ * Replaces every scheduled reminder with one per watering slot of the given plants, in the order
+ * given, up to MAX_SCHEDULED. Never prompts for permission and never rejects. `skipped` counts
+ * slots over the cap, one per plant with a malformed reminder time, and every slot when
+ * notifications are not allowed or the old ones could not be cancelled. Calls run one at a time.
+ */
+export function syncReminders(
+  plants: UserPlant[],
+): Promise<{ scheduled: number; skipped: number }> {
+  const run = queue.then(() => runSync(plants));
+  queue = run.catch(() => undefined);
+  return run;
 }
