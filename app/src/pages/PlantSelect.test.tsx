@@ -65,6 +65,7 @@ describe('PlantSelect', () => {
     renderScreen();
     await screen.findByText('Monstera');
 
+    fireEvent.press(screen.getByLabelText('Filters'));
     fireEvent.press(screen.getByText('Shade'));
     fireEvent.press(screen.getByText('Hard'));
 
@@ -72,6 +73,34 @@ describe('PlantSelect', () => {
       const last = mock.history.get[mock.history.get.length - 1];
       expect(last?.params).toMatchObject({ light: 'shade', difficulty: 'hard' });
       expect(last?.params).not.toHaveProperty('page', expect.anything());
+    });
+  });
+
+  it('shows how many filters are on, and Clear turns both off', async () => {
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    renderScreen();
+    await screen.findByText('Monstera');
+
+    expect(screen.queryByText('Shade')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Filters'));
+    fireEvent.press(screen.getByText('Shade'));
+    fireEvent.press(screen.getByText('Done'));
+
+    await waitFor(() => expect(screen.queryByText('Done')).toBeNull());
+    expect(screen.getByLabelText('Filters, 1 active')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Filters, 1 active'));
+    fireEvent.press(screen.getByText('Hard'));
+    expect(screen.getByLabelText('Filters, 2 active')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Clear'));
+
+    expect(screen.getByLabelText('Filters')).toBeTruthy();
+    await waitFor(() => {
+      const last = mock.history.get[mock.history.get.length - 1];
+      expect(last?.params).not.toHaveProperty('light', expect.anything());
+      expect(last?.params).not.toHaveProperty('difficulty', expect.anything());
     });
   });
 
@@ -106,6 +135,7 @@ describe('PlantSelect', () => {
       await changeLanguage('pt-BR');
     });
 
+    fireEvent.press(screen.getByLabelText('Filtros'));
     expect(await screen.findByText('Meia-sombra')).toBeTruthy();
     await waitFor(() => expect(mock.history.get.length).toBeGreaterThanOrEqual(2));
     expect(mock.history.get[mock.history.get.length - 1]?.headers?.['Accept-Language']).toBe('pt-BR');

@@ -6,10 +6,11 @@ import fonts from '../styles/fonts';
 
 interface FilterChipProps extends Omit<PressableProps, 'children'> {
   title: string;
+  emoji?: string;
   active?: boolean;
 }
 
-export function FilterChip({ title, active = false, ...rest }: FilterChipProps) {
+export function FilterChip({ title, emoji, active = false, ...rest }: FilterChipProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -17,6 +18,7 @@ export function FilterChip({ title, active = false, ...rest }: FilterChipProps) 
       style={[styles.container, active && styles.containerActive]}
       {...rest}
     >
+      {emoji ? <Text style={styles.emoji}>{emoji}</Text> : null}
       <Text style={[styles.text, active && styles.textActive]}>{title}</Text>
     </Pressable>
   );
@@ -28,6 +30,7 @@ const styles = StyleSheet.create({
     height: 40,
     minWidth: 76,
     paddingHorizontal: 14,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
@@ -35,6 +38,10 @@ const styles = StyleSheet.create({
   },
   containerActive: {
     backgroundColor: colors.green_light,
+  },
+  emoji: {
+    fontSize: 15,
+    marginRight: 6,
   },
   text: {
     color: colors.heading,

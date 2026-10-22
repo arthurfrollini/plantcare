@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  ScrollView,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { difficultySchema, lightSchema, type Difficulty, type Light } from '@plantcare/shared';
+import type { Difficulty, Light } from '@plantcare/shared';
 
 import { Header } from '../components/Header';
-import { FilterChip } from '../components/FilterChip';
+import { FilterSheet } from '../components/FilterSheet';
 import { PlantCardPrimary } from '../components/PlantCardPrimary';
 import { Load } from '../components/Load';
 import { useCatalog } from '../plants/useCatalog';
@@ -22,13 +23,11 @@ import { useCatalog } from '../plants/useCatalog';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-const LIGHTS = lightSchema.options;
-const DIFFICULTIES = difficultySchema.options;
-
 export function PlantSelect() {
   const [search, setSearch] = useState('');
   const [light, setLight] = useState<Light | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const navigation = useNavigation();
   const { t } = useTranslation();
@@ -41,6 +40,8 @@ export function PlantSelect() {
   function handlePlantSelect(catalogPlantId: string) {
     navigation.navigate('PlantForm', { mode: 'create', catalogPlantId });
   }
+
+  const activeFilters = (light ? 1 : 0) + (difficulty ? 1 : 0);
 
   const errorMessage = error
     ? t(error.code === 'network' ? 'plantSelect.errors.network' : 'plantSelect.errors.unknown')
@@ -98,8 +99,29 @@ export function PlantSelect() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Header />
-        <Text style={styles.title}>{t('plantSelect.title')}</Text>
-        <Text style={styles.subtitle}>{t('plantSelect.subtitle')}</Text>
+        <View style={styles.heading}>
+          <View style={styles.headingText}>
+            <Text style={styles.title}>{t('plantSelect.title')}</Text>
+            <Text style={styles.subtitle}>{t('plantSelect.subtitle')}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              activeFilters > 0
+                ? t('plantSelect.filtersActive', { count: activeFilters })
+                : t('plantSelect.filters')
+            }
+            style={[styles.filterButton, activeFilters > 0 && styles.filterButtonActive]}
+            onPress={() => setFiltersOpen(true)}
+          >
+            <Feather name="sliders" size={20} color={colors.heading} />
+            {activeFilters > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{activeFilters}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
         <TextInput
           style={styles.search}
           value={search}
@@ -113,53 +135,16 @@ export function PlantSelect() {
         />
       </View>
 
-      <Text style={styles.filterLabel}>{t('plantSelect.lightLabel')}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.chips}
-        style={styles.chipRow}
-      >
-        <FilterChip
-          title={t('plantSelect.all')}
-          active={light === null}
-          onPress={() => setLight(null)}
-        />
-        {LIGHTS.map((value) => (
-          <FilterChip
-            key={value}
-            title={t(`light.${value}`)}
-            active={light === value}
-            onPress={() => setLight(value)}
-          />
-        ))}
-      </ScrollView>
-
-      <Text style={styles.filterLabel}>{t('plantSelect.difficultyLabel')}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.chips}
-        style={styles.chipRow}
-      >
-        <FilterChip
-          title={t('plantSelect.all')}
-          active={difficulty === null}
-          onPress={() => setDifficulty(null)}
-        />
-        {DIFFICULTIES.map((value) => (
-          <FilterChip
-            key={value}
-            title={t(`difficulty.${value}`)}
-            active={difficulty === value}
-            onPress={() => setDifficulty(value)}
-          />
-        ))}
-      </ScrollView>
-
       <View style={styles.plants}>{renderBody()}</View>
+
+      <FilterSheet
+        visible={filtersOpen}
+        light={light}
+        difficulty={difficulty}
+        onLightChange={setLight}
+        onDifficultyChange={setDifficulty}
+        onClose={() => setFiltersOpen(false)}
+      />
     </View>
   );
 }
@@ -173,12 +158,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     marginTop: 30,
   },
+  heading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  headingText: {
+    flex: 1,
+    marginRight: 16,
+  },
   title: {
     fontSize: 17,
     color: colors.heading,
     fontFamily: fonts.heading,
     lineHeight: 20,
-    marginTop: 15,
   },
   subtitle: {
     fontSize: 17,
@@ -196,19 +190,33 @@ const styles = StyleSheet.create({
     fontFamily: fonts.text,
     fontSize: 16,
   },
-  filterLabel: {
-    marginTop: 16,
-    marginLeft: 32,
-    color: colors.body_dark,
-    fontFamily: fonts.text,
-    fontSize: 13,
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.shape,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chipRow: {
-    flexGrow: 0,
-    marginTop: 6,
+  filterButtonActive: {
+    backgroundColor: colors.green_light,
   },
-  chips: {
-    paddingHorizontal: 32,
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: colors.white,
+    fontFamily: fonts.heading,
+    fontSize: 12,
   },
   plants: {
     flex: 1,
