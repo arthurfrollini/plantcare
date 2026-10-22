@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<User | null>(null);
   const statusRef = useRef<AuthStatus>('loading');
+  const refetching = useRef(false);
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
@@ -134,12 +135,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (status !== 'signedIn' || user) return;
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
+      if (state !== 'active' || refetching.current) return;
+      refetching.current = true;
       fetchAccount()
         .then((me) => {
           if (me) setUser(me);
         })
-        .catch(() => undefined);
+        .catch(() => undefined)
+        .finally(() => {
+          refetching.current = false;
+        });
     });
     return () => subscription.remove();
   }, [status, user]);
@@ -166,13 +171,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    // Claimed before any await, so a second tap in the same frame is a no-op.
+    if (statusRef.current === 'signedOut') return;
+    statusRef.current = 'signedOut';
     let tokens = null;
     try {
       tokens = await loadTokens();
     } catch {
       // Signing out locally still goes ahead.
     }
-    if (!tokens && statusRef.current === 'signedOut') return;
     // Local sign-out is immediate; clearTokens also stops an in-flight refresh from restoring it.
     await clearTokens();
     await AsyncStorage.removeItem(MY_PLANTS_CACHE_KEY);

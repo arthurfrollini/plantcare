@@ -108,6 +108,26 @@ describe('start', () => {
     await waitFor(() => expect(result.current.user?.name).toBe('Ana'));
   });
 
+  it('sends one GET /me for two quick foreground events', async () => {
+    let onChange: (state: AppStateStatus) => void = () => undefined;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
+      onChange = handler;
+      return { remove: jest.fn() };
+    });
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').replyOnce(() => Promise.reject(new Error('Network Error')));
+    mock.onGet('/me').reply(200, baseUser);
+    const { result } = await renderAuth();
+
+    act(() => {
+      onChange('active');
+      onChange('active');
+    });
+
+    await waitFor(() => expect(result.current.user?.name).toBe('Ana'));
+    expect(mock.history.get).toHaveLength(2);
+  });
+
   it('stays signed in with no account when the API is unreachable', async () => {
     await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
     mock.onGet('/me').networkError();
@@ -228,6 +248,19 @@ describe('signOut', () => {
     expect(result.current.status).toBe('signedOut');
     expect(await loadTokens()).toBeNull();
     expect(await AsyncStorage.getItem('@plantcare:myPlantsCache')).toBeNull();
+    expect(mock.history.post).toHaveLength(1);
+  });
+
+  it('sends one logout for two taps in the same frame', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPost('/auth/logout').reply(204);
+    const { result } = await renderAuth();
+
+    await act(async () => {
+      await Promise.all([result.current.signOut(), result.current.signOut()]);
+    });
+
     expect(mock.history.post).toHaveLength(1);
   });
 
