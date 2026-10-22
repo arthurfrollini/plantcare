@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -8,16 +7,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthProvider';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
-
-/** Up to two initials from the name the user typed, e.g. "Ana Clara Souza" -> "AC". */
-export function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('');
-}
 
 /** The first word of the name, so a full name never crowds the greeting. */
 export function firstName(name: string) {
@@ -29,7 +18,6 @@ export function Header() {
   const { status, user } = useAuth();
   const { top } = useSafeAreaInsets();
   const { t } = useTranslation();
-  const navigation = useNavigation();
 
   useEffect(() => {
     async function loadStorageUsername() {
@@ -50,17 +38,6 @@ export function Header() {
           {firstName(username ?? '')}
         </Text>
       </View>
-
-      <TouchableOpacity
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={t('header.openProfile')}
-        onPress={() => navigation.navigate('Profile')}
-      >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
-        </View>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -73,23 +50,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
   },
-  // Shrinks before the avatar does; a very long single name ends in an ellipsis.
+  // A very long single name ends in an ellipsis instead of wrapping.
   names: {
     flexShrink: 1,
-    marginRight: 16,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.green_light,
-  },
-  avatarText: {
-    fontSize: 28,
-    fontFamily: fonts.heading,
-    color: colors.green_dark,
   },
   greeting: {
     fontSize: 32,

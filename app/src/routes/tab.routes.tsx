@@ -1,67 +1,149 @@
-import React from 'react';
-import { Platform } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import { PlantSelect } from '../pages/PlantSelect';
+
+import { AddPlantSheet, type AddPlantChoice } from '../components/AddPlantSheet';
 import { MyPlants } from '../pages/MyPlants';
+import { Profile } from '../pages/Profile';
+import { pickPhoto } from '../plants/pickPhoto';
 
 import colors from '../styles/colors';
 
 export type TabParamList = {
-  NewPlant: undefined;
+  Profile: undefined;
+  AddPlant: undefined;
   MyPlantsList: undefined;
 };
 
 const AppTab = createBottomTabNavigator<TabParamList>();
 
+// The middle tab is only a button; its screen never shows.
+function Nothing() {
+  return null;
+}
+
 const AuthRoutes = () => {
   const { t } = useTranslation();
+  const navigation = useNavigation();
+  const [adding, setAdding] = useState(false);
+  // What to do once the sheet has slid away: the camera cannot open on top of it.
+  const pendingChoice = useRef<AddPlantChoice | null>(null);
+
+  function choose(choice: AddPlantChoice) {
+    pendingChoice.current = choice;
+    setAdding(false);
+  }
+
+  async function runPendingChoice() {
+    const choice = pendingChoice.current;
+    pendingChoice.current = null;
+    if (choice === 'manual') {
+      navigation.navigate('Catalog');
+      return;
+    }
+    if (choice !== 'photo') return;
+
+    const result = await pickPhoto('camera');
+    if ('photo' in result) {
+      navigation.navigate('Catalog', { photo: result.photo });
+    } else if ('message' in result) {
+      Alert.alert(
+        result.message === 'denied'
+          ? t('addPlant.cameraDenied')
+          : result.message === 'unsupported'
+            ? t('plantForm.photoMessages.unsupported')
+            : t('addPlant.cameraFailed'),
+      );
+    }
+  }
 
   return (
-    <AppTab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.green,
-        tabBarInactiveTintColor: colors.heading,
-        tabBarLabelPosition: 'beside-icon',
-        tabBarStyle: {
-          paddingVertical: Platform.OS === 'ios' ? 20 : 0,
-          height: 88,
-        },
-      }}
-    >
-      <AppTab.Screen
-        name="NewPlant"
-        component={PlantSelect}
-        options={{
-          tabBarLabel: t('tabs.newPlant'),
-          tabBarIcon: ({ size, color }) => (
-            <MaterialIcons
-              name="add-circle-outline"
-              size={size}
-              color={color}
-            />
-          ),
+    <>
+      <AppTab.Navigator
+        initialRouteName="MyPlantsList"
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.green,
+          tabBarInactiveTintColor: colors.heading,
+          tabBarLabelPosition: 'below-icon',
+          tabBarStyle: {
+            paddingVertical: Platform.OS === 'ios' ? 20 : 0,
+            height: 88,
+          },
         }}
-      />
+      >
+        <AppTab.Screen
+          name="Profile"
+          component={Profile}
+          options={{
+            tabBarLabel: t('tabs.profile'),
+            tabBarIcon: ({ size, color }) => (
+              <MaterialIcons name="person-outline" size={size} color={color} />
+            ),
+          }}
+        />
 
-      <AppTab.Screen
-        name="MyPlantsList"
-        component={MyPlants}
-        options={{
-          tabBarLabel: t('tabs.myPlants'),
-          tabBarIcon: ({ size, color }) => (
-            <MaterialIcons
-              name="format-list-bulleted"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
+        <AppTab.Screen
+          name="AddPlant"
+          component={Nothing}
+          options={{
+            tabBarButton: () => (
+              <View style={styles.addSlot}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tabs.newPlant')}
+                  style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                  onPress={() => setAdding(true)}
+                >
+                  <Feather name="plus" size={28} color={colors.white} />
+                </Pressable>
+              </View>
+            ),
+          }}
+        />
+
+        <AppTab.Screen
+          name="MyPlantsList"
+          component={MyPlants}
+          options={{
+            tabBarLabel: t('tabs.myPlants'),
+            tabBarIcon: ({ size, color }) => (
+              <MaterialCommunityIcons name="sprout-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      </AppTab.Navigator>
+
+      <AddPlantSheet
+        visible={adding}
+        onChoose={choose}
+        onClose={() => setAdding(false)}
+        onClosed={() => void runPendingChoice()}
       />
-    </AppTab.Navigator>
+    </>
   );
 };
+
+const styles = StyleSheet.create({
+  addSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.green,
+  },
+  addButtonPressed: {
+    opacity: 0.8,
+  },
+});
 
 export default AuthRoutes;

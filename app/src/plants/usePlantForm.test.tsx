@@ -83,6 +83,20 @@ describe('usePlantForm', () => {
     expect(result.current.species?.name).toBe('Monstera');
   });
 
+  it('starts with the photo taken before the species was picked', async () => {
+    await signIn();
+    mock.onGet('/plants/c1').reply(200, catalogFixture);
+    const photo = { uri: 'file:///tmp/taken.jpg', mimeType: 'image/jpeg' };
+    const { result } = renderHook(
+      () => usePlantForm({ mode: 'create', catalogPlantId: 'c1', photo }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.load.state).toBe('ready'));
+    expect(result.current.values.photo).toEqual(photo);
+    expect(result.current.values.light).toBe(catalogFixture.light);
+  });
+
   it('posts the plant with the device time zone, then uploads the photo', async () => {
     mock.onPost('/me/plants').reply(201, userPlantFixture);
     mock.onPost('/me/plants/p1/photo').reply(200, { ...userPlantFixture, hasPhoto: true });

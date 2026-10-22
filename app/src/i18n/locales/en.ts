@@ -39,10 +39,11 @@ const en = {
   },
   header: {
     greeting: 'Hello,',
-    openProfile: 'Open profile',
   },
   plantSelect: {
     title: 'Find your plant',
+    photoTitle: 'Which plant is in your photo?',
+    back: 'Back',
     subtitle: 'Search, or filter by light and difficulty.',
     searchPlaceholder: 'Search plants',
     lightLabel: 'Light',
@@ -112,7 +113,7 @@ const en = {
   },
   myPlants: {
     nextWatering: "Don't forget to water your {{name}} {{time}}.",
-    empty: "You haven't added any plants yet.",
+    empty: "You haven't added any plants yet. Tap + to add your first one.",
     upcoming: 'Coming up',
     waterAt: 'Water at',
     removeTitle: 'Remove {{name}}?',
@@ -127,8 +128,18 @@ const en = {
     capReached: 'Only 60 reminders fit on your phone, so some of your plants will not get one.',
   },
   tabs: {
-    newPlant: 'New plant',
+    profile: 'Profile',
+    newPlant: 'Add a plant',
     myPlants: 'My plants',
+  },
+  addPlant: {
+    title: 'Add a plant',
+    takePhoto: 'Take a photo',
+    takePhotoHint: 'Then pick which plant it is',
+    manual: 'Add manually',
+    manualHint: 'Search the catalog',
+    cameraDenied: "PlantCare isn't allowed to use the camera. You can add the plant manually.",
+    cameraFailed: "Couldn't open the camera. You can add the plant manually.",
   },
   notification: {
     title: '🌱 Watering time',
@@ -136,7 +147,6 @@ const en = {
   },
   profile: {
     title: 'Profile',
-    back: 'Back',
     language: 'Language',
     account: 'Account',
     signIn: 'Sign in',

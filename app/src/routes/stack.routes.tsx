@@ -6,9 +6,10 @@ import Welcome from '../pages/Welcome';
 import { UserIdentification } from '../pages/UserIdentification';
 import { Confirmation, ConfirmationParams } from '../pages/Confirmation';
 import { PlantForm } from '../pages/PlantForm';
-import { Profile } from '../pages/Profile';
 import { Auth } from '../pages/Auth';
+import { PlantSelect } from '../pages/PlantSelect';
 import AuthRoutes, { TabParamList } from './tab.routes';
+import type { PlantPhoto } from '../plants/pickPhoto';
 
 import colors from '../styles/colors';
 
@@ -17,8 +18,10 @@ export type RootStackParamList = {
   UserIdentification: undefined;
   Confirmation: ConfirmationParams;
   PlantSelect: NavigatorScreenParams<TabParamList> | undefined;
-  PlantForm: { mode: 'create'; catalogPlantId: string } | { mode: 'edit'; userPlantId: string };
-  Profile: undefined;
+  Catalog: { photo?: PlantPhoto } | undefined;
+  PlantForm:
+    | { mode: 'create'; catalogPlantId: string; photo?: PlantPhoto }
+    | { mode: 'edit'; userPlantId: string };
   Auth: { mode: 'signIn' | 'signUp'; afterAuth?: 'savePendingPlant' };
 };
 
@@ -49,8 +52,8 @@ const AppRoutes = () => (
     />
     <stackRoutes.Screen name="Confirmation" component={Confirmation} />
     <stackRoutes.Screen name="PlantSelect" component={AuthRoutes} />
+    <stackRoutes.Screen name="Catalog" component={PlantSelect} />
     <stackRoutes.Screen name="PlantForm" component={PlantForm} />
-    <stackRoutes.Screen name="Profile" component={Profile} />
     <stackRoutes.Screen name="Auth" component={Auth} />
   </stackRoutes.Navigator>
 );

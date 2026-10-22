@@ -41,10 +41,11 @@ const ptBR: typeof en = {
   },
   header: {
     greeting: 'Olá,',
-    openProfile: 'Abrir perfil',
   },
   plantSelect: {
     title: 'Encontre sua planta',
+    photoTitle: 'Qual planta está na sua foto?',
+    back: 'Voltar',
     subtitle: 'Busque, ou filtre por luz e dificuldade.',
     searchPlaceholder: 'Buscar plantas',
     lightLabel: 'Luz',
@@ -114,7 +115,7 @@ const ptBR: typeof en = {
   },
   myPlants: {
     nextWatering: 'Não esqueça de regar a {{name}} {{time}}.',
-    empty: 'Você ainda não cadastrou nenhuma planta.',
+    empty: 'Você ainda não cadastrou nenhuma planta. Toque no + para adicionar a primeira.',
     upcoming: 'Próximas regas',
     waterAt: 'Regar às',
     removeTitle: 'Remover {{name}}?',
@@ -129,8 +130,19 @@ const ptBR: typeof en = {
     capReached: 'Só cabem 60 lembretes no celular, então algumas plantas ficarão sem lembrete.',
   },
   tabs: {
-    newPlant: 'Nova planta',
+    profile: 'Perfil',
+    newPlant: 'Adicionar planta',
     myPlants: 'Minhas plantas',
+  },
+  addPlant: {
+    title: 'Adicionar planta',
+    takePhoto: 'Tirar foto',
+    takePhotoHint: 'Depois escolha qual planta é',
+    manual: 'Adicionar manualmente',
+    manualHint: 'Busque no catálogo',
+    cameraDenied:
+      'O PlantCare não tem permissão para usar a câmera. Você pode adicionar a planta manualmente.',
+    cameraFailed: 'Não consegui abrir a câmera. Você pode adicionar a planta manualmente.',
   },
   notification: {
     title: '🌱 Hora de regar',
@@ -138,7 +150,6 @@ const ptBR: typeof en = {
   },
   profile: {
     title: 'Perfil',
-    back: 'Voltar',
     language: 'Idioma',
     account: 'Conta',
     signIn: 'Entrar',

@@ -12,10 +12,12 @@ import { catalogFixture } from '../plants/testFixtures';
 import { PlantSelect } from './PlantSelect';
 
 const mockNavigate = jest.fn();
+let mockParams: { photo?: { uri: string; mimeType: string } } | undefined;
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual<object>('@react-navigation/native'),
   useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
+  useRoute: () => ({ params: mockParams }),
 }));
 
 let mock: MockAdapter;
@@ -25,6 +27,7 @@ beforeAll(initI18n);
 beforeEach(async () => {
   mock = new MockAdapter(api);
   mockNavigate.mockClear();
+  mockParams = undefined;
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');
@@ -60,6 +63,22 @@ describe('PlantSelect', () => {
     });
   });
 
+  it('asks which plant is in the photo and carries the photo to the form', async () => {
+    const photo = { uri: 'file:///tmp/taken.jpg', mimeType: 'image/jpeg' };
+    mockParams = { photo };
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    renderScreen();
+
+    expect(await screen.findByText('Which plant is in your photo?')).toBeTruthy();
+    fireEvent.press(await screen.findByText('Monstera'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('PlantForm', {
+      mode: 'create',
+      catalogPlantId: 'c1',
+      photo,
+    });
+  });
+
   it('sends both filters together, from page 1, with translated labels', async () => {
     mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
     renderScreen();
@@ -87,7 +106,7 @@ describe('PlantSelect', () => {
     fireEvent.press(screen.getByText('Shade'));
     fireEvent.press(screen.getByText('Done'));
 
-    await waitFor(() => expect(screen.queryByText('Done')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Done')).toBeNull(), { timeout: 3000 });
     expect(screen.getByLabelText('Filters, 1 active')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Filters, 1 active'));

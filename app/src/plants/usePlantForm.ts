@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import type { Frequency, Light, UserPlant } from '@plantcare/shared';
@@ -16,6 +15,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { loadTokens } from '../auth/session';
 import type { RootStackParamList } from '../routes/stack.routes';
 import { setPendingSave, type PlantFormValues } from './pendingSave';
+import { pickPhoto as pickFrom, type PhotoMessage, type PhotoSource } from './pickPhoto';
 import {
   changesBody,
   confirmationParams,
@@ -35,7 +35,7 @@ export type Species = {
 };
 
 export type FormError = 'network' | 'validation_error' | 'rate_limited' | 'unknown';
-export type PhotoMessage = 'denied' | 'cancelled' | 'unsupported' | 'failed';
+export type { PhotoMessage } from './pickPhoto';
 
 type Load =
   | { state: 'loading' }
@@ -51,14 +51,6 @@ const DEFAULT_VALUES: PlantFormValues = {
   photo: null,
 };
 
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const EXTENSION_TYPES: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-};
-
 function formError(e: unknown): FormError {
   const { code } = toApiError(e);
   switch (code) {
@@ -69,12 +61,6 @@ function formError(e: unknown): FormError {
     default:
       return 'unknown';
   }
-}
-
-function imageType(asset: { uri: string; mimeType?: string | undefined }): string | null {
-  if (asset.mimeType) return IMAGE_TYPES.includes(asset.mimeType) ? asset.mimeType : null;
-  const extension = asset.uri.split('?')[0]?.split('.').pop()?.toLowerCase() ?? '';
-  return EXTENSION_TYPES[extension] ?? null;
 }
 
 function valuesOf(saved: UserPlant): PlantFormValues {
@@ -95,8 +81,13 @@ async function loadForm(params: PlantFormParams): Promise<{ ready: Ready; values
     const plant = await getCatalogPlant(params.catalogPlantId);
     return {
       ready: { state: 'ready', species: plant, saved: null, accessToken: null },
-      // The species' own care plan is the starting point.
-      values: { ...DEFAULT_VALUES, frequency: plant.frequency, light: plant.light },
+      // The species' own care plan is the starting point, with the photo if one was taken first.
+      values: {
+        ...DEFAULT_VALUES,
+        frequency: plant.frequency,
+        light: plant.light,
+        photo: params.photo ?? null,
+      },
     };
   }
   // The list request refreshes an expired token first, so the token is read after it.
@@ -138,13 +129,17 @@ export function usePlantForm(params: PlantFormParams) {
 
   const { mode } = params;
   const targetId = params.mode === 'create' ? params.catalogPlantId : params.userPlantId;
+  const initialPhoto = params.mode === 'create' ? params.photo : undefined;
+  const photoUri = initialPhoto?.uri;
+  const photoType = initialPhoto?.mimeType;
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
+    const photo = photoUri && photoType ? { uri: photoUri, mimeType: photoType } : undefined;
     const target: PlantFormParams =
       mode === 'create'
-        ? { mode, catalogPlantId: targetId }
+        ? { mode, catalogPlantId: targetId, photo }
         : { mode, userPlantId: targetId };
     loadForm(target).then(
       (result) => {
@@ -159,7 +154,7 @@ export function usePlantForm(params: PlantFormParams) {
     return () => {
       active = false;
     };
-  }, [mode, targetId, attempt]);
+  }, [mode, targetId, photoUri, photoType, attempt]);
 
   const retryLoad = useCallback(() => {
     setLoad({ state: 'loading' });
@@ -184,42 +179,17 @@ export function usePlantForm(params: PlantFormParams) {
     update({ frequency: { times: Math.min(7, Math.max(1, Math.round(times))), per: 'week' } });
   }
 
-  async function pickPhoto(source: 'camera' | 'gallery') {
+  async function pickPhoto(source: PhotoSource) {
     setPhotoMessage(null);
-    try {
-      const permission =
-        source === 'camera'
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        setPhotoMessage('denied');
-        return;
-      }
-      const options = { mediaTypes: ['images' as const], quality: 0.8 };
-      const result =
-        source === 'camera'
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync({
-              ...options,
-              // Makes iOS convert HEIC photos to JPEG, which the API accepts.
-              preferredAssetRepresentationMode:
-                ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-            });
-      const asset = result.canceled ? undefined : result.assets[0];
-      if (!asset) {
-        // With a photo showing (just picked, or saved), "no photo" would be misleading.
-        const showingPhoto = values.photo !== null || (load.state === 'ready' && load.saved?.hasPhoto);
-        if (!showingPhoto) setPhotoMessage('cancelled');
-        return;
-      }
-      const mimeType = imageType(asset);
-      if (!mimeType) {
-        setPhotoMessage('unsupported');
-        return;
-      }
-      update({ photo: { uri: asset.uri, mimeType } });
-    } catch {
-      setPhotoMessage('failed');
+    const result = await pickFrom(source);
+    if ('photo' in result) {
+      update({ photo: result.photo });
+    } else if ('message' in result) {
+      setPhotoMessage(result.message);
+    } else {
+      // With a photo showing (just picked, or saved), "no photo" would be misleading.
+      const showingPhoto = values.photo !== null || (load.state === 'ready' && load.saved?.hasPhoto);
+      if (!showingPhoto) setPhotoMessage('cancelled');
     }
   }
 

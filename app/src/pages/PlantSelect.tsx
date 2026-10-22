@@ -10,15 +10,16 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import type { Difficulty, Light } from '@plantcare/shared';
 
-import { Header } from '../components/Header';
 import { FilterSheet } from '../components/FilterSheet';
 import { PlantCardPrimary } from '../components/PlantCardPrimary';
 import { Load } from '../components/Load';
 import { useCatalog } from '../plants/useCatalog';
+import type { RootStackParamList } from '../routes/stack.routes';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
@@ -32,6 +33,9 @@ export function PlantSelect() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<RootStackParamList, 'Catalog'>>();
+  const photo = route.params?.photo;
+  const { top } = useSafeAreaInsets();
   const { t } = useTranslation();
   const { plants, loading, refreshing, loadingMore, error, loadMore, retry } = useCatalog({
     search,
@@ -40,7 +44,7 @@ export function PlantSelect() {
   });
 
   function handlePlantSelect(catalogPlantId: string) {
-    navigation.navigate('PlantForm', { mode: 'create', catalogPlantId });
+    navigation.navigate('PlantForm', { mode: 'create', catalogPlantId, photo });
   }
 
   const activeFilters = (light ? 1 : 0) + (difficulty ? 1 : 0);
@@ -100,12 +104,22 @@ export function PlantSelect() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: top }]}>
       <View style={styles.header}>
-        <Header />
+        <TouchableOpacity
+          style={styles.back}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t('plantSelect.back')}
+          hitSlop={12}
+        >
+          <Feather name="chevron-left" size={28} color={colors.heading} />
+        </TouchableOpacity>
         <View style={styles.heading}>
           <View style={styles.headingText}>
-            <Text style={styles.title}>{t('plantSelect.title')}</Text>
+            <Text style={styles.title}>
+              {photo ? t('plantSelect.photoTitle') : t('plantSelect.title')}
+            </Text>
             <Text style={styles.subtitle}>{t('plantSelect.subtitle')}</Text>
           </View>
           <Pressable
@@ -160,7 +174,11 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 30,
-    marginTop: 30,
+  },
+  back: {
+    alignSelf: 'flex-start',
+    marginLeft: -6,
+    marginTop: 8,
   },
   heading: {
     flexDirection: 'row',

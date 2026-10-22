@@ -6,21 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '../auth/AuthProvider';
 import { initI18n } from '../i18n';
-import { Header, firstName, initials } from './Header';
-
-describe('initials', () => {
-  it('takes the first letters of the first two words', () => {
-    expect(initials('Ana Clara Souza')).toBe('AC');
-  });
-
-  it('trims and upper-cases', () => {
-    expect(initials('  arthur ')).toBe('A');
-  });
-
-  it('is empty for an empty name', () => {
-    expect(initials('')).toBe('');
-  });
-});
+import { Header, firstName } from './Header';
 
 describe('firstName', () => {
   it('keeps only the first word', () => {
@@ -42,7 +28,7 @@ describe('Header', () => {
     await initI18n();
   });
 
-  it('greets by first name and keeps both initials', async () => {
+  it('greets by first name', async () => {
     await AsyncStorage.setItem('@plantcare:user', 'Arthur Frollini');
 
     render(
@@ -62,6 +48,5 @@ describe('Header', () => {
 
     expect(await screen.findByText('Arthur')).toBeTruthy();
     expect(screen.queryByText('Arthur Frollini')).toBeNull();
-    expect(screen.getByText('AF')).toBeTruthy();
   });
 });

@@ -31,18 +31,8 @@ export function Profile() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel={t('profile.back')}
-          hitSlop={12}
-        >
-          <Feather name="chevron-left" size={28} color={colors.heading} />
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('profile.title')}</Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <Text style={styles.title}>{t('profile.title')}</Text>
 
       <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
       <View style={styles.options}>
@@ -114,14 +104,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  title: {
     marginTop: 12,
     marginBottom: 32,
-  },
-  title: {
     fontSize: 28,
     fontFamily: fonts.heading,
     color: colors.heading,
