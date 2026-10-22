@@ -141,9 +141,15 @@ describe('PlantSelect', () => {
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
-    fireEvent.changeText(screen.getByLabelText('Search plants'), 'cac');
-    // The search is debounced, so the new results take a moment.
-    await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull(), { timeout: 3000 });
+    // The search is debounced: run its 300 ms timer by hand instead of waiting for it.
+    jest.useFakeTimers();
+    try {
+      fireEvent.changeText(screen.getByLabelText('Search plants'), 'cac');
+      act(() => jest.advanceTimersByTime(300));
+    } finally {
+      jest.useRealTimers();
+    }
+    await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull());
     fireEvent.press(screen.getByText('Cactus'));
 
     expect(screen.getByText('Add 2 plants')).toBeTruthy();
