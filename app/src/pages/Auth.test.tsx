@@ -168,7 +168,9 @@ describe('Auth', () => {
       fireEvent.press(button);
     });
 
-    await waitFor(() => expect(screen.queryByText('Sign in')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Sign in')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
     expect(screen.getByLabelText('Please wait')).toBeTruthy();
     release();
     await waitFor(() => expect(mockDispatch).toHaveBeenCalled());

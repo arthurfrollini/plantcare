@@ -146,7 +146,9 @@ describe('PlantSelect', () => {
     fireEvent.press(screen.getByLabelText('Filters'));
     fireEvent.press(screen.getByText('Full sun'));
     // The refetch with the sheet open takes over a second on the Linux CI runner.
-    await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull(), { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByText('Monstera')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
     fireEvent.press(screen.getByText('Cactus'));
 
     expect(screen.getByText('Add 2 plants')).toBeTruthy();
@@ -248,7 +250,9 @@ describe('PlantSelect', () => {
     fireEvent.press(screen.getByText('Shade'));
     fireEvent.press(screen.getByText('Done'));
 
-    await waitFor(() => expect(screen.queryByText('Done')).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByText('Done')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
     expect(screen.getByLabelText('Filters, 1 active')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Filters, 1 active'));

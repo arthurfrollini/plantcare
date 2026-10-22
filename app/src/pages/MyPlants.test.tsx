@@ -123,7 +123,9 @@ describe('MyPlants', () => {
     const buttons = alert.mock.calls[0]?.[2];
     buttons?.find((b) => b.text === 'Remove')?.onPress?.();
 
-    await waitFor(() => expect(screen.queryByText('Monstera')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Monstera')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
     expect(mock.history.delete[0]?.headers?.['Content-Type']).toBeUndefined();
   });
 

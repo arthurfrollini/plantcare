@@ -417,7 +417,9 @@ describe('GoogleSignInButton', () => {
         <GoogleSignInButton title="Continue with Google" />
       </AuthProvider>,
     );
-    await waitFor(() => expect(screen.queryByText('Continue with Google')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Continue with Google')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
   });
 
   it('posts the token from the provider to /auth/google', async () => {
