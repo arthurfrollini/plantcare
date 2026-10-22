@@ -1,4 +1,4 @@
-import { localeSchema, userSchema } from '@plantcare/shared';
+import { localeSchema, userNameSchema, userSchema } from '@plantcare/shared';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -43,7 +43,7 @@ export function meRoutes(app: FastifyInstance): void {
         summary: 'Update the signed-in user',
         security,
         body: z.object({
-          name: z.string().trim().min(1).max(60).optional(),
+          name: userNameSchema.optional(),
           language: localeSchema.optional(),
         }),
         response: { 200: userSchema },

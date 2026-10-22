@@ -1,4 +1,9 @@
-import { authResponseSchema, localeSchema } from '@plantcare/shared';
+import {
+  authResponseSchema,
+  localeSchema,
+  passwordSchema,
+  userNameSchema,
+} from '@plantcare/shared';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -22,13 +27,9 @@ export function authRoutes(app: FastifyInstance): void {
         tags: ['auth'],
         summary: 'Create an account with email and password',
         body: z.object({
-          name: z.string().trim().min(1).max(60),
+          name: userNameSchema,
           email: emailSchema,
-          password: z
-            .string()
-            .min(8)
-            .max(128)
-            .refine((value) => Buffer.byteLength(value, 'utf8') <= 72),
+          password: passwordSchema,
           language: localeSchema.optional(),
         }),
         response: { 201: authResponseSchema },
@@ -66,7 +67,7 @@ export function authRoutes(app: FastifyInstance): void {
         summary: 'Sign in or sign up with a Google ID token',
         body: z.object({
           idToken: z.string().min(1).max(8192),
-          name: z.string().trim().min(1).max(60).optional(),
+          name: userNameSchema.optional(),
           language: localeSchema.optional(),
         }),
         response: { 200: authResponseSchema },
