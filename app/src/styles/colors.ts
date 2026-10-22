@@ -16,4 +16,7 @@ export default {
   blue_light: '#EBF6FF',
 
   red: '#E83F5B',
+
+  yellow_dark: '#8A6D00',
+  yellow_light: '#FFF6D6',
 };

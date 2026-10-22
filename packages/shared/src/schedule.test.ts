@@ -30,8 +30,8 @@ describe('requiredWateringDays / defaultWateringDays', () => {
   it.each([
     [{ times: 1, per: 'day' }, []],
     [{ times: 1, per: 'week' }, [1]],
-    [{ times: 2, per: 'week' }, [1, 4]],
-    [{ times: 3, per: 'week' }, [1, 3, 5]],
+    [{ times: 2, per: 'week' }, [2, 4]],
+    [{ times: 3, per: 'week' }, [1, 4, 7]],
     [{ times: 4, per: 'week' }, [1, 3, 5, 7]],
     [{ times: 5, per: 'week' }, [1, 2, 4, 5, 6]],
     [{ times: 6, per: 'week' }, [1, 2, 3, 4, 5, 6]],
@@ -90,7 +90,7 @@ describe('reminderTriggers', () => {
     };
     expect(
       reminderTriggers(input, now).map((t) => t.kind === 'weekly' && t.weekday),
-    ).toEqual([2, 4, 6]);
+    ).toEqual([2, 5, 1]);
   });
 
   it('monthly steps 28 days from the anchor', () => {

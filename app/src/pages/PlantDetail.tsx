@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SvgFromUri } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import type { UserPlant } from '@plantcare/shared';
 
@@ -22,12 +22,20 @@ import { assetUrl } from '../api/config';
 import type { plantPhotoSource } from '../api/endpoints';
 import { Button } from '../components/Button';
 import { CareTiles } from '../components/CareTiles';
+import { DaysSheet } from '../components/DaysSheet';
+import { LeadInfoSheet } from '../components/LeadInfoSheet';
 import { Load } from '../components/Load';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
+import { SickPlantCard } from '../components/SickPlantCard';
 import { TimeSheet } from '../components/TimeSheet';
-import { dateLocale } from '../i18n';
 import type { ScheduleValues } from '../plants/savePlant';
-import { usePlantDetail, type FormError, type PhotoMessage } from '../plants/usePlantDetail';
+import {
+  usePlantDetail,
+  type FormError,
+  type PhotoMessage,
+  type SavingField,
+} from '../plants/usePlantDetail';
+import { WEEKDAYS, weekdayName } from '../plants/weekdays';
 import type { RootStackParamList } from '../routes/stack.routes';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
@@ -35,18 +43,33 @@ import fonts from '../styles/fonts';
 const PHOTO_SIZE = 120;
 /** Gradient height below the status bar; the photo circle sits on its bottom edge. */
 const HEADER_HEIGHT = 112;
-/** ISO weekdays, Monday first. */
-const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
 const LEADS = [5, 10, 15, 20, 25, 30];
 
-/**
- * 1 January 2024 was a Monday, so day N of that month is ISO weekday N. The short name is cut to
- * three letters: Portuguese "EEE" is "segunda", too wide for seven chips in a row.
- */
-function weekdayName(isoDay: number, pattern: 'EEE' | 'EEEE'): string {
-  const name = format(new Date(2024, 0, isoDay), pattern, { locale: dateLocale() });
-  const shown = pattern === 'EEE' ? name.slice(0, 3) : name;
-  return shown.charAt(0).toUpperCase() + shown.slice(1);
+/** "Saved ✓", faded in while `visible` and out after; gone from the tree once faded out. */
+function SavedToast({ visible }: { visible: boolean }) {
+  const { t } = useTranslation();
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [mounted, setMounted] = useState(visible);
+  if (visible && !mounted) setMounted(true);
+
+  useEffect(() => {
+    const animation = Animated.timing(opacity, {
+      toValue: visible ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
+    return () => animation.stop();
+  }, [visible, opacity]);
+
+  if (!mounted) return null;
+  return (
+    <Animated.View style={[styles.toast, { opacity }]} accessibilityLiveRegion="polite">
+      <Text style={styles.toastText}>{t('plantDetail.saved')}</Text>
+    </Animated.View>
+  );
 }
 
 export interface PlantDetailViewProps {
@@ -54,27 +77,30 @@ export interface PlantDetailViewProps {
   values: ScheduleValues;
   requiredDays: number;
   needsReview: boolean;
-  canSave: boolean;
-  saving: boolean;
+  savingField: SavingField | null;
+  /** True for a moment after a save, for the "Saved" toast. */
+  saved: boolean;
   error: FormError | null;
   photoSource: ReturnType<typeof plantPhotoSource>;
   photoBusy: boolean;
   photoMessage: PhotoMessage | null;
   onBack: () => void;
-  onToggleDay: (isoDay: number) => void;
+  /** Resolves true once the days are stored. */
+  onSaveDays: (days: number[]) => Promise<boolean>;
   onTimeChange: (time: string) => void;
   onLeadChange: (minutes: number) => void;
-  onSave: () => void;
   onPhoto: (choice: PhotoChoice) => void;
   onSavedPhotoError: () => void;
 }
 
 /** The plant detail screen itself, driven only by its props. */
 export function PlantDetailView(props: PlantDetailViewProps) {
-  const { plant, values, requiredDays, needsReview, canSave, saving, error } = props;
+  const { plant, values, requiredDays, needsReview, savingField, error } = props;
   const { t } = useTranslation();
   const { top, bottom } = useSafeAreaInsets();
+  const [daysOpen, setDaysOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
+  const [leadInfoOpen, setLeadInfoOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [illustrationGone, setIllustrationGone] = useState(false);
 
@@ -143,10 +169,10 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         </View>
       </View>
 
-      {/* Only this part scrolls; the header above and the save bar below stay put. */}
+      {/* Only this part scrolls; the header above stays put. */}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
         {props.photoMessage && (
@@ -173,31 +199,41 @@ export function PlantDetailView(props: PlantDetailViewProps) {
 
         {requiredDays > 0 && (
           <>
-            <Text style={styles.section}>{t('plantDetail.days')}</Text>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>{t('plantDetail.days')}</Text>
+              <TouchableOpacity
+                style={styles.sectionButton}
+                onPress={() => setDaysOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={t('plantDetail.editDays')}
+                hitSlop={8}
+              >
+                <Feather name="edit-2" size={16} color={colors.green_dark} />
+              </TouchableOpacity>
+            </View>
             <View style={styles.chipRow}>
               {WEEKDAYS.map((day) => {
-                const checked = values.wateringDays.includes(day);
+                const selected = values.wateringDays.includes(day);
                 return (
-                  <Pressable
+                  <View
                     key={day}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked }}
+                    accessible
+                    accessibilityRole="text"
+                    accessibilityState={{ selected }}
                     accessibilityLabel={weekdayName(day, 'EEEE')}
-                    style={[styles.chip, checked && styles.chipActive]}
-                    onPress={() => props.onToggleDay(day)}
+                    style={[styles.chip, selected && styles.chipActive]}
                   >
-                    <Text style={[styles.chipText, checked && styles.chipTextActive]}>
+                    <Text style={[styles.chipText, selected && styles.chipTextActive]}>
                       {weekdayName(day, 'EEE')}
                     </Text>
-                  </Pressable>
+                  </View>
                 );
               })}
             </View>
-            <Text style={styles.hint}>{t('plantDetail.pickDays', { count: requiredDays })}</Text>
           </>
         )}
 
-        <Text style={styles.section}>{t('plantDetail.time')}</Text>
+        <Text style={[styles.sectionTitle, styles.section]}>{t('plantDetail.time')}</Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${t('plantDetail.time')}, ${values.reminderTime}`}
@@ -206,10 +242,25 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         >
           <Feather name="clock" size={18} color={colors.green_dark} />
           <Text style={styles.timeText}>{values.reminderTime}</Text>
-          <Feather name="chevron-down" size={20} color={colors.body_dark} />
+          {savingField === 'time' ? (
+            <ActivityIndicator color={colors.green_dark} accessibilityLabel={t('plantForm.saving')} />
+          ) : (
+            <Feather name="chevron-down" size={20} color={colors.body_dark} />
+          )}
         </Pressable>
 
-        <Text style={styles.section}>{t('plantDetail.lead')}</Text>
+        <View style={[styles.sectionRow, styles.labelWithInfo]}>
+          <Text style={styles.sectionTitle}>{t('plantDetail.lead')}</Text>
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={() => setLeadInfoOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('plantDetail.leadInfo')}
+            hitSlop={10}
+          >
+            <Feather name="info" size={16} color={colors.body_dark} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.chipRow}>
           {LEADS.map((minutes) => {
             const checked = values.reminderLeadMinutes === minutes;
@@ -220,7 +271,11 @@ export function PlantDetailView(props: PlantDetailViewProps) {
                 accessibilityRole="radio"
                 accessibilityState={{ checked }}
                 accessibilityLabel={label}
-                style={[styles.chip, checked && styles.chipActive]}
+                style={({ pressed }) => [
+                  styles.chip,
+                  checked && styles.chipActive,
+                  pressed && styles.pressed,
+                ]}
                 onPress={() => props.onLeadChange(minutes)}
               >
                 <Text
@@ -235,30 +290,33 @@ export function PlantDetailView(props: PlantDetailViewProps) {
             );
           })}
         </View>
+
+        <View style={styles.sick}>
+          <SickPlantCard />
+        </View>
       </ScrollView>
 
-      <View style={[styles.saveBar, { paddingBottom: bottom + 16 }]}>
-        {error && (
-          <Text style={styles.error} accessibilityRole="alert">
+      {/* Stays until the next save, so it takes its own room instead of covering the content. */}
+      {error && (
+        <View style={[styles.errorBar, { paddingBottom: bottom + 12 }]}>
+          <Text style={styles.errorText} accessibilityRole="alert">
             {t(`plantForm.errors.${error}`)}
           </Text>
-        )}
-        <View style={!canSave && styles.saveOff}>
-          {saving ? (
-            <View style={styles.saving}>
-              <ActivityIndicator color={colors.white} accessibilityLabel={t('plantForm.saving')} />
-            </View>
-          ) : (
-            <Button
-              title={t('plantDetail.save')}
-              onPress={props.onSave}
-              disabled={!canSave}
-              accessibilityState={{ disabled: !canSave }}
-            />
-          )}
         </View>
+      )}
+      <View style={[styles.toastArea, { bottom: bottom + 24 }]} pointerEvents="none">
+        <SavedToast visible={props.saved} />
       </View>
 
+      <DaysSheet
+        visible={daysOpen}
+        required={requiredDays}
+        initialDays={values.wateringDays}
+        saving={savingField === 'days'}
+        error={error}
+        onSave={props.onSaveDays}
+        onClose={() => setDaysOpen(false)}
+      />
       <TimeSheet
         visible={timeOpen}
         value={values.reminderTime}
@@ -267,6 +325,11 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           setTimeOpen(false);
         }}
         onClose={() => setTimeOpen(false)}
+      />
+      <LeadInfoSheet
+        visible={leadInfoOpen}
+        minutes={values.reminderLeadMinutes}
+        onClose={() => setLeadInfoOpen(false)}
       />
       <PhotoSheet
         visible={photoOpen}
@@ -293,17 +356,16 @@ export function PlantDetail() {
         values={detail.values}
         requiredDays={detail.requiredDays}
         needsReview={detail.needsReview}
-        canSave={detail.canSave}
-        saving={detail.saving}
+        savingField={detail.savingField}
+        saved={detail.saved}
         error={detail.error}
         photoSource={detail.photoSource}
         photoBusy={detail.photoBusy}
         photoMessage={detail.photoMessage}
         onBack={() => navigation.goBack()}
-        onToggleDay={detail.toggleDay}
-        onTimeChange={detail.setReminderTime}
-        onLeadChange={detail.setLead}
-        onSave={() => void detail.save()}
+        onSaveDays={detail.saveDays}
+        onTimeChange={(time) => void detail.saveReminderTime(time)}
+        onLeadChange={(minutes) => void detail.saveLead(minutes)}
         onPhoto={(choice) =>
           void (choice === 'remove' ? detail.removePhoto() : detail.changePhoto(choice))
         }
@@ -397,7 +459,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 30,
     paddingTop: 12,
-    paddingBottom: 28,
   },
   photoMessage: {
     marginBottom: 8,
@@ -448,9 +509,37 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 24,
     marginBottom: 10,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 32,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  sectionTitle: {
     fontSize: 15,
     color: colors.heading,
     fontFamily: fonts.heading,
+  },
+  sectionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.green_light,
+  },
+  labelWithInfo: {
+    justifyContent: 'flex-start',
+  },
+  infoButton: {
+    marginLeft: 6,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipRow: {
     flexDirection: 'row',
@@ -477,12 +566,6 @@ const styles = StyleSheet.create({
     color: colors.green_dark,
     fontFamily: fonts.heading,
   },
-  hint: {
-    marginTop: 8,
-    fontSize: 13,
-    color: colors.body_dark,
-    fontFamily: fonts.text,
-  },
   timeRow: {
     height: 48,
     flexDirection: 'row',
@@ -501,22 +584,44 @@ const styles = StyleSheet.create({
     color: colors.heading,
     fontFamily: fonts.heading,
   },
-  saveBar: {
-    paddingTop: 16,
+  sick: {
+    marginTop: 36,
+  },
+  toastArea: {
+    position: 'absolute',
+    left: 30,
+    right: 30,
+    alignItems: 'center',
+  },
+  toast: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: colors.green_dark,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  toastText: {
+    fontSize: 14,
+    color: colors.white,
+    fontFamily: fonts.heading,
+  },
+  errorBar: {
+    paddingTop: 12,
     paddingHorizontal: 30,
     backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: colors.shape,
   },
-  saveOff: {
-    opacity: 0.5,
-  },
-  saving: {
-    backgroundColor: colors.green,
-    height: 56,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  errorText: {
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.red,
+    fontFamily: fonts.text,
   },
   error: {
     marginBottom: 12,

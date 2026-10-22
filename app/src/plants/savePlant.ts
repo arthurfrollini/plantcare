@@ -117,14 +117,3 @@ export function addedConfirmationParams(
     nextScreen: 'MyPlants',
   };
 }
-
-/** The confirmation after a plant's schedule was saved. */
-export function confirmationParams(t: TFunction): ConfirmationParams {
-  return {
-    title: t('plantForm.doneTitle'),
-    subtitle: t('plantForm.doneSubtitle'),
-    buttonTitle: t('plantForm.doneButton'),
-    icon: 'hug',
-    nextScreen: 'MyPlants',
-  };
-}

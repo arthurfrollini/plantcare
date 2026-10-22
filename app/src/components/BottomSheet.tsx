@@ -60,12 +60,8 @@ export function BottomSheet({ visible, onClose, onClosed, children }: BottomShee
       onRequestClose={onClose}
     >
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: progress }]}>
-        <BlurView
-          intensity={20}
-          tint="dark"
-          experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
-        />
+        {/* Android blurs only behind a BlurTargetView; without one it keeps the dimmed backdrop. */}
+        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
         <Pressable style={styles.backdrop} onPress={onClose} accessible={false} />
       </Animated.View>
       <Animated.View

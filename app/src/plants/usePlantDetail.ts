@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StackActions, useNavigation } from '@react-navigation/native';
-import { useTranslation } from 'react-i18next';
-import { defaultWateringDays, requiredWateringDays, type UserPlant } from '@plantcare/shared';
+import {
+  defaultWateringDays,
+  requiredWateringDays,
+  type UpdateUserPlant,
+  type UserPlant,
+} from '@plantcare/shared';
 
 import { toApiError } from '../api/client';
 import {
@@ -14,10 +17,14 @@ import {
 import { useAuth } from '../auth/AuthProvider';
 import { loadTokens } from '../auth/session';
 import { pickPhoto, type PhotoMessage, type PhotoSource } from './pickPhoto';
-import { confirmationParams, scheduleChanges, syncAfterSave, type ScheduleValues } from './savePlant';
+import { scheduleChanges, syncAfterSave, type ScheduleValues } from './savePlant';
 
 export type { PhotoMessage } from './pickPhoto';
 export type FormError = 'network' | 'validation_error' | 'rate_limited' | 'unknown';
+export type SavingField = 'days' | 'time' | 'lead';
+
+/** How long the "Saved" toast stays after a save. */
+export const SAVED_TOAST_MS = 1500;
 
 type Loaded = { plant: UserPlant; accessToken: string | null };
 type Load = 'loading' | { error: FormError } | Loaded;
@@ -34,7 +41,8 @@ function formError(e: unknown): FormError {
   }
 }
 
-function initialValues(plant: UserPlant): ScheduleValues {
+/** The schedule as shown: the stored days, or the defaults the reminders use while they are wrong. */
+function shownValues(plant: UserPlant): ScheduleValues {
   const required = requiredWateringDays(plant.frequency);
   return {
     wateringDays:
@@ -48,15 +56,15 @@ function initialValues(plant: UserPlant): ScheduleValues {
 
 const EMPTY_VALUES: ScheduleValues = { wateringDays: [], reminderTime: '08:00', reminderLeadMinutes: 15 };
 
-/** A plant in the garden: its schedule (saved together) and its photo (saved at once). */
+/** A plant in the garden: each schedule field and the photo are saved as soon as they change. */
 export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
-  const navigation = useNavigation();
   const { status } = useAuth();
-  const { t } = useTranslation();
 
   const [load, setLoad] = useState<Load>('loading');
-  const [values, setValues] = useState<ScheduleValues>(EMPTY_VALUES);
-  const [saving, setSaving] = useState(false);
+  // The value being saved, shown until the response replaces the plant or the save fails.
+  const [pending, setPending] = useState<Partial<ScheduleValues>>({});
+  const [savingField, setSavingField] = useState<SavingField | null>(null);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<FormError | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<PhotoMessage | null>(null);
@@ -64,6 +72,7 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
   const [attempt, setAttempt] = useState(0);
   // Read synchronously, so two taps in the same frame cannot both run.
   const submitting = useRef(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const photoWorking = useRef(false);
   const photoRetried = useRef(false);
 
@@ -78,9 +87,7 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
       return { plant, accessToken: tokens?.accessToken ?? null };
     })().then(
       (loaded) => {
-        if (!active) return;
-        setValues(initialValues(loaded.plant));
-        setLoad(loaded);
+        if (active) setLoad(loaded);
       },
       (e: unknown) => {
         if (active) setLoad({ error: formError(e) });
@@ -91,6 +98,13 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
     };
   }, [userPlantId, attempt]);
 
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    },
+    [],
+  );
+
   const retryLoad = useCallback(() => {
     setLoad('loading');
     setAttempt((n) => n + 1);
@@ -100,35 +114,54 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
   const plant = loaded?.plant ?? null;
   const requiredDays = plant ? requiredWateringDays(plant.frequency) : 0;
   const needsReview = plant?.scheduleNeedsReview ?? false;
-  const differs = plant !== null && (needsReview || Object.keys(scheduleChanges(plant, values)).length > 0);
-  const canSave = differs && values.wateringDays.length === requiredDays;
+  const values: ScheduleValues = plant ? { ...shownValues(plant), ...pending } : EMPTY_VALUES;
 
-  function toggleDay(day: number) {
-    if (requiredDays === 0) return;
-    setValues((current) => {
-      const days = current.wateringDays;
-      if (requiredDays === 1) return { ...current, wateringDays: [day] };
-      if (days.includes(day)) return { ...current, wateringDays: days.filter((d) => d !== day) };
-      if (days.length >= requiredDays) return current;
-      return { ...current, wateringDays: [...days, day].sort((a, b) => a - b) };
-    });
+  function showSaved() {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    setSaved(true);
+    savedTimer.current = setTimeout(() => {
+      savedTimer.current = null;
+      setSaved(false);
+    }, SAVED_TOAST_MS);
   }
 
-  async function save(): Promise<void> {
-    if (submitting.current || !plant || !canSave || status === 'loading') return;
+  /**
+   * Saves one schedule field on its own, then re-syncs the reminders. One save runs at a time; a
+   * second one while it runs is dropped. Resolves true once the change is stored.
+   */
+  async function saveField(
+    field: SavingField,
+    change: Partial<ScheduleValues>,
+  ): Promise<boolean> {
+    if (submitting.current || !plant || status === 'loading') return false;
+    const stored: ScheduleValues = {
+      wateringDays: plant.wateringDays,
+      reminderTime: plant.reminderTime,
+      reminderLeadMinutes: plant.reminderLeadMinutes,
+    };
+    const body: UpdateUserPlant = scheduleChanges(plant, { ...stored, ...change });
+    if (Object.keys(body).length === 0) return true;
+
     submitting.current = true;
-    setSaving(true);
+    setSavingField(field);
+    setPending(change);
     setError(null);
     try {
-      const changes = scheduleChanges(plant, values);
-      if (Object.keys(changes).length > 0) await updateMyPlant(plant.id, changes);
+      const next = await updateMyPlant(plant.id, body);
+      setLoad((current) =>
+        typeof current === 'object' && 'plant' in current ? { ...current, plant: next } : current,
+      );
+      setPending({});
+      showSaved();
       await syncAfterSave();
-      navigation.dispatch(StackActions.replace('Confirmation', confirmationParams(t)));
+      return true;
     } catch (e) {
+      setPending({});
       setError(formError(e));
+      return false;
     } finally {
       submitting.current = false;
-      setSaving(false);
+      setSavingField(null);
     }
   }
 
@@ -219,16 +252,15 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
     values,
     requiredDays,
     needsReview,
-    canSave,
-    saving,
+    savingField,
+    saved,
     error,
     photoSource,
     photoBusy,
     photoMessage,
-    toggleDay,
-    setReminderTime: (reminderTime: string) => setValues((v) => ({ ...v, reminderTime })),
-    setLead: (reminderLeadMinutes: number) => setValues((v) => ({ ...v, reminderLeadMinutes })),
-    save,
+    saveDays: (wateringDays: number[]) => saveField('days', { wateringDays }),
+    saveReminderTime: (reminderTime: string) => saveField('time', { reminderTime }),
+    saveLead: (reminderLeadMinutes: number) => saveField('lead', { reminderLeadMinutes }),
     changePhoto,
     removePhoto,
     handleSavedPhotoError,
