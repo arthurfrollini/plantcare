@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MockAdapter from 'axios-mock-adapter';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
@@ -28,9 +29,14 @@ beforeEach(async () => {
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');
+  // jest's react-native has no AppState subscription to remove.
+  jest.spyOn(AppState, 'addEventListener').mockImplementation(() => ({ remove: jest.fn() }));
 });
 
-afterEach(() => mock.restore());
+afterEach(() => {
+  mock.restore();
+  jest.restoreAllMocks();
+});
 
 function wrapper({ children }: { children: ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;
@@ -56,11 +62,50 @@ describe('start', () => {
 
   it('loads the account when tokens exist', async () => {
     await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
-    mock.onGet('/me').reply(200, { ...baseUser, language: 'pt-BR' });
+    mock.onGet('/me').reply(200, baseUser);
     const { result } = await renderAuth();
     expect(result.current.status).toBe('signedIn');
     expect(result.current.user?.name).toBe('Ana');
+    expect(mock.history.patch).toHaveLength(0);
+  });
+
+  it('keeps the device language and sends it to the account when they differ', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    await changeLanguage('pt-BR');
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPatch('/me').reply(200, { ...baseUser, language: 'pt-BR' });
+    const { result } = await renderAuth();
     expect(currentLanguage()).toBe('pt-BR');
+    expect(lastBody(mock.history.patch)).toEqual({ language: 'pt-BR' });
+    expect(result.current.user?.language).toBe('pt-BR');
+  });
+
+  it('keeps the device language when that PATCH fails', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    await changeLanguage('pt-BR');
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPatch('/me').networkError();
+    const { result } = await renderAuth();
+    expect(result.current.status).toBe('signedIn');
+    expect(currentLanguage()).toBe('pt-BR');
+  });
+
+  it('retries the account when the app returns to the foreground', async () => {
+    let onChange: (state: AppStateStatus) => void = () => undefined;
+    const remove = jest.fn();
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
+      onChange = handler;
+      return { remove };
+    });
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').replyOnce(() => Promise.reject(new Error('Network Error')));
+    mock.onGet('/me').reply(200, baseUser);
+    const { result } = await renderAuth();
+    expect(result.current.user).toBeNull();
+
+    act(() => onChange('active'));
+
+    await waitFor(() => expect(result.current.user?.name).toBe('Ana'));
   });
 
   it('stays signed in with no account when the API is unreachable', async () => {
@@ -171,16 +216,31 @@ describe('signOut', () => {
     expect(result.current.status).toBe('signedOut');
   });
 
-  it('signs out locally when the API is unreachable', async () => {
+  it('signs out at once even when logout never answers', async () => {
     await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    await AsyncStorage.setItem('@plantcare:myPlantsCache', '[]');
     mock.onGet('/me').reply(200, baseUser);
-    mock.onPost('/auth/logout').networkError();
+    mock.onPost('/auth/logout').reply(() => new Promise(() => undefined));
     const { result } = await renderAuth();
 
     await act(() => result.current.signOut());
 
-    expect(await loadTokens()).toBeNull();
     expect(result.current.status).toBe('signedOut');
+    expect(await loadTokens()).toBeNull();
+    expect(await AsyncStorage.getItem('@plantcare:myPlantsCache')).toBeNull();
+    expect(mock.history.post).toHaveLength(1);
+  });
+
+  it('does nothing on a second sign out', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPost('/auth/logout').reply(204);
+    const { result } = await renderAuth();
+
+    await act(() => result.current.signOut());
+    await act(() => result.current.signOut());
+
+    expect(mock.history.post).toHaveLength(1);
   });
 });
 
@@ -190,6 +250,18 @@ describe('setLanguage', () => {
     await act(() => result.current.setLanguage('pt-BR'));
     expect(currentLanguage()).toBe('pt-BR');
     expect(mock.history.patch).toHaveLength(0);
+  });
+
+  it('keeps the local language when the account PATCH fails', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, baseUser);
+    mock.onPatch('/me').networkError();
+    const { result } = await renderAuth();
+
+    await act(() => result.current.setLanguage('pt-BR'));
+
+    expect(currentLanguage()).toBe('pt-BR');
+    expect(result.current.status).toBe('signedIn');
   });
 
   it('patches the account when signed in', async () => {

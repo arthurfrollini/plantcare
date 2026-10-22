@@ -19,11 +19,7 @@ export function Profile() {
 
   async function handleSelect(language: Language) {
     if (language === selected) return;
-    try {
-      await setLanguage(language);
-    } catch {
-      Alert.alert(t('profile.languageSyncError'));
-    }
+    await setLanguage(language);
   }
 
   async function handleSignOut() {

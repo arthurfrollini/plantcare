@@ -2,20 +2,21 @@ import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MockAdapter from 'axios-mock-adapter';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { StackActions } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
-import { clearTokens, loadTokens } from '../auth/session';
+import { clearTokens, loadTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
 import { Auth } from './Auth';
 
-const mockNavigate = jest.fn();
+const mockDispatch = jest.fn();
 let mockParams: { mode: 'signIn' | 'signUp' } = { mode: 'signIn' };
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual<object>('@react-navigation/native'),
-  useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
+  useNavigation: () => ({ dispatch: mockDispatch, goBack: jest.fn() }),
   useRoute: () => ({ params: mockParams }),
 }));
 
@@ -34,7 +35,7 @@ beforeAll(initI18n);
 
 beforeEach(async () => {
   mock = new MockAdapter(api);
-  mockNavigate.mockClear();
+  mockDispatch.mockClear();
   mockParams = { mode: 'signIn' };
   await clearTokens();
   await AsyncStorage.clear();
@@ -71,7 +72,7 @@ describe('Auth', () => {
     fill('ana@example.com', 'secret123');
     fireEvent.press(screen.getByText('Sign in'));
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('PlantSelect'));
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')));
     expect(await loadTokens()).toEqual({ accessToken: 'a', refreshToken: 'r' });
   });
 
@@ -85,7 +86,7 @@ describe('Auth', () => {
     fireEvent.press(screen.getByText('Sign in'));
 
     expect(await screen.findByText('Wrong email or password.')).toBeTruthy();
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockDispatch).not.toHaveBeenCalled();
     expect(await loadTokens()).toBeNull();
   });
 
@@ -111,7 +112,7 @@ describe('Auth', () => {
     fill('ana@example.com', 'secret123');
     fireEvent.press(screen.getByText('Create account'));
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('PlantSelect'));
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')));
     const body: unknown = JSON.parse(String(mock.history.post[0]?.data));
     expect(body).toMatchObject({ name: 'Ana', language: 'en' });
   });
@@ -146,7 +147,7 @@ describe('Auth', () => {
     expect(mock.history.post).toHaveLength(0);
   });
 
-  it('shows a loading state and ignores a second tap while submitting', async () => {
+  it('shows a loading state and sends one request for two taps in the same frame', async () => {
     let release: () => void = () => undefined;
     mock.onPost('/auth/login').reply(
       () =>
@@ -157,13 +158,66 @@ describe('Auth', () => {
     renderAuth();
 
     fill('ana@example.com', 'secret123');
-    fireEvent.press(screen.getByText('Sign in'));
+    const button = screen.getByText('Sign in');
+    act(() => {
+      fireEvent.press(button);
+      fireEvent.press(button);
+    });
 
     await waitFor(() => expect(screen.queryByText('Sign in')).toBeNull());
     expect(screen.getByLabelText('Please wait')).toBeTruthy();
     release();
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('PlantSelect'));
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalled());
     expect(mock.history.post).toHaveLength(1);
+  });
+
+  it('shows the form again, not a spinner, after a successful sign in', async () => {
+    mock.onPost('/auth/login').reply(200, { accessToken: 'a', refreshToken: 'r', user });
+    renderAuth();
+
+    fill('ana@example.com', 'secret123');
+    fireEvent.press(screen.getByText('Sign in'));
+
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText('Sign in')).toBeTruthy());
+  });
+
+  it('leaves for the catalog when opened while already signed in', async () => {
+    await saveTokens({ accessToken: 'a', refreshToken: 'r' });
+    mock.onGet('/me').reply(200, user);
+    renderAuth();
+
+    await waitFor(() =>
+      expect(mockDispatch).toHaveBeenCalledWith(StackActions.replace('PlantSelect')),
+    );
+  });
+
+  it('asks for every field in sign in mode instead of the password length', async () => {
+    renderAuth();
+
+    fireEvent.press(screen.getByText('Sign in'));
+
+    expect(await screen.findByText('Fill in every field.')).toBeTruthy();
+    expect(mock.history.post).toHaveLength(0);
+  });
+
+  it.each([
+    [429, 'rate_limited', 'Too many tries. Wait a bit and try again.'],
+    [
+      400,
+      'validation_error',
+      'Check your details. The password needs at least 8 characters.',
+    ],
+    [500, 'internal', 'Something went wrong. Try again.'],
+  ])('maps a %i %s answer to its message', async (status, code, message) => {
+    mock.onPost('/auth/login').reply(status, { error: { code, message: 'server text' } });
+    renderAuth();
+
+    fill('ana@example.com', 'secret123');
+    fireEvent.press(screen.getByText('Sign in'));
+
+    expect(await screen.findByText(message)).toBeTruthy();
+    expect(screen.queryByText('server text')).toBeNull();
   });
 
   it('does not render the Google button without a provider', async () => {

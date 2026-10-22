@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { StackActions, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 
@@ -28,6 +28,7 @@ import fonts from '../styles/fonts';
 type ErrorKey =
   | 'invalid_credentials'
   | 'email_taken'
+  | 'required'
   | 'validation_error'
   | 'rate_limited'
   | 'network'
@@ -58,13 +59,15 @@ export function Auth({ googleProvider }: Props) {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'Auth'>>();
   const { t } = useTranslation();
-  const { signIn, signUp } = useAuth();
+  const { status, signIn, signUp } = useAuth();
 
   const [mode, setMode] = useState(route.params.mode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  // Read synchronously, so two taps in the same frame cannot both submit.
+  const submitting = useRef(false);
   const [error, setError] = useState<ErrorKey | null>(null);
 
   // The name typed on the first screen is the starting point for a new account.
@@ -80,28 +83,35 @@ export function Auth({ googleProvider }: Props) {
     };
   }, []);
 
+  // Signing in (or arriving here already signed in) leaves this screen for the catalog.
+  useEffect(() => {
+    if (status === 'signedIn') navigation.dispatch(StackActions.replace('PlantSelect'));
+  }, [status, navigation]);
+
   const signingUp = mode === 'signUp';
 
   async function handleSubmit() {
-    if (busy) return;
+    if (submitting.current) return;
     const trimmedEmail = email.trim();
-    if (
-      !trimmedEmail ||
-      !password ||
-      (signingUp && (!name.trim() || password.length < MIN_PASSWORD))
-    ) {
+    if (!trimmedEmail || !password || (signingUp && !name.trim())) {
+      setError('required');
+      return;
+    }
+    if (signingUp && password.length < MIN_PASSWORD) {
       setError('validation_error');
       return;
     }
+    submitting.current = true;
     Keyboard.dismiss();
     setBusy(true);
     setError(null);
     try {
       if (signingUp) await signUp(name.trim(), trimmedEmail, password);
       else await signIn(trimmedEmail, password);
-      navigation.navigate('PlantSelect');
     } catch (e) {
       setError(errorKey(e));
+    } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -180,7 +190,6 @@ export function Auth({ googleProvider }: Props) {
             <GoogleSignInButton
               title={t('auth.google')}
               provider={googleProvider}
-              onSuccess={() => navigation.navigate('PlantSelect')}
               onError={(e) => setError(errorKey(e))}
             />
           </View>

@@ -30,6 +30,7 @@ const en = {
     errors: {
       invalid_credentials: 'Wrong email or password.',
       email_taken: 'That email already has an account. Try signing in.',
+      required: 'Fill in every field.',
       validation_error: 'Check your details. The password needs at least 8 characters.',
       rate_limited: 'Too many tries. Wait a bit and try again.',
       network: "Can't reach the server. Check your connection and try again.",
@@ -81,7 +82,6 @@ const en = {
     signIn: 'Sign in',
     signOut: 'Sign out',
     signedOutHint: 'Sign in to keep your plants on every device.',
-    languageSyncError: "Language changed here, but we couldn't save it to your account.",
     signOutError: "Couldn't sign out. Try again.",
   },
   languages: {

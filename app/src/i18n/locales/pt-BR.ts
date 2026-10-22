@@ -32,6 +32,7 @@ const ptBR: typeof en = {
     errors: {
       invalid_credentials: 'E-mail ou senha incorretos.',
       email_taken: 'Esse e-mail já tem uma conta. Tente entrar.',
+      required: 'Preencha todos os campos.',
       validation_error: 'Confira seus dados. A senha precisa ter pelo menos 8 caracteres.',
       rate_limited: 'Muitas tentativas. Espere um pouco e tente de novo.',
       network: 'Não foi possível falar com o servidor. Verifique sua conexão e tente de novo.',
@@ -83,7 +84,6 @@ const ptBR: typeof en = {
     signIn: 'Entrar',
     signOut: 'Sair',
     signedOutHint: 'Entre para ter suas plantas em todos os aparelhos.',
-    languageSyncError: 'O idioma mudou aqui, mas não foi possível salvar na sua conta.',
     signOutError: 'Não foi possível sair. Tente de novo.',
   },
   languages: {
