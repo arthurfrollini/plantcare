@@ -23,6 +23,8 @@ import { useCatalog } from '../plants/useCatalog';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
+const CELL_GAP = 16;
+
 export function PlantSelect() {
   const [search, setSearch] = useState('');
   const [light, setLight] = useState<Light | null>(null);
@@ -66,9 +68,11 @@ export function PlantSelect() {
         data={plants}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <PlantCardPrimary data={item} onPress={() => handlePlantSelect(item.id)} />
+          <View style={styles.cell}>
+            <PlantCardPrimary data={item} onPress={() => handlePlantSelect(item.id)} />
+          </View>
         )}
-        style={refreshing && styles.refreshing}
+        style={[styles.grid, refreshing && styles.refreshing]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         numColumns={2}
@@ -220,8 +224,18 @@ const styles = StyleSheet.create({
   },
   plants: {
     flex: 1,
-    paddingHorizontal: 32,
+    paddingHorizontal: 30,
     marginTop: 16,
+  },
+  // Each cell pads CELL_GAP / 2 on both sides; the grid pulls back by the same amount so the
+  // outer cards line up with the header and the search field.
+  grid: {
+    marginHorizontal: -CELL_GAP / 2,
+  },
+  cell: {
+    flex: 1,
+    maxWidth: '50%',
+    padding: CELL_GAP / 2,
   },
   refreshing: {
     opacity: 0.5,
