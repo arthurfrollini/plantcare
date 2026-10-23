@@ -22,6 +22,7 @@ module.exports = defineConfig([
       'src/components/CareTiles.tsx',
       'src/components/DaysSheet.tsx',
       'src/components/HeroHeader.tsx',
+      'src/components/Tappable.tsx',
       'src/components/LeadInfoSheet.tsx',
       'src/components/PhotoSheet.tsx',
       'src/components/SickPlantCard.tsx',

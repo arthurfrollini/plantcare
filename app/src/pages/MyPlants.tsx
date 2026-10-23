@@ -139,7 +139,8 @@ export function MyPlants() {
             />
           )}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flex: 1 }}
+          // No flex: 1 here: it caps the content at the screen height and stops the list scrolling.
+          contentContainerStyle={styles.listContent}
         />
       </View>
     </View>
@@ -195,6 +196,9 @@ const styles = StyleSheet.create({
   plants: {
     flex: 1,
     width: '100%',
+  },
+  listContent: {
+    paddingBottom: 24,
   },
   plantsTitle: {
     fontSize: 24,

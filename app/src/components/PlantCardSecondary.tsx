@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image as NativeImage, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Image as NativeImage, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { SvgFromUri } from 'react-native-svg';
 import type { UserPlant } from '@plantcare/shared';
 
+import { Tappable } from './Tappable';
 import { assetUrl } from '../api/config';
 import { plantPhotoSource } from '../api/endpoints';
 import mascot from '../assets/watering.png';
@@ -91,20 +92,28 @@ export const PlantCardSecondary = ({
         readOnly
           ? undefined
           : () => (
-              <View>
-                <TouchableOpacity
+              <View style={styles.actions}>
+                <Tappable
+                  rippleColor={'rgba(255, 255, 255, 0.3)'}
                   style={styles.buttonRemove}
                   onPress={handleRemove}
                   accessibilityRole="button"
                   accessibilityLabel={t('myPlants.remove')}
                 >
-                  <Feather name="trash" size={32} color={colors.white} />
-                </TouchableOpacity>
+                  <Feather name="trash-2" size={28} color={colors.white} />
+                </Tappable>
               </View>
             )
       }
     >
-      <TouchableOpacity style={styles.container} activeOpacity={0.7} onPress={onPress}>
+      {/* The card stays opaque when pressed: the delete button is drawn behind it until a swipe. */}
+      <Tappable
+        feedback="highlight"
+        style={styles.container}
+        pressedStyle={styles.containerPressed}
+        onPress={onPress}
+        accessibilityRole="button"
+      >
         {renderPicture()}
         <View style={styles.names}>
           <Text style={styles.title}>{name}</Text>
@@ -113,21 +122,28 @@ export const PlantCardSecondary = ({
           <Text style={styles.timeLabel}>{t('myPlants.waterAt')}</Text>
           <Text style={styles.time}>{plant.reminderTime}</Text>
         </View>
-      </TouchableOpacity>
+      </Tappable>
     </Swipeable>
   );
 };
+
+const CARD_MARGIN = 5;
+const CARD_RADIUS = 25;
+const DELETE_WIDTH = 90;
 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
     paddingHorizontal: 10,
     paddingVertical: 25,
-    borderRadius: 25,
+    borderRadius: CARD_RADIUS,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.shape,
-    marginVertical: 5,
+    marginVertical: CARD_MARGIN,
+  },
+  containerPressed: {
+    backgroundColor: colors.shape_pressed,
   },
   photo: {
     width: 50,
@@ -159,16 +175,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.heading,
     color: colors.body_dark,
   },
+  // The delete button sits behind the card as its continuation: it starts under the card's rounded
+  // right edge, so a swipe reveals one red strip attached to the card, with the card's height.
+  actions: {
+    flexDirection: 'row',
+    marginVertical: CARD_MARGIN,
+    marginLeft: -CARD_RADIUS,
+  },
   buttonRemove: {
-    width: 90,
-    height: 85,
+    width: DELETE_WIDTH + CARD_RADIUS,
+    paddingLeft: CARD_RADIUS,
     backgroundColor: colors.red,
-    marginTop: 15,
-    borderRadius: 20,
+    borderTopRightRadius: CARD_RADIUS,
+    borderBottomRightRadius: CARD_RADIUS,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
-    right: 20,
-    paddingLeft: 15,
   },
 });

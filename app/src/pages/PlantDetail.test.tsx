@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert, type AlertButton } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import MockAdapter from 'axios-mock-adapter';
@@ -279,6 +280,40 @@ describe('PlantDetail', () => {
     ).toBeTruthy();
     expect(screen.getByText('3x a week')).toBeTruthy();
   });
+
+  it('removes the plant after confirming, then goes back', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    await renderScreen();
+    mock.onDelete('/me/plants/p1').reply(204);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Remove plant' }));
+
+    expect(alert).toHaveBeenCalledWith('Remove Monstera?', undefined, expect.any(Array));
+    expect(mock.history.delete).toHaveLength(0);
+    const buttons: AlertButton[] = alert.mock.calls[0]?.[2] ?? [];
+    buttons.find((b) => b.text === 'Remove')?.onPress?.();
+
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1), { timeout: 5000 });
+    expect(mock.history.delete.map((r) => r.url)).toEqual(['/me/plants/p1']);
+    alert.mockRestore();
+  }, 15000);
+
+  it('stays on the plant and says so when the removal fails', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    await renderScreen();
+    mock.onDelete('/me/plants/p1').reply(500, { error: { code: 'internal', message: 'boom' } });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Remove plant' }));
+    const buttons: AlertButton[] = alert.mock.calls[0]?.[2] ?? [];
+    buttons.find((b) => b.text === 'Remove')?.onPress?.();
+
+    await waitFor(
+      () => expect(alert).toHaveBeenCalledWith("Couldn't remove the plant. Try again."),
+      { timeout: 5000 },
+    );
+    expect(mockGoBack).not.toHaveBeenCalled();
+    alert.mockRestore();
+  }, 15000);
 
   it('goes back from the header', async () => {
     await renderScreen();
