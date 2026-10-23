@@ -223,6 +223,15 @@ describe('changePasswordSchema', () => {
       false,
     );
   });
+  it('caps the refresh token at 256 characters, like /auth/refresh', () => {
+    const at = (length: number) =>
+      changePasswordSchema.safeParse({
+        ...body,
+        refreshToken: 'r'.repeat(length),
+      }).success;
+    expect(at(256)).toBe(true);
+    expect(at(257)).toBe(false);
+  });
 });
 
 describe('userSchema', () => {

@@ -104,7 +104,7 @@ export const passwordSchema = z
 export const changePasswordSchema = z.strictObject({
   currentPassword: z.string().min(1).max(128),
   newPassword: passwordSchema,
-  refreshToken: z.string().min(1),
+  refreshToken: z.string().min(1).max(256),
 });
 export type ChangePassword = z.infer<typeof changePasswordSchema>;
 
