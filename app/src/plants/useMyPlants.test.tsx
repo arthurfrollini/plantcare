@@ -264,7 +264,33 @@ describe('useMyPlants', () => {
       });
 
       expect(mock.history.post).toHaveLength(1);
-      expect(results).toEqual([true, false]);
+      expect(results).toEqual([true, true]);
+    });
+
+    it('ends with no watering after mark then undo', async () => {
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      mock
+        .onDelete(`/me/plants/p1/waterings/${today}`)
+        .reply(200, { ...userPlantFixture, lastWateredOn: null });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+      await act(async () => {
+        await result.current.markWatered('p1');
+      });
+      expect(result.current.plants[0]?.lastWateredOn).toBe(today);
+      await act(async () => {
+        await result.current.undoWatered('p1');
+      });
+
+      expect(result.current.plants[0]?.lastWateredOn).toBeNull();
+      const cached = z
+        .array(userPlantSchema)
+        .parse(JSON.parse((await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)) ?? '[]'));
+      expect(cached[0]?.lastWateredOn).toBeNull();
     });
 
     it('can undo a plant loaded with today as its last watering', async () => {

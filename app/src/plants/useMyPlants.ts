@@ -21,9 +21,9 @@ export type MyPlantsResult = {
   error: ApiError | null;
   refresh: () => Promise<void>;
   remove: (id: string) => Promise<void>;
-  /** Records a watering for today. False when it failed or a call for this plant is in flight. */
+  /** Records a watering for today. False when it failed. A call while one for this plant is in flight joins it. */
   markWatered: (id: string) => Promise<boolean>;
-  /** Takes today's watering back. Same return rules as markWatered. */
+  /** Takes today's watering back. Same rules as markWatered. */
   undoWatered: (id: string) => Promise<boolean>;
 };
 
@@ -36,8 +36,8 @@ export function useMyPlants(): MyPlantsResult {
   const [error, setError] = useState<ApiError | null>(null);
   const latest = useRef(0);
   const plantsRef = useRef<UserPlant[]>([]);
-  // Plants with a watering request in flight; a repeat call for one is ignored.
-  const watering = useRef(new Set<string>());
+  // Plants with a watering request in flight; a repeat call for one joins it.
+  const watering = useRef(new Map<string, Promise<boolean>>());
   const shownFor = useRef<string | null>(null);
   // True while the list on screen is the cached one shown ahead of the request.
   const fromCache = useRef(false);
@@ -123,23 +123,28 @@ export function useMyPlants(): MyPlantsResult {
   );
 
   const changeWatering = useCallback(
-    async (id: string, send: (id: string, day: string) => Promise<UserPlant>) => {
-      if (watering.current.has(id)) return false;
-      watering.current.add(id);
-      try {
-        const updated = await send(id, toLocalDateString(new Date()));
-        // A refresh already in flight may still carry the old state of this plant.
-        latest.current += 1;
-        setLoading(false);
-        const next = plantsRef.current.map((p) => (p.id === id ? updated : p));
-        apply(next);
-        void writeMyPlantsCache(next);
-        return true;
-      } catch {
-        return false;
-      } finally {
-        watering.current.delete(id);
-      }
+    (id: string, send: (id: string, day: string) => Promise<UserPlant>): Promise<boolean> => {
+      // A call during an in-flight one, mark or undo, joins it; the card disables the row meanwhile.
+      const running = watering.current.get(id);
+      if (running) return running;
+      const run = (async () => {
+        try {
+          const updated = await send(id, toLocalDateString(new Date()));
+          // A refresh already in flight may still carry the old state of this plant.
+          latest.current += 1;
+          setLoading(false);
+          const next = plantsRef.current.map((p) => (p.id === id ? updated : p));
+          apply(next);
+          void writeMyPlantsCache(next);
+          return true;
+        } catch {
+          return false;
+        } finally {
+          watering.current.delete(id);
+        }
+      })();
+      watering.current.set(id, run);
+      return run;
     },
     [apply],
   );

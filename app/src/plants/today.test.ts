@@ -111,6 +111,27 @@ describe('nextWateringAfterToday', () => {
     expect(next?.at).toEqual(new Date(2026, 9, 23, 18, 0));
   });
 
+  it('picks a monthly plant whose date comes before the weekly one', () => {
+    // Anchored on Saturday 2026-10-24, so due that day...
+    const biweekly = plant({
+      id: 'biweekly',
+      frequency: { times: 1, per: 'month' },
+      scheduleStartsOn: '2026-10-24',
+      reminderTime: '06:00',
+    });
+    // ...while the weekly plant waters Mondays only (2026-10-26).
+    const weekly = plant({
+      id: 'weekly',
+      frequency: { times: 1, per: 'week' },
+      wateringDays: [1],
+      reminderTime: '09:00',
+    });
+    // Friday 10-23 has neither; Saturday 10-24 comes before Monday 10-26.
+    const next = nextWateringAfterToday([weekly, biweekly], noon);
+    expect(next?.plant.id).toBe('biweekly');
+    expect(next?.at).toEqual(new Date(2026, 9, 24, 6, 0));
+  });
+
   it('returns null without plants', () => {
     expect(nextWateringAfterToday([], noon)).toBeNull();
   });
