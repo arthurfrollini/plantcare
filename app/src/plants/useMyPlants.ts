@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import type { UserPlant } from '@plantcare/shared';
+import { toLocalDateString, type UserPlant } from '@plantcare/shared';
 
 import { ApiError, toApiError } from '../api/client';
-import { deleteMyPlant, listMyPlants } from '../api/endpoints';
+import {
+  deleteMyPlant,
+  listMyPlants,
+  markWatered as postWatered,
+  undoWatered as deleteWatered,
+} from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
 import { syncReminders, warnIfCapped } from '../reminders/sync';
 import { readMyPlantsCache, writeMyPlantsCache } from './myPlantsCache';
@@ -16,6 +21,10 @@ export type MyPlantsResult = {
   error: ApiError | null;
   refresh: () => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /** Records a watering for today. False when it failed or a call for this plant is in flight. */
+  markWatered: (id: string) => Promise<boolean>;
+  /** Takes today's watering back. Same return rules as markWatered. */
+  undoWatered: (id: string) => Promise<boolean>;
 };
 
 export function useMyPlants(): MyPlantsResult {
@@ -27,6 +36,8 @@ export function useMyPlants(): MyPlantsResult {
   const [error, setError] = useState<ApiError | null>(null);
   const latest = useRef(0);
   const plantsRef = useRef<UserPlant[]>([]);
+  // Plants with a watering request in flight; a repeat call for one is ignored.
+  const watering = useRef(new Set<string>());
   const shownFor = useRef<string | null>(null);
   // True while the list on screen is the cached one shown ahead of the request.
   const fromCache = useRef(false);
@@ -111,5 +122,33 @@ export function useMyPlants(): MyPlantsResult {
     [offline, apply],
   );
 
-  return { plants, offline, loading, error, refresh, remove };
+  const changeWatering = useCallback(
+    async (id: string, send: (id: string, day: string) => Promise<UserPlant>) => {
+      if (watering.current.has(id)) return false;
+      watering.current.add(id);
+      try {
+        const updated = await send(id, toLocalDateString(new Date()));
+        // A refresh already in flight may still carry the old state of this plant.
+        latest.current += 1;
+        setLoading(false);
+        const next = plantsRef.current.map((p) => (p.id === id ? updated : p));
+        apply(next);
+        void writeMyPlantsCache(next);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        watering.current.delete(id);
+      }
+    },
+    [apply],
+  );
+
+  const markWatered = useCallback((id: string) => changeWatering(id, postWatered), [changeWatering]);
+  const undoWatered = useCallback(
+    (id: string) => changeWatering(id, deleteWatered),
+    [changeWatering],
+  );
+
+  return { plants, offline, loading, error, refresh, remove, markWatered, undoWatered };
 }
