@@ -1,6 +1,15 @@
 import type { UserPlant } from '@plantcare/shared';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { seed } from '../../prisma/seed';
 import { createTestApp, resetDb } from '../../test/helpers';
 import type { PrismaClient } from '../generated/prisma/client';
@@ -9,6 +18,8 @@ import { todayInZone } from './schedule-start';
 type ErrorBody = { error: { code: string; message: string } };
 
 const ZONE = 'Pacific/Kiritimati';
+// 14:00 on 2026-03-10 in Kiritimati (UTC+14), still 2026-03-10 00:00 UTC.
+const NOW = new Date('2026-03-10T00:00:00Z');
 
 function shift(date: string, days: number): string {
   const moved = new Date(`${date}T00:00:00Z`);
@@ -26,7 +37,7 @@ describe('waterings routes', () => {
   let today: string;
 
   const call = (
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     url: string,
     token: string,
     payload?: unknown,
@@ -65,6 +76,9 @@ describe('waterings routes', () => {
   afterAll(async () => {
     await app.close();
   });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   beforeEach(async () => {
     await resetDb(prisma);
     await seed(prisma);
@@ -78,6 +92,9 @@ describe('waterings routes', () => {
       timeZone: ZONE,
     });
     plantId = res.json<UserPlant>().id;
+    // Fake only Date so inject and Prisma timers keep running.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
     today = todayInZone(ZONE, new Date());
   });
 
@@ -111,6 +128,14 @@ describe('waterings routes', () => {
     expect(again.json<UserPlant>().lastWateredOn).toBeNull();
   });
 
+  it('a single-plant response carries lastWateredOn after a mark', async () => {
+    await water(today);
+    const res = await call('PATCH', `/me/plants/${plantId}`, tokenA, {
+      notes: 'x',
+    });
+    expect(res.json<UserPlant>().lastWateredOn).toBe(today);
+  });
+
   it('the list carries lastWateredOn', async () => {
     const before = await call('GET', '/me/plants', tokenA);
     expect(before.json<UserPlant[]>()[0]?.lastWateredOn).toBeNull();
@@ -123,9 +148,11 @@ describe('waterings routes', () => {
     const post = await water(today, tokenB);
     expect(post.statusCode).toBe(404);
     expect(post.json<ErrorBody>().error.code).toBe('user_plant_not_found');
+    expect(await prisma.watering.count()).toBe(0);
+    await water(today);
     const del = await unwater(today, tokenB);
     expect(del.statusCode).toBe(404);
-    expect(await prisma.watering.count()).toBe(0);
+    expect(await prisma.watering.count()).toBe(1);
   });
 
   it("accepts yesterday and tomorrow in the plant's zone, rejects three days off", async () => {
