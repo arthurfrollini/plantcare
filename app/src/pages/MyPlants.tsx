@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, Text, Image, FlatList, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { formatDistance } from 'date-fns';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, View, Text, FlatList, Alert, AppState } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import type { UserPlant } from '@plantcare/shared';
 
@@ -12,11 +11,12 @@ import { Button } from '../components/Button';
 import { Header } from '../components/Header';
 import { Load } from '../components/Load';
 import { PlantCardSecondary } from '../components/PlantCardSecondary';
-import { dateLocale } from '../i18n';
+import { Toast } from '../components/Toast';
+import { TodayCard } from '../components/TodayCard';
 import { sortByNextWatering } from '../plants/nextWatering';
+import { nextWateringAfterToday, todayRows, type TodayRow } from '../plants/today';
 import { useMyPlants } from '../plants/useMyPlants';
 
-import waterdrop from '../assets/waterdrop.png';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -25,7 +25,38 @@ export function MyPlants() {
   const navigation = useNavigation();
   const { status } = useAuth();
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const { plants, offline, loading, error, refresh, remove } = useMyPlants();
+  const { plants, offline, loading, error, refresh, remove, markWatered, undoWatered } =
+    useMyPlants();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const saveFailedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // "Today" is worked out again when the screen gains focus, the app returns to the foreground or
+  // the list changes, so a screen left open overnight moves on to the new day.
+  const [now, setNow] = useState(() => new Date());
+  const [nowFor, setNowFor] = useState(plants);
+  if (nowFor !== plants) {
+    setNowFor(plants);
+    setNow(new Date());
+  }
+  useFocusEffect(
+    useCallback(() => {
+      setNow(new Date());
+    }, []),
+  );
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setNow(new Date());
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (saveFailedTimer.current) clearTimeout(saveFailedTimer.current);
+    },
+    [],
+  );
 
   // The token is read after each load: that request may have refreshed it.
   useEffect(() => {
@@ -58,6 +89,24 @@ export function MyPlants() {
       return;
     }
     navigation.navigate('PlantDetail', { userPlantId: plant.id });
+  }
+
+  function showSaveFailed() {
+    if (saveFailedTimer.current) clearTimeout(saveFailedTimer.current);
+    setSaveFailed(true);
+    saveFailedTimer.current = setTimeout(() => {
+      saveFailedTimer.current = null;
+      setSaveFailed(false);
+    }, SAVE_FAILED_TOAST_MS);
+  }
+
+  async function handleToggle(row: TodayRow) {
+    const id = row.plant.id;
+    setBusyId(id);
+    const saved = await (row.done ? undoWatered(id) : markWatered(id));
+    // Another row may have started meanwhile; it keeps its own busy state.
+    setBusyId((current) => (current === id ? null : current));
+    if (!saved) showSaveFailed();
   }
 
   function handleRemove(plant: UserPlant) {
@@ -102,50 +151,59 @@ export function MyPlants() {
     );
   }
 
-  // Built on render so it follows a language change made in Profile while this tab stays mounted.
   const sorted = sortByNextWatering(plants);
-  const first = sorted[0];
-  const nextWatering =
-    first && first.next
-      ? t('myPlants.nextWatering', {
-          name: first.plant.speciesName,
-          time: formatDistance(first.next, new Date(), { locale: dateLocale(), addSuffix: true }),
-        })
-      : t('myPlants.empty');
+  const rows = todayRows(plants, now);
+  const next = rows.length === 0 ? nextWateringAfterToday(plants, now) : null;
 
   return (
-    <View style={styles.container}>
-      <Header />
-      <View style={styles.spotlight}>
-        <Image source={waterdrop} style={styles.spotlightImage} />
-        <Text style={styles.spotlightText}>{nextWatering}</Text>
-      </View>
-      {offline && <Text style={styles.offline}>{t('myPlants.offlineNotice')}</Text>}
+    <View style={styles.screen}>
+      {/* One list for the whole screen: the header, the Today card and the garden scroll together. */}
+      <FlatList
+        style={styles.list}
+        data={sorted}
+        keyExtractor={(item) => item.plant.id}
+        ListHeaderComponent={
+          <>
+            <Header />
+            {offline && <Text style={styles.offline}>{t('myPlants.offlineNotice')}</Text>}
+            <View style={styles.today}>
+              <TodayCard
+                rows={rows}
+                next={next}
+                accessToken={accessToken}
+                busyId={busyId}
+                onToggle={(row) => void handleToggle(row)}
+                onOpen={handleEdit}
+                onPhotoError={refreshToken}
+              />
+            </View>
+            <Text style={styles.plantsTitle}>{t('myPlants.garden')}</Text>
+          </>
+        }
+        ListEmptyComponent={<Text style={styles.empty}>{t('myPlants.empty')}</Text>}
+        renderItem={({ item }) => (
+          <PlantCardSecondary
+            plant={item.plant}
+            accessToken={accessToken}
+            readOnly={offline}
+            onPress={() => handleEdit(item.plant)}
+            handleRemove={() => handleRemove(item.plant)}
+            onPhotoError={refreshToken}
+          />
+        )}
+        showsVerticalScrollIndicator={false}
+        // No flex: 1 here: it caps the content at the screen height and stops the list scrolling.
+        contentContainerStyle={styles.listContent}
+      />
 
-      <View style={styles.plants}>
-        <Text style={styles.plantsTitle}>{t('myPlants.upcoming')}</Text>
-
-        <FlatList
-          data={sorted}
-          keyExtractor={(item) => item.plant.id}
-          renderItem={({ item }) => (
-            <PlantCardSecondary
-              plant={item.plant}
-              accessToken={accessToken}
-              readOnly={offline}
-              onPress={() => handleEdit(item.plant)}
-              handleRemove={() => handleRemove(item.plant)}
-              onPhotoError={refreshToken}
-            />
-          )}
-          showsVerticalScrollIndicator={false}
-          // No flex: 1 here: it caps the content at the screen height and stops the list scrolling.
-          contentContainerStyle={styles.listContent}
-        />
+      <View style={styles.toastArea} pointerEvents="none">
+        <Toast visible={saveFailed} text={t('today.saveError')} />
       </View>
     </View>
   );
 }
+
+const SAVE_FAILED_TOAST_MS = 2500;
 
 const styles = StyleSheet.create({
   container: {
@@ -168,24 +226,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: colors.heading,
   },
-  spotlight: {
-    backgroundColor: colors.blue_light,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    height: 110,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  spotlightImage: {
-    width: 60,
-    height: 60,
-  },
-  spotlightText: {
-    flex: 1,
-    color: colors.blue,
-    paddingLeft: 10,
-  },
   offline: {
     marginTop: 12,
     textAlign: 'center',
@@ -193,17 +233,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.body_dark,
   },
-  plants: {
+  screen: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  list: {
     width: '100%',
   },
   listContent: {
+    paddingHorizontal: 30,
+    paddingTop: 50,
     paddingBottom: 24,
+  },
+  today: {
+    marginTop: 20,
   },
   plantsTitle: {
     fontSize: 24,
     fontFamily: fonts.heading,
     color: colors.heading,
-    marginVertical: 20,
+    marginTop: 28,
+    marginBottom: 12,
+  },
+  empty: {
+    fontFamily: fonts.text,
+    fontSize: 15,
+    color: colors.body_dark,
+  },
+  toastArea: {
+    position: 'absolute',
+    left: 30,
+    right: 30,
+    bottom: 24,
+    alignItems: 'center',
   },
 });

@@ -38,6 +38,8 @@ module.exports = defineConfig([
       'src/components/PasswordSheet.tsx',
       'src/components/DeleteAccountSheet.tsx',
       'src/components/Toast.tsx',
+      'src/components/PlantPicture.tsx',
+      'src/components/TodayCard.tsx',
     ],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
