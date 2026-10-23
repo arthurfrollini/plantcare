@@ -4,6 +4,7 @@ import {
   createUserPlantSchema,
   frequencySchema,
   halfHourTimeSchema,
+  localDateSchema,
   passwordSchema,
   reminderLeadSchema,
   reminderTimeSchema,
@@ -248,5 +249,13 @@ describe('userSchema', () => {
     });
     expect(user.hasAvatar).toBe(true);
     expect(user.avatarVersion).toBe('v1');
+  });
+});
+
+describe('localDateSchema', () => {
+  it('accepts real dates and rejects impossible ones', () => {
+    expect(localDateSchema.safeParse('2026-02-28').success).toBe(true);
+    expect(localDateSchema.safeParse('2026-02-30').success).toBe(false);
+    expect(localDateSchema.safeParse('2026-2-3').success).toBe(false);
   });
 });
