@@ -99,6 +99,7 @@ const en = {
     doneButton: 'See my plants',
   },
   plantDetail: {
+    remove: 'Remove plant',
     back: 'Back',
     editPhoto: 'Edit photo',
     days: 'Watering days',

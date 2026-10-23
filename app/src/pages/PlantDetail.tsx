@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -58,6 +59,8 @@ export interface PlantDetailViewProps {
   photoBusy: boolean;
   photoMessage: PhotoMessage | null;
   onBack: () => void;
+  removing: boolean;
+  onRemove: () => void;
   /** Resolves true once the days are stored. */
   onSaveDays: (days: number[]) => Promise<boolean>;
   onTimeChange: (time: string) => void;
@@ -264,6 +267,26 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         <View style={styles.sick}>
           <SickPlantCard />
         </View>
+
+        {/* For people who never find the swipe on My plants. */}
+        <Tappable
+          style={styles.remove}
+          rippleColor={LIGHT_RIPPLE}
+          onPress={props.onRemove}
+          disabled={props.removing}
+          accessibilityRole="button"
+          accessibilityLabel={t('plantDetail.remove')}
+          accessibilityState={{ disabled: props.removing, busy: props.removing }}
+        >
+          {props.removing ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <>
+              <Feather name="trash-2" size={18} color={colors.white} />
+              <Text style={styles.removeText}>{t('plantDetail.remove')}</Text>
+            </>
+          )}
+        </Tappable>
       </ScrollView>
 
       {/* Stays until the next save, so it takes its own room instead of covering the content. */}
@@ -319,6 +342,24 @@ export function PlantDetail() {
   const { top } = useSafeAreaInsets();
   const detail = usePlantDetail({ userPlantId: route.params.userPlantId });
 
+  // The same confirmation as the swipe on My plants.
+  function confirmRemove(plant: UserPlant | null) {
+    if (!plant) return;
+    Alert.alert(t('myPlants.removeTitle', { name: plant.speciesName }), undefined, [
+      { text: t('myPlants.cancel'), style: 'cancel' },
+      {
+        text: t('myPlants.remove'),
+        style: 'destructive',
+        onPress: () => {
+          void detail.removePlant().then((removed) => {
+            if (removed) navigation.goBack();
+            else Alert.alert(t('myPlants.removeError'));
+          });
+        },
+      },
+    ]);
+  }
+
   if (detail.load === 'ready' && detail.plant) {
     return (
       <PlantDetailView
@@ -333,6 +374,8 @@ export function PlantDetail() {
         photoBusy={detail.photoBusy}
         photoMessage={detail.photoMessage}
         onBack={() => navigation.goBack()}
+        removing={detail.removing}
+        onRemove={() => confirmRemove(detail.plant)}
         onSaveDays={detail.saveDays}
         onTimeChange={(time) => void detail.saveReminderTime(time)}
         onLeadChange={(minutes) => void detail.saveLead(minutes)}
@@ -532,6 +575,21 @@ const styles = StyleSheet.create({
   },
   sick: {
     marginTop: 36,
+  },
+  remove: {
+    marginTop: 16,
+    height: 56,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.red,
+  },
+  removeText: {
+    marginLeft: 8,
+    fontSize: 15,
+    color: colors.white,
+    fontFamily: fonts.heading,
   },
   toastArea: {
     position: 'absolute',

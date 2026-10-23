@@ -101,6 +101,7 @@ const ptBR: typeof en = {
     doneButton: 'Ver minhas plantas',
   },
   plantDetail: {
+    remove: 'Excluir planta',
     back: 'Voltar',
     editPhoto: 'Editar foto',
     days: 'Dias de rega',

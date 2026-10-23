@@ -8,6 +8,7 @@ import {
 
 import { toApiError } from '../api/client';
 import {
+  deleteMyPlant,
   deletePlantPhoto,
   listMyPlants,
   plantPhotoSource,
@@ -81,6 +82,7 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<FormError | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<PhotoMessage | null>(null);
   const [savedPhotoFailed, setSavedPhotoFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -95,6 +97,7 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
   const syncWaiting = useRef(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const photoWorking = useRef(false);
+  const removingRef = useRef(false);
   const photoRetried = useRef(false);
 
   useEffect(() => {
@@ -273,6 +276,26 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
   }
 
   /**
+   * Removes the plant from the garden, then re-syncs the reminders (queued after any pending sync,
+   * so a save still syncing cannot bring its reminders back). True when the plant is gone.
+   */
+  async function removePlant(): Promise<boolean> {
+    if (removingRef.current || !plant) return false;
+    removingRef.current = true;
+    setRemoving(true);
+    try {
+      await deleteMyPlant(plant.id);
+      queueSync();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      removingRef.current = false;
+      setRemoving(false);
+    }
+  }
+
+  /**
    * The saved photo failed to load. The first time, maybe the token expired: refresh it and read
    * it again. After that the photo is given up on and the species illustration shows instead.
    */
@@ -323,6 +346,8 @@ export function usePlantDetail({ userPlantId }: { userPlantId: string }) {
     saveLead: (reminderLeadMinutes: number) => saveField('lead', { reminderLeadMinutes }),
     changePhoto,
     removePhoto,
+    removePlant,
+    removing,
     handleSavedPhotoError,
     retryLoad,
   };
