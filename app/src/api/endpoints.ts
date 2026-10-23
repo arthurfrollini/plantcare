@@ -17,7 +17,6 @@ import {
 } from '@plantcare/shared';
 import { z } from 'zod';
 
-import { loadTokens } from '../auth/session';
 import type { PlantPhoto } from '../plants/pickPhoto';
 import { api } from './client';
 import { assetUrl } from './config';
@@ -149,11 +148,9 @@ export function avatarSource(
 
 /** Changes the password; this device keeps its session, every other one is signed out. */
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  const tokens = await loadTokens();
-  await api.post('/me/password', {
-    currentPassword,
-    newPassword,
-    refreshToken: tokens?.refreshToken ?? '',
+  // The refresh token is added at send time: a retry after a refresh must keep the new one.
+  await api.post('/me/password', undefined, {
+    bodyWithRefreshToken: { currentPassword, newPassword },
   });
 }
 

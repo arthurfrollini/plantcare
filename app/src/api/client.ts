@@ -12,6 +12,11 @@ declare module 'axios' {
     skipAuthRefresh?: boolean;
     /** Set on the one retry after a refresh. */
     retried?: boolean;
+    /**
+     * Sent as the body with the stored refresh token added. The token is read on every attempt,
+     * so the retry after a refresh carries the new one. Without a session nothing is sent.
+     */
+    bodyWithRefreshToken?: Record<string, unknown>;
   }
 }
 
@@ -56,6 +61,10 @@ api.interceptors.request.use(async (config) => {
   if (!config.skipAuthRefresh) {
     const tokens = await loadTokens();
     if (tokens) config.headers.set('Authorization', `Bearer ${tokens.accessToken}`);
+    if (config.bodyWithRefreshToken) {
+      if (!tokens) throw new ApiError(401, 'unauthorized', 'Not signed in');
+      config.data = { ...config.bodyWithRefreshToken, refreshToken: tokens.refreshToken };
+    }
   }
   return config;
 });
