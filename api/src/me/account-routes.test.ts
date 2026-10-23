@@ -240,5 +240,43 @@ describe('account routes', () => {
       });
       expect(res.statusCode).toBe(204);
     });
+
+    it('answers 401 when a concurrent call deletes the account first', async () => {
+      const a = await register('ana@example.com');
+      // The other call deletes the row but has not committed: this request
+      // still finds the user, then its own delete waits on the row lock.
+      let commit = () => {};
+      const committed = new Promise<void>((resolve) => {
+        commit = resolve;
+      });
+      const other = prisma.$transaction(
+        async (tx) => {
+          await tx.user.delete({ where: { id: a.userId } });
+          await committed;
+        },
+        { timeout: 10000 },
+      );
+      const pending = app.inject({
+        method: 'DELETE',
+        url: '/me',
+        headers: { authorization: `Bearer ${a.accessToken}` },
+      });
+      await expect
+        .poll(
+          async () =>
+            (
+              await prisma.$queryRaw<{ waiting: number }[]>`
+                SELECT count(*)::int AS waiting FROM pg_locks WHERE NOT granted`
+            )[0]?.waiting,
+          { timeout: 5000 },
+        )
+        .toBeGreaterThan(0);
+      commit();
+      await other;
+
+      const res = await pending;
+      expect(res.statusCode).toBe(401);
+      expect(res.json<ErrorBody>().error.code).toBe('unauthorized');
+    });
   });
 });

@@ -5,6 +5,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { hashRefreshToken } from '../auth/tokens';
 import { BCRYPT_COST } from '../auth/service';
 import { AppError } from '../errors';
+import { Prisma } from '../generated/prisma/client';
 import type { PhotoStorage } from '../storage';
 
 function unauthorized(): AppError {
@@ -95,7 +96,18 @@ export function accountRoutes(
       }
       if (user.avatarPath !== null) keys.push(user.avatarPath);
 
-      await app.prisma.user.delete({ where: { id: request.userId } });
+      try {
+        await app.prisma.user.delete({ where: { id: request.userId } });
+      } catch (error) {
+        // A concurrent call deleted the account between the read and here.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2025'
+        ) {
+          throw unauthorized();
+        }
+        throw error;
+      }
       for (const key of keys) {
         try {
           await storage.remove(key);
