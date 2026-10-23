@@ -40,4 +40,3 @@ After pulling new changes, run `npm install` and `npm run db:migrate -w @plantca
 
 - `docs/superpowers/specs/`: the design behind each feature.
 - `docs/superpowers/plans/`: the task-by-task plans they were built from.
-- `learning/`: study notes in Portuguese on the architecture, data model, auth, reminders, testing and how to present the project.

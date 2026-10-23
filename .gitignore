@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /app/ios
 /app/android
+
+# Personal study notes, kept out of the repo
+learning/
