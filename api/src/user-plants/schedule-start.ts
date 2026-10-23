@@ -58,3 +58,14 @@ export function nextOccurrenceDate(
   );
   return date.toISOString().slice(0, 10);
 }
+
+/** Today's date (YYYY-MM-DD) in `timeZone`. */
+export function todayInZone(timeZone: string, now: Date): string {
+  const { year, month, day } = zoneClock(now, timeZone);
+  return new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
+}
+
+/** Whole days from `from` to `to` (both YYYY-MM-DD). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+}
