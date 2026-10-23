@@ -124,13 +124,15 @@ export const PlantCardSecondary = ({
 };
 
 const CARD_MARGIN = 5;
+const CARD_RADIUS = 25;
+const DELETE_WIDTH = 90;
 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
     paddingHorizontal: 10,
     paddingVertical: 25,
-    borderRadius: 25,
+    borderRadius: CARD_RADIUS,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.shape,
@@ -169,16 +171,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.heading,
     color: colors.body_dark,
   },
-  // Same height, vertical margins and corner radius as the card next to it.
+  // The delete button sits behind the card as its continuation: it starts under the card's rounded
+  // right edge, so a swipe reveals one red strip attached to the card, with the card's height.
   actions: {
     flexDirection: 'row',
     marginVertical: CARD_MARGIN,
-    marginLeft: 10,
+    marginLeft: -CARD_RADIUS,
   },
   buttonRemove: {
-    width: 90,
+    width: DELETE_WIDTH + CARD_RADIUS,
+    paddingLeft: CARD_RADIUS,
     backgroundColor: colors.red,
-    borderRadius: 25,
+    borderTopRightRadius: CARD_RADIUS,
+    borderBottomRightRadius: CARD_RADIUS,
     justifyContent: 'center',
     alignItems: 'center',
   },
