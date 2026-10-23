@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Image } from 'expo-image';
 import type { AuthResponse, Locale, User } from '@plantcare/shared';
 
 import { setSignedOutHandler } from '../api/client';
@@ -298,6 +299,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearLocalData();
     try {
       await AsyncStorage.removeItem(USER_KEY);
+    } catch {
+      // Best effort.
+    }
+    // Plant photos and the avatar would otherwise stay in expo-image's caches.
+    try {
+      await Image.clearDiskCache();
+    } catch {
+      // Best effort.
+    }
+    try {
+      await Image.clearMemoryCache();
     } catch {
       // Best effort.
     }

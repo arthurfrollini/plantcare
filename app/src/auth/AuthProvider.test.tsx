@@ -2,6 +2,7 @@ import React, { type ReactNode } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { Image } from 'expo-image';
 import MockAdapter from 'axios-mock-adapter';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 
@@ -561,12 +562,14 @@ describe('account actions', () => {
     return renderAuth();
   }
 
-  it('deleteAccount clears tokens, cache, reminders and the stored name', async () => {
+  it('deleteAccount clears tokens, cache, reminders, images and the stored name', async () => {
     await AsyncStorage.setItem('@plantcare:myPlantsCache', '[]');
     const { result } = await signedIn();
     mock.onDelete('/me').reply(204);
     const cancel = jest.mocked(Notifications.cancelAllScheduledNotificationsAsync);
     cancel.mockClear();
+    const clearDisk = jest.spyOn(Image, 'clearDiskCache');
+    const clearMemory = jest.spyOn(Image, 'clearMemoryCache');
 
     await act(() => result.current.deleteAccount());
 
@@ -576,11 +579,28 @@ describe('account actions', () => {
     expect(await AsyncStorage.getItem('@plantcare:myPlantsCache')).toBeNull();
     expect(await AsyncStorage.getItem('@plantcare:user')).toBeNull();
     expect(cancel).toHaveBeenCalled();
+    expect(clearDisk).toHaveBeenCalled();
+    expect(clearMemory).toHaveBeenCalled();
+  });
+
+  it('deleteAccount still signs out when clearing the image cache fails', async () => {
+    const { result } = await signedIn();
+    mock.onDelete('/me').reply(204);
+    jest.spyOn(Image, 'clearDiskCache').mockRejectedValueOnce(new Error('disk'));
+    jest.spyOn(Image, 'clearMemoryCache').mockImplementationOnce(() => {
+      throw new Error('memory');
+    });
+
+    await act(() => result.current.deleteAccount());
+
+    expect(result.current.status).toBe('signedOut');
+    expect(await AsyncStorage.getItem('@plantcare:user')).toBeNull();
   });
 
   it('a failed deleteAccount keeps the session', async () => {
     const { result } = await signedIn();
     mock.onDelete('/me').reply(500);
+    const clearDisk = jest.spyOn(Image, 'clearDiskCache');
 
     await act(async () => {
       await expect(result.current.deleteAccount()).rejects.toBeDefined();
@@ -588,6 +608,7 @@ describe('account actions', () => {
 
     expect(result.current.status).toBe('signedIn');
     expect(await loadTokens()).not.toBeNull();
+    expect(clearDisk).not.toHaveBeenCalled();
   });
 
   it('changePassword sends the refresh token and stays signed in on 403', async () => {
