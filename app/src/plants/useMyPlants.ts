@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { toLocalDateString, type UserPlant } from '@plantcare/shared';
+import type { UserPlant } from '@plantcare/shared';
 
 import { ApiError, toApiError } from '../api/client';
 import {
@@ -21,10 +21,14 @@ export type MyPlantsResult = {
   error: ApiError | null;
   refresh: () => Promise<void>;
   remove: (id: string) => Promise<void>;
-  /** Records a watering for today. False when it failed. A call while one for this plant is in flight joins it. */
-  markWatered: (id: string) => Promise<boolean>;
-  /** Takes today's watering back. Same rules as markWatered. */
-  undoWatered: (id: string) => Promise<boolean>;
+  /**
+   * Records a watering on `day` (YYYY-MM-DD, local), the date of the row tapped rather than of the
+   * tap, so a tap just after midnight still marks the row on screen. False when it failed. A call
+   * while one for this plant is in flight joins it.
+   */
+  markWatered: (id: string, day: string) => Promise<boolean>;
+  /** Takes the watering on `day` back. Same rules as markWatered. */
+  undoWatered: (id: string, day: string) => Promise<boolean>;
 };
 
 export function useMyPlants(): MyPlantsResult {
@@ -123,13 +127,19 @@ export function useMyPlants(): MyPlantsResult {
   );
 
   const changeWatering = useCallback(
-    (id: string, send: (id: string, day: string) => Promise<UserPlant>): Promise<boolean> => {
+    (
+      id: string,
+      day: string,
+      send: (id: string, day: string) => Promise<UserPlant>,
+    ): Promise<boolean> => {
       // A call during an in-flight one, mark or undo, joins it; the card disables the row meanwhile.
       const running = watering.current.get(id);
       if (running) return running;
       const run = (async () => {
         try {
-          const updated = await send(id, toLocalDateString(new Date()));
+          // Sent on a later microtask, so the map entry below is set before `finally` deletes it,
+          // even if `send` throws at once.
+          const updated = await Promise.resolve().then(() => send(id, day));
           // A refresh already in flight may still carry the old state of this plant.
           latest.current += 1;
           setLoading(false);
@@ -149,9 +159,12 @@ export function useMyPlants(): MyPlantsResult {
     [apply],
   );
 
-  const markWatered = useCallback((id: string) => changeWatering(id, postWatered), [changeWatering]);
+  const markWatered = useCallback(
+    (id: string, day: string) => changeWatering(id, day, postWatered),
+    [changeWatering],
+  );
   const undoWatered = useCallback(
-    (id: string) => changeWatering(id, deleteWatered),
+    (id: string, day: string) => changeWatering(id, day, deleteWatered),
     [changeWatering],
   );
 

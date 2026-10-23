@@ -81,7 +81,7 @@ describe('todayRows', () => {
     expect(rows[0]?.late).toBe(false);
   });
 
-  it('shows a two-weekly plant only on its watering date', () => {
+  it('shows a monthly plant only on its watering date', () => {
     const p = plant({
       frequency: { times: 1, per: 'month' },
       scheduleStartsOn: '2026-10-22',

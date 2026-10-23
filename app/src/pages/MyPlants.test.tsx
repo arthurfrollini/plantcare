@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, AppState, type AppStateStatus } from 'react-native';
+import { AccessibilityInfo, Alert, AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MockAdapter from 'axios-mock-adapter';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
@@ -12,6 +12,7 @@ import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
 import { resetCapWarning } from '../reminders/sync';
 import { MY_PLANTS_CACHE_KEY } from '../plants/myPlantsCache';
+import { setToday } from '../plants/testClock';
 import { accountFixture, userPlantFixture } from '../plants/testFixtures';
 import { MyPlants } from './MyPlants';
 
@@ -32,24 +33,6 @@ jest.mock('@react-navigation/native', () => {
 });
 
 let mock: MockAdapter;
-
-// Only the clock is fake; timers, promises and animations run for real.
-function setToday(date: Date) {
-  jest.useFakeTimers({
-    doNotFake: [
-      'nextTick',
-      'setImmediate',
-      'setTimeout',
-      'clearTimeout',
-      'setInterval',
-      'clearInterval',
-      'queueMicrotask',
-      'requestAnimationFrame',
-      'cancelAnimationFrame',
-    ],
-  });
-  jest.setSystemTime(date);
-}
 
 beforeAll(initI18n);
 
@@ -286,7 +269,8 @@ describe('MyPlants Today card', () => {
   });
 
   async function card() {
-    return within(await screen.findByTestId('today-card'));
+    // The card appears once the list has loaded.
+    return within(await screen.findByTestId('today-card', {}, { timeout: 5000 }));
   }
 
   async function row(name: string) {
@@ -334,7 +318,9 @@ describe('MyPlants Today card', () => {
 
     await waitFor(() => expect(mock.history.post).toHaveLength(1));
     expect(JSON.parse(String(mock.history.post[0]?.data))).toEqual({ wateredOn: today });
-    expect(await (await row('Imbé')).findByText('✓ Watered')).toBeOnTheScreen();
+    expect(
+      await (await row('Imbé')).findByText('✓ Watered', {}, { timeout: 5000 }),
+    ).toBeOnTheScreen();
     expect((await card()).getByText('2 of 3')).toBeOnTheScreen();
   });
 
@@ -346,7 +332,9 @@ describe('MyPlants Today card', () => {
 
     fireEvent.press((await row('Cactus')).getByText('✓ Watered'));
 
-    expect(await (await row('Cactus')).findByText('Watered ✓')).toBeOnTheScreen();
+    expect(
+      await (await row('Cactus')).findByText('Watered ✓', {}, { timeout: 5000 }),
+    ).toBeOnTheScreen();
     expect(mock.history.delete).toHaveLength(1);
     expect((await card()).getByText('0 of 3')).toBeOnTheScreen();
   });
@@ -360,7 +348,10 @@ describe('MyPlants Today card', () => {
     expect((await card()).getByText('2 of 2')).toBeOnTheScreen();
   });
 
-  it('shows the error toast and keeps the button when saving fails', async () => {
+  it('shows and announces the error toast and keeps the button when saving fails', async () => {
+    const announce = jest
+      .spyOn(AccessibilityInfo, 'announceForAccessibility')
+      .mockImplementation(() => undefined);
     await signIn();
     mock.onGet('/me/plants').reply(200, [monstera, cactus, imbe]);
     mock.onPost('/me/plants/p3/waterings').reply(500, { error: { code: 'internal', message: 'x' } });
@@ -371,6 +362,8 @@ describe('MyPlants Today card', () => {
     expect(
       await screen.findByText("Couldn't save. Try again.", {}, { timeout: 5000 }),
     ).toBeOnTheScreen();
+    // The toast's live region is Android-only; VoiceOver hears it through the announcement.
+    expect(announce).toHaveBeenCalledWith("Couldn't save. Try again.");
     expect((await row('Imbé')).getByText('Watered ✓')).toBeOnTheScreen();
     expect((await card()).getByText('1 of 3')).toBeOnTheScreen();
   });
@@ -412,6 +405,91 @@ describe('MyPlants Today card', () => {
 
     expect(await (await card()).findByText('0 of 2')).toBeOnTheScreen();
     expect((await card()).queryByText('Monstera')).not.toBeOnTheScreen();
+  });
+
+  it("marks and undoes the row's own day when the tap comes after midnight", async () => {
+    // Thursday 23:59; the screen stays open into Friday.
+    setToday(new Date(2026, 9, 22, 23, 59));
+    await signIn();
+    mock.onGet('/me/plants').reply(200, [monstera, cactus, imbe]);
+    mock.onPost('/me/plants/p3/waterings').reply(201, { ...imbe, lastWateredOn: today });
+    mock.onDelete(`/me/plants/p2/waterings/${today}`).reply(200, { ...cactus, lastWateredOn: null });
+    renderScreen();
+    expect((await card()).getByText('1 of 3')).toBeOnTheScreen();
+
+    const imbeRow = await row('Imbé');
+    const cactusRow = await row('Cactus');
+    jest.setSystemTime(new Date(2026, 9, 23, 0, 1));
+    // Both taps land on Thursday's rows, before either answer moves the card to Friday.
+    fireEvent.press(imbeRow.getByText('Watered ✓'));
+    fireEvent.press(cactusRow.getByText('✓ Watered'));
+
+    await waitFor(() => expect(mock.history.post).toHaveLength(1), { timeout: 5000 });
+    await waitFor(() => expect(mock.history.delete).toHaveLength(1), { timeout: 5000 });
+    expect(JSON.parse(String(mock.history.post[0]?.data))).toEqual({ wateredOn: today });
+    expect(mock.history.delete[0]?.url).toBe(`/me/plants/p2/waterings/${today}`);
+  });
+
+  it('keeps every row busy while its own request is in flight', async () => {
+    await signIn();
+    mock.onGet('/me/plants').reply(200, [monstera, cactus, imbe]);
+    const release: (() => void)[] = [];
+    mock.onPost(/\/me\/plants\/p[13]\/waterings/).reply(
+      (config) =>
+        new Promise((resolve) => {
+          const plant = config.url === '/me/plants/p1/waterings' ? monstera : imbe;
+          release.push(() => resolve([201, { ...plant, lastWateredOn: today }]));
+        }),
+    );
+    renderScreen();
+
+    fireEvent.press((await row('Imbé')).getByText('Watered ✓'));
+    fireEvent.press((await row('Monstera')).getByText('Watered ✓'));
+
+    await waitFor(() => expect(mock.history.post).toHaveLength(2), { timeout: 5000 });
+    expect(screen.getByRole('button', { name: 'Mark Imbé as watered' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Mark Monstera as watered' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cactus watered' })).toBeEnabled();
+
+    act(() => release.forEach((done) => done()));
+
+    expect(
+      await screen.findByRole('button', { name: 'Imbé watered' }, { timeout: 5000 }),
+    ).toBeEnabled();
+    expect(
+      await screen.findByRole('button', { name: 'Monstera watered' }, { timeout: 5000 }),
+    ).toBeEnabled();
+    expect((await card()).getByText('3 of 3')).toBeOnTheScreen();
+  });
+
+  it('moves "now" on every minute while open, and stops when it closes', async () => {
+    // 18:29: Imbé (18:30) is not late yet.
+    setToday(new Date(2026, 9, 22, 18, 29));
+    const setIntervalSpy = jest.spyOn(globalThis, 'setInterval');
+    const clearIntervalSpy = jest.spyOn(globalThis, 'clearInterval');
+    await signIn();
+    mock.onGet('/me/plants').reply(200, [monstera, cactus, imbe]);
+    const { unmount } = renderScreen();
+    expect((await row('Imbé')).queryByText('late')).not.toBeOnTheScreen();
+
+    const index = setIntervalSpy.mock.calls.findIndex(([, ms]) => ms === 60_000);
+    const tick = setIntervalSpy.mock.calls[index]?.[0];
+    if (typeof tick !== 'function') throw new Error('no one-minute interval');
+
+    // A minute past Imbé's time, the next tick turns it late.
+    jest.setSystemTime(new Date(2026, 9, 22, 18, 31, 1));
+    act(() => tick());
+    expect(await (await row('Imbé')).findByText('late')).toBeOnTheScreen();
+
+    // Past midnight, the card moves on to Friday: Monstera is not due and nothing is done yet.
+    jest.setSystemTime(new Date(2026, 9, 23, 0, 1));
+    act(() => tick());
+    expect(await (await card()).findByText('0 of 2')).toBeOnTheScreen();
+
+    const id: unknown = setIntervalSpy.mock.results[index]?.value;
+    expect(clearIntervalSpy).not.toHaveBeenCalledWith(id);
+    unmount();
+    expect(clearIntervalSpy).toHaveBeenCalledWith(id);
   });
 
   it('speaks Portuguese', async () => {

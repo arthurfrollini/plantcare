@@ -1,8 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Text, FlatList, Alert, AppState } from 'react-native';
+import {
+  AccessibilityInfo,
+  Alert,
+  AppState,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import type { UserPlant } from '@plantcare/shared';
+import { toLocalDateString, type UserPlant } from '@plantcare/shared';
 
 import { listMyPlants } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
@@ -27,12 +35,14 @@ export function MyPlants() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const { plants, offline, loading, error, refresh, remove, markWatered, undoWatered } =
     useMyPlants();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // Plants with a watering being saved; each keeps its spinner until its own request settles.
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set());
   const [saveFailed, setSaveFailed] = useState(false);
   const saveFailedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // "Today" is worked out again when the screen gains focus, the app returns to the foreground or
-  // the list changes, so a screen left open overnight moves on to the new day.
+  // "Today" is worked out again when the screen gains focus, every minute while it has it, when the
+  // app returns to the foreground and when the list changes. So a time that passes turns "late",
+  // and a screen left open overnight moves on to the new day.
   const [now, setNow] = useState(() => new Date());
   const [nowFor, setNowFor] = useState(plants);
   if (nowFor !== plants) {
@@ -42,6 +52,8 @@ export function MyPlants() {
   useFocusEffect(
     useCallback(() => {
       setNow(new Date());
+      const timer = setInterval(() => setNow(new Date()), NOW_TICK_MS);
+      return () => clearInterval(timer);
     }, []),
   );
   useEffect(() => {
@@ -94,6 +106,8 @@ export function MyPlants() {
   function showSaveFailed() {
     if (saveFailedTimer.current) clearTimeout(saveFailedTimer.current);
     setSaveFailed(true);
+    // The toast's live region only works on Android; this makes VoiceOver read it too.
+    AccessibilityInfo.announceForAccessibility(t('today.saveError'));
     saveFailedTimer.current = setTimeout(() => {
       saveFailedTimer.current = null;
       setSaveFailed(false);
@@ -102,10 +116,15 @@ export function MyPlants() {
 
   async function handleToggle(row: TodayRow) {
     const id = row.plant.id;
-    setBusyId(id);
-    const saved = await (row.done ? undoWatered(id) : markWatered(id));
-    // Another row may have started meanwhile; it keeps its own busy state.
-    setBusyId((current) => (current === id ? null : current));
+    // The row's own day: a tap just after midnight on a row still showing yesterday marks yesterday.
+    const day = toLocalDateString(row.time);
+    setBusyIds((current) => new Set(current).add(id));
+    const saved = await (row.done ? undoWatered(id, day) : markWatered(id, day));
+    setBusyIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
     if (!saved) showSaveFailed();
   }
 
@@ -171,7 +190,8 @@ export function MyPlants() {
                 rows={rows}
                 next={next}
                 accessToken={accessToken}
-                busyId={busyId}
+                now={now}
+                busyIds={busyIds}
                 onToggle={(row) => void handleToggle(row)}
                 onOpen={handleEdit}
                 onPhotoError={refreshToken}
@@ -204,6 +224,7 @@ export function MyPlants() {
 }
 
 const SAVE_FAILED_TOAST_MS = 2500;
+const NOW_TICK_MS = 60_000;
 
 const styles = StyleSheet.create({
   container: {

@@ -16,9 +16,11 @@ export interface TodayCardProps {
   rows: TodayRow[];
   /** The first watering after today, for a day with nothing to water. */
   next: { plant: UserPlant; at: Date } | null;
+  /** The screen's idea of the current time, so the card and its rows agree on what today is. */
+  now: Date;
   accessToken: string | null;
-  /** The plant whose watering is being saved; its row cannot be tapped meanwhile. */
-  busyId: string | null;
+  /** Plants whose watering is being saved; their rows cannot be tapped meanwhile. */
+  busyIds: ReadonlySet<string>;
   /** Marks a pending row watered, or undoes a done one. */
   onToggle: (row: TodayRow) => void;
   onOpen: (plant: UserPlant) => void;
@@ -32,8 +34,9 @@ const PICTURE_SIZE = 40;
 export function TodayCard({
   rows,
   next,
+  now,
   accessToken,
-  busyId,
+  busyIds,
   onToggle,
   onOpen,
   onPhotoError,
@@ -43,14 +46,22 @@ export function TodayCard({
   const done = rows.filter((row) => row.done).length;
 
   // Built on render so the words follow the language and the day.
-  function describeNext(at: Date) {
-    const time = format(at, 'HH:mm');
-    const days = differenceInCalendarDays(at, new Date());
-    if (days <= 1) return t('today.tomorrowAt', { time });
+  function describeNext(when: Date) {
+    const at = atTime(when);
+    const days = differenceInCalendarDays(when, now);
+    if (days === 1) return t('today.tomorrowAt', { at });
     const locale = dateLocale();
-    // Within the coming week a weekday is unambiguous; past it, the date.
-    if (days < 7) return t('today.weekdayAt', { day: format(at, 'EEEE', { locale }), time });
-    return t('today.dateAt', { date: format(at, t('today.dateFormat'), { locale }), time });
+    // Within the coming week a weekday is unambiguous; otherwise, the date.
+    if (days >= 2 && days <= 6) {
+      return t('today.weekdayAt', { day: format(when, 'EEEE', { locale }), at });
+    }
+    return t('today.dateAt', { date: format(when, t('today.dateFormat'), { locale }), at });
+  }
+
+  // "at 01:30" / "à 01:30": Portuguese takes the singular for one o'clock.
+  function atTime(when: Date) {
+    const time = format(when, 'HH:mm');
+    return when.getHours() === 1 ? t('today.atOne', { time }) : t('today.at', { time });
   }
 
   return (
@@ -86,7 +97,7 @@ export function TodayCard({
               <Row
                 key={row.plant.id}
                 row={row}
-                busy={busyId === row.plant.id}
+                busy={busyIds.has(row.plant.id)}
                 accessToken={accessToken}
                 onToggle={onToggle}
                 onOpen={onOpen}
@@ -150,8 +161,13 @@ function Row({ row, busy, accessToken, onToggle, onOpen, onPhotoError }: RowProp
         onPress={() => onToggle(row)}
         disabled={busy}
         accessibilityRole="button"
+        accessibilityLabel={
+          done
+            ? t('today.wateredLabel', { name: plant.speciesName })
+            : t('today.markLabel', { name: plant.speciesName })
+        }
         accessibilityHint={done ? t('today.undoHint') : undefined}
-        accessibilityState={{ checked: done, busy }}
+        accessibilityState={{ busy }}
       >
         {/* The label keeps its room while a spinner covers it, so the row does not shift. */}
         <Text
@@ -274,10 +290,12 @@ const styles = StyleSheet.create({
     color: colors.red,
   },
   button: {
+    // 44 pt is the smallest comfortable touch target on iOS.
     minWidth: 104,
+    minHeight: 44,
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingVertical: 6,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
