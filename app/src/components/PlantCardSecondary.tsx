@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image as NativeImage, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Image as NativeImage, Pressable, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -91,7 +91,7 @@ export const PlantCardSecondary = ({
         readOnly
           ? undefined
           : () => (
-              <View>
+              <View style={styles.actions}>
                 <TouchableOpacity
                   style={styles.buttonRemove}
                   onPress={handleRemove}
@@ -104,7 +104,12 @@ export const PlantCardSecondary = ({
             )
       }
     >
-      <TouchableOpacity style={styles.container} activeOpacity={0.7} onPress={onPress}>
+      {/* The card stays opaque when pressed: the delete button is drawn behind it until a swipe. */}
+      <Pressable
+        style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
+        onPress={onPress}
+        accessibilityRole="button"
+      >
         {renderPicture()}
         <View style={styles.names}>
           <Text style={styles.title}>{name}</Text>
@@ -113,10 +118,12 @@ export const PlantCardSecondary = ({
           <Text style={styles.timeLabel}>{t('myPlants.waterAt')}</Text>
           <Text style={styles.time}>{plant.reminderTime}</Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Swipeable>
   );
 };
+
+const CARD_MARGIN = 5;
 
 const styles = StyleSheet.create({
   container: {
@@ -127,7 +134,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.shape,
-    marginVertical: 5,
+    marginVertical: CARD_MARGIN,
+  },
+  containerPressed: {
+    backgroundColor: colors.shape_pressed,
   },
   photo: {
     width: 50,
@@ -159,16 +169,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.heading,
     color: colors.body_dark,
   },
+  // Same height, vertical margins and corner radius as the card next to it.
+  actions: {
+    flexDirection: 'row',
+    marginVertical: CARD_MARGIN,
+    marginLeft: 10,
+  },
   buttonRemove: {
     width: 90,
-    height: 85,
     backgroundColor: colors.red,
-    marginTop: 15,
-    borderRadius: 20,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
-    right: 20,
-    paddingLeft: 15,
   },
 });

@@ -9,6 +9,7 @@ export default {
 
   background: '#FFFFFF',
   shape: '#F0F0F0',
+  shape_pressed: '#E4E4E4',
   white: '#FFFFFF',
   gray: '#CFCFCF',
 
