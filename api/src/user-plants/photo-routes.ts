@@ -74,6 +74,7 @@ export function photoRoutes(app: FastifyInstance, storage: PhotoStorage): void {
       return reply
         .header('Content-Type', contentTypeForKey(key))
         .header('Cache-Control', 'private')
+        .header('X-Content-Type-Options', 'nosniff')
         .send(data);
     },
   );

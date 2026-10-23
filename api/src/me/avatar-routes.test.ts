@@ -99,6 +99,7 @@ describe('avatar routes', () => {
     const got = await download(tokenA);
     expect(got.statusCode).toBe(200);
     expect(got.headers['content-type']).toBe('image/jpeg');
+    expect(got.headers['x-content-type-options']).toBe('nosniff');
     expect(got.rawPayload.equals(jpeg)).toBe(true);
   });
 
