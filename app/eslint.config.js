@@ -33,6 +33,10 @@ module.exports = defineConfig([
       'src/components/PlantCardPrimary.tsx',
       'src/components/PlantCardSecondary.tsx',
       'src/pages/MyPlants.tsx',
+      'src/components/NameRow.tsx',
+      'src/components/PasswordSheet.tsx',
+      'src/components/DeleteAccountSheet.tsx',
+      'src/components/Toast.tsx',
     ],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {

@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,6 +27,7 @@ import { Load } from '../components/Load';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
 import { SickPlantCard } from '../components/SickPlantCard';
 import { TimeSheet } from '../components/TimeSheet';
+import { Toast } from '../components/Toast';
 import type { ScheduleValues } from '../plants/savePlant';
 import {
   usePlantDetail,
@@ -41,33 +41,6 @@ import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
 const LEADS = [5, 10, 15, 20, 25, 30];
-
-/** "Saved ✓", faded in while `visible` and out after; gone from the tree once faded out. */
-function SavedToast({ visible }: { visible: boolean }) {
-  const { t } = useTranslation();
-  const [opacity] = useState(() => new Animated.Value(0));
-  const [mounted, setMounted] = useState(visible);
-  if (visible && !mounted) setMounted(true);
-
-  useEffect(() => {
-    const animation = Animated.timing(opacity, {
-      toValue: visible ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    });
-    animation.start(({ finished }) => {
-      if (finished && !visible) setMounted(false);
-    });
-    return () => animation.stop();
-  }, [visible, opacity]);
-
-  if (!mounted) return null;
-  return (
-    <Animated.View style={[styles.toast, { opacity }]} accessibilityLiveRegion="polite">
-      <Text style={styles.toastText}>{t('plantDetail.saved')}</Text>
-    </Animated.View>
-  );
-}
 
 export interface PlantDetailViewProps {
   plant: UserPlant;
@@ -297,7 +270,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         </View>
       )}
       <View style={[styles.toastArea, { bottom: bottom + 24 }]} pointerEvents="none">
-        <SavedToast visible={props.saved} />
+        <Toast visible={props.saved} text={t('plantDetail.saved')} />
       </View>
 
       <DaysSheet
@@ -560,22 +533,6 @@ const styles = StyleSheet.create({
     left: 30,
     right: 30,
     alignItems: 'center',
-  },
-  toast: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: colors.green_dark,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  toastText: {
-    fontSize: 14,
-    color: colors.white,
-    fontFamily: fonts.heading,
   },
   errorBar: {
     paddingTop: 12,

@@ -5,9 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { avatarSource } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
-import { loadTokens } from '../auth/session';
+import { LOCAL_NAME_KEY, onLocalNameChange } from '../auth/localName';
+import { useAvatarSource } from '../auth/useAvatarSource';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -28,43 +28,21 @@ export function firstName(name: string) {
 
 export function Header() {
   const [localName, setLocalName] = useState<string>();
-  const [accessToken, setAccessToken] = useState<{ userId: string; token: string } | null>(null);
-  const [failedKey, setFailedKey] = useState<string | null>(null);
   const { status, user } = useAuth();
   const { top } = useSafeAreaInsets();
   const { t } = useTranslation();
 
   useEffect(() => {
     async function loadStorageUsername() {
-      const saved = await AsyncStorage.getItem('@plantcare:user');
+      const saved = await AsyncStorage.getItem(LOCAL_NAME_KEY);
       setLocalName(saved || '');
     }
     void loadStorageUsername();
+    // A name edited on Profile while signed out.
+    return onLocalNameChange(() => void loadStorageUsername());
   }, [status, user?.name]);
 
-  // The photo request needs the access token, as for plant photos.
-  const avatarVersion = user?.avatarVersion;
-  const hasAvatar = user?.hasAvatar;
-  const userId = user?.id;
-  useEffect(() => {
-    if (!hasAvatar || !userId) return;
-    let active = true;
-    void loadTokens()
-      .then((tokens) => {
-        if (active) setAccessToken(tokens ? { userId, token: tokens.accessToken } : null);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [hasAvatar, avatarVersion, userId]);
-  // The token only counts for the user it was loaded for; a failed image shows the initials until
-  // the avatar changes.
-  const avatarKey = `${userId ?? ''}-${avatarVersion ?? ''}`;
-  const photo =
-    user && accessToken && accessToken.userId === user.id && failedKey !== avatarKey
-      ? avatarSource(user, accessToken.token)
-      : null;
+  const avatar = useAvatarSource(user);
 
   // The account name wins; the name typed on the first screen covers signed-out and offline use.
   const username = user?.name ?? localName;
@@ -79,11 +57,11 @@ export function Header() {
       </View>
 
       <View style={styles.avatar}>
-        {photo ? (
+        {avatar.source ? (
           <Image
             testID="header-avatar"
-            source={photo}
-            onError={() => setFailedKey(avatarKey)}
+            source={avatar.source}
+            onError={avatar.onError}
             style={styles.avatarImage}
             accessibilityIgnoresInvertColors
           />
