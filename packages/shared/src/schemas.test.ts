@@ -11,6 +11,7 @@ import {
   timeZoneSchema,
   updateUserPlantSchema,
   userNameSchema,
+  userPlantSchema,
   userSchema,
   wateringDaysSchema,
 } from './schemas';
@@ -257,5 +258,45 @@ describe('localDateSchema', () => {
     expect(localDateSchema.safeParse('2026-02-28').success).toBe(true);
     expect(localDateSchema.safeParse('2026-02-30').success).toBe(false);
     expect(localDateSchema.safeParse('2026-2-3').success).toBe(false);
+  });
+});
+
+describe('userPlantSchema', () => {
+  // A plant as the API sent it before waterings existed, and as older app versions cached it.
+  const beforeWaterings = {
+    id: 'p1',
+    catalogPlantId: 'c1',
+    nickname: null,
+    speciesName: 'Monstera',
+    scientificName: 'Monstera deliciosa',
+    about: 'Big leaves.',
+    waterTips: 'Water when the top soil is dry.',
+    frequency: { times: 2, per: 'week' },
+    light: 'partial_shade',
+    difficulty: 'easy',
+    wateringDays: [1, 4],
+    reminderTime: '09:30',
+    reminderLeadMinutes: 15,
+    scheduleStartsOn: null,
+    scheduleNeedsReview: false,
+    timeZone: 'America/Sao_Paulo',
+    notes: null,
+    imageUrl: null,
+    hasPhoto: false,
+    photoVersion: null,
+    createdAt: '2026-10-22T00:00:00.000Z',
+  };
+
+  it('reads a plant without lastWateredOn as never watered', () => {
+    expect(userPlantSchema.parse(beforeWaterings).lastWateredOn).toBeNull();
+  });
+
+  it('keeps a given lastWateredOn and still rejects a bad one', () => {
+    const watered = { ...beforeWaterings, lastWateredOn: '2026-10-22' };
+    expect(userPlantSchema.parse(watered).lastWateredOn).toBe('2026-10-22');
+    expect(
+      userPlantSchema.safeParse({ ...beforeWaterings, lastWateredOn: '22/10' })
+        .success,
+    ).toBe(false);
   });
 });

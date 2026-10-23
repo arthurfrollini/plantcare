@@ -165,8 +165,9 @@ export const userPlantSchema = z.object({
   hasPhoto: z.boolean(),
   // ISO time of the last photo save; use it to bust image caches.
   photoVersion: z.string().nullable(),
-  // Local date of the latest watering, or null if never watered.
-  lastWateredOn: localDateSchema.nullable(),
+  // Local date of the latest watering, or null if never watered. Defaults to null so a list cached
+  // or served before waterings existed still reads.
+  lastWateredOn: localDateSchema.nullable().default(null),
   createdAt: z.string(),
 });
 export type UserPlant = z.infer<typeof userPlantSchema>;
