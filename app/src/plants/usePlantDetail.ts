@@ -29,7 +29,7 @@ export const SAVED_TOAST_MS = 1500;
 type Loaded = { plant: UserPlant; accessToken: string | null };
 type Load = 'loading' | { error: FormError } | Loaded;
 
-function formError(e: unknown): FormError {
+export function formError(e: unknown): FormError {
   const { code } = toApiError(e);
   switch (code) {
     case 'network':

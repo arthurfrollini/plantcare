@@ -7,7 +7,7 @@ export interface PhotoStorage {
   remove(key: string): Promise<void>;
 }
 
-const SAFE_KEY = /^[A-Za-z0-9_-]+\.(jpg|png|webp)$/;
+const SAFE_KEY = /^(avatars\/)?[A-Za-z0-9_-]+\.(jpg|png|webp)$/;
 
 function assertSafeKey(key: string): void {
   if (!SAFE_KEY.test(key)) {
@@ -28,7 +28,7 @@ export function createDiskStorage(dir: string): PhotoStorage {
   return {
     async save(key, data) {
       const file = fileFor(key);
-      await mkdir(root, { recursive: true });
+      await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, data);
     },
     async read(key) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Modal, Pressable, StyleSheet } from 'react-native';
+import { Animated, Easing, Keyboard, Modal, Platform, Pressable, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -49,6 +49,21 @@ export function BottomSheet({ visible, onClose, onClosed, children }: BottomShee
     return () => animation.stop();
   }, [visible, progress]);
 
+  // iOS draws the keyboard over the modal: the sheet grows by its height so its fields stay above it.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !mounted) return;
+    const show = Keyboard.addListener('keyboardWillShow', (e) =>
+      setKeyboardHeight(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+      setKeyboardHeight(0);
+    };
+  }, [mounted]);
+
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [sheetHeight, 0] });
 
   return (
@@ -66,7 +81,7 @@ export function BottomSheet({ visible, onClose, onClosed, children }: BottomShee
       </Animated.View>
       <Animated.View
         onLayout={(e) => setSheetHeight(e.nativeEvent.layout.height)}
-        style={[styles.sheet, { paddingBottom: insets.bottom + 24, transform: [{ translateY }] }]}
+        style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, keyboardHeight) + 24, transform: [{ translateY }] }]}
       >
         {children}
       </Animated.View>

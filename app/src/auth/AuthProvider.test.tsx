@@ -2,6 +2,7 @@ import React, { type ReactNode } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { Image } from 'expo-image';
 import MockAdapter from 'axios-mock-adapter';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 
@@ -19,6 +20,8 @@ const baseUser = {
   language: 'en',
   hasPassword: true,
   hasGoogle: false,
+  hasAvatar: false,
+  avatarVersion: null,
 };
 const authBody = { accessToken: 'acc', refreshToken: 'ref', user: baseUser };
 
@@ -546,5 +549,92 @@ describe('reminder sync', () => {
 
     await waitFor(() => expect(mock.history.get.some((r) => r.url === '/me/plants')).toBe(true));
     expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('account actions', () => {
+  const full = baseUser;
+
+  async function signedIn() {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, full);
+    mock.onGet('/me/plants').reply(200, []);
+    return renderAuth();
+  }
+
+  it('deleteAccount clears tokens, cache, reminders, images and the stored name', async () => {
+    await AsyncStorage.setItem('@plantcare:myPlantsCache', '[]');
+    const { result } = await signedIn();
+    mock.onDelete('/me').reply(204);
+    const cancel = jest.mocked(Notifications.cancelAllScheduledNotificationsAsync);
+    cancel.mockClear();
+    const clearDisk = jest.spyOn(Image, 'clearDiskCache');
+    const clearMemory = jest.spyOn(Image, 'clearMemoryCache');
+
+    await act(() => result.current.deleteAccount());
+
+    expect(result.current.status).toBe('signedOut');
+    expect(result.current.user).toBeNull();
+    expect(await loadTokens()).toBeNull();
+    expect(await AsyncStorage.getItem('@plantcare:myPlantsCache')).toBeNull();
+    expect(await AsyncStorage.getItem('@plantcare:user')).toBeNull();
+    expect(cancel).toHaveBeenCalled();
+    expect(clearDisk).toHaveBeenCalled();
+    expect(clearMemory).toHaveBeenCalled();
+  });
+
+  it('deleteAccount still signs out when clearing the image cache fails', async () => {
+    const { result } = await signedIn();
+    mock.onDelete('/me').reply(204);
+    jest.spyOn(Image, 'clearDiskCache').mockRejectedValueOnce(new Error('disk'));
+    jest.spyOn(Image, 'clearMemoryCache').mockImplementationOnce(() => {
+      throw new Error('memory');
+    });
+
+    await act(() => result.current.deleteAccount());
+
+    expect(result.current.status).toBe('signedOut');
+    expect(await AsyncStorage.getItem('@plantcare:user')).toBeNull();
+  });
+
+  it('a failed deleteAccount keeps the session', async () => {
+    const { result } = await signedIn();
+    mock.onDelete('/me').reply(500);
+    const clearDisk = jest.spyOn(Image, 'clearDiskCache');
+
+    await act(async () => {
+      await expect(result.current.deleteAccount()).rejects.toBeDefined();
+    });
+
+    expect(result.current.status).toBe('signedIn');
+    expect(await loadTokens()).not.toBeNull();
+    expect(clearDisk).not.toHaveBeenCalled();
+  });
+
+  it('changePassword sends the refresh token and stays signed in on 403', async () => {
+    const { result } = await signedIn();
+    mock.onPost('/me/password').reply(403, { error: 'wrong_password' });
+
+    await act(async () => {
+      await expect(result.current.changePassword('old', 'newpassword1')).rejects.toBeDefined();
+    });
+
+    expect(lastBody(mock.history.post)).toEqual({
+      currentPassword: 'old',
+      newPassword: 'newpassword1',
+      refreshToken: 'ref',
+    });
+    expect(result.current.status).toBe('signedIn');
+    expect(await loadTokens()).not.toBeNull();
+  });
+
+  it('updateName updates the user name', async () => {
+    const { result } = await signedIn();
+    mock.onPatch('/me').reply(200, { ...full, name: 'Bea' });
+
+    await act(() => result.current.updateName('Bea'));
+
+    expect(result.current.user?.name).toBe('Bea');
+    expect(await AsyncStorage.getItem('@plantcare:user')).toBe('Bea');
   });
 });

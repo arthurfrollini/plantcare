@@ -4,6 +4,7 @@ import { changeLanguage, initI18n } from '../i18n';
 import * as session from '../auth/session';
 import { clearTokens, loadTokens, saveTokens } from '../auth/session';
 import { ApiError, api, setSignedOutHandler } from './client';
+import { changePassword } from './endpoints';
 
 const user = {
   id: 'u1',
@@ -12,6 +13,8 @@ const user = {
   language: 'en',
   hasPassword: true,
   hasGoogle: false,
+  hasAvatar: false,
+  avatarVersion: null,
 };
 
 beforeAll(initI18n);
@@ -228,6 +231,60 @@ describe('refresh', () => {
     await expect(api.get('/data')).rejects.toMatchObject({ status: null, code: 'network' });
     expect(await loadTokens()).not.toBeNull();
     expect(onSignedOut).not.toHaveBeenCalled();
+  });
+});
+
+function bodyRefreshToken(data: unknown): unknown {
+  const body: unknown = JSON.parse(String(data));
+  return typeof body === 'object' && body !== null && 'refreshToken' in body ? body.refreshToken : null;
+}
+
+describe('password change', () => {
+  it('sends the refresh token current at send time when the call is retried after a refresh', async () => {
+    await saveTokens({ accessToken: 'old', refreshToken: 'old-r' });
+    // A small server: the refresh rotates the token, the password change keeps only the sent one.
+    let valid = new Set(['old-r']);
+    let round = 0;
+    mock.onPost('/auth/refresh').reply((config) => {
+      const sent = bodyRefreshToken(config.data);
+      if (typeof sent !== 'string' || !valid.has(sent)) {
+        return [401, { error: { code: 'invalid_token', message: 'no' } }];
+      }
+      round += 1;
+      valid.delete(sent);
+      valid.add(`r${round}`);
+      return [200, { accessToken: `a${round}`, refreshToken: `r${round}`, user }];
+    });
+    mock.onPost('/me/password').reply((config) => {
+      if (config.headers?.Authorization !== `Bearer a${round}`) return [401, {}];
+      const kept = bodyRefreshToken(config.data);
+      valid = new Set(typeof kept === 'string' && valid.has(kept) ? [kept] : []);
+      return [204];
+    });
+
+    await changePassword('old-pass', 'new-password');
+
+    const attempts = mock.history.post.filter((r) => r.url === '/me/password');
+    expect(attempts.map((r): unknown => JSON.parse(String(r.data)))).toEqual([
+      { currentPassword: 'old-pass', newPassword: 'new-password', refreshToken: 'old-r' },
+      { currentPassword: 'old-pass', newPassword: 'new-password', refreshToken: 'r1' },
+    ]);
+
+    // The access token expires again: this device can still refresh.
+    mock.onGet('/data').reply((config) =>
+      config.headers?.Authorization === 'Bearer a2' ? [200, {}] : [401, {}],
+    );
+    await api.get('/data');
+    expect(await loadTokens()).toEqual({ accessToken: 'a2', refreshToken: 'r2' });
+    expect(onSignedOut).not.toHaveBeenCalled();
+  });
+
+  it('fails before sending when there is no session', async () => {
+    await expect(changePassword('old-pass', 'new-password')).rejects.toMatchObject({
+      status: 401,
+      code: 'unauthorized',
+    });
+    expect(mock.history.post).toHaveLength(0);
   });
 });
 

@@ -139,6 +139,7 @@ describe('plant photo routes', () => {
     expect(got.statusCode).toBe(200);
     expect(got.headers['content-type']).toBe('image/png');
     expect(got.headers['cache-control']).toBe('private');
+    expect(got.headers['x-content-type-options']).toBe('nosniff');
     expect(got.rawPayload.equals(png)).toBe(true);
   });
 

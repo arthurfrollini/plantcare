@@ -9,7 +9,7 @@ import {
 import { GoogleUnavailableError, type GoogleVerifier } from './google';
 import { hashRefreshToken, issueTokens } from './tokens';
 
-const BCRYPT_COST = 12;
+export const BCRYPT_COST = 12;
 
 export type AuthResult = {
   accessToken: string;
@@ -30,6 +30,11 @@ export function toUserDto(user: UserRow): User {
     language: language.success ? language.data : 'en',
     hasPassword: user.passwordHash !== null,
     hasGoogle: user.googleId !== null,
+    hasAvatar: user.avatarPath !== null,
+    avatarVersion:
+      user.avatarPath !== null && user.avatarUpdatedAt !== null
+        ? user.avatarUpdatedAt.toISOString()
+        : null,
   };
 }
 

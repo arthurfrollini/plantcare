@@ -89,6 +89,25 @@ export const catalogPageSchema = z.object({
 });
 export type CatalogPage = z.infer<typeof catalogPageSchema>;
 
+export const userNameSchema = z.string().trim().min(1).max(60);
+
+// bcrypt ignores bytes past 72, so cap the UTF-8 length. TextEncoder runs in
+// Node and Hermes alike, unlike Buffer.
+export const passwordSchema = z
+  .string()
+  .min(8)
+  .max(128)
+  .refine((value) => new TextEncoder().encode(value).length <= 72, {
+    message: 'Expected at most 72 bytes in UTF-8',
+  });
+
+export const changePasswordSchema = z.strictObject({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: passwordSchema,
+  refreshToken: z.string().min(1).max(256),
+});
+export type ChangePassword = z.infer<typeof changePasswordSchema>;
+
 export const userSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -96,6 +115,8 @@ export const userSchema = z.object({
   language: localeSchema,
   hasPassword: z.boolean(),
   hasGoogle: z.boolean(),
+  hasAvatar: z.boolean(),
+  avatarVersion: z.string().nullable(),
 });
 export type User = z.infer<typeof userSchema>;
 

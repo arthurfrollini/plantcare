@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../auth/AuthProvider';
+import { LOCAL_NAME_KEY, onLocalNameChange } from '../auth/localName';
+import { useAvatarSource } from '../auth/useAvatarSource';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -31,11 +34,15 @@ export function Header() {
 
   useEffect(() => {
     async function loadStorageUsername() {
-      const saved = await AsyncStorage.getItem('@plantcare:user');
+      const saved = await AsyncStorage.getItem(LOCAL_NAME_KEY);
       setLocalName(saved || '');
     }
     void loadStorageUsername();
+    // A name edited on Profile while signed out.
+    return onLocalNameChange(() => void loadStorageUsername());
   }, [status, user?.name]);
+
+  const avatar = useAvatarSource(user);
 
   // The account name wins; the name typed on the first screen covers signed-out and offline use.
   const username = user?.name ?? localName;
@@ -50,7 +57,17 @@ export function Header() {
       </View>
 
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
+        {avatar.source ? (
+          <Image
+            testID="header-avatar"
+            source={avatar.source}
+            onError={avatar.onError}
+            style={styles.avatarImage}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
+        )}
       </View>
     </View>
   );
@@ -76,6 +93,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.green_light,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 28,

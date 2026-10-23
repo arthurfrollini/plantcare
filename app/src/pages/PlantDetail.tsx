@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +10,6 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SvgFromUri } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -22,12 +20,14 @@ import { assetUrl } from '../api/config';
 import type { plantPhotoSource } from '../api/endpoints';
 import { Button } from '../components/Button';
 import { CareTiles } from '../components/CareTiles';
+import { HeroHeader } from '../components/HeroHeader';
 import { DaysSheet } from '../components/DaysSheet';
 import { LeadInfoSheet } from '../components/LeadInfoSheet';
 import { Load } from '../components/Load';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
 import { SickPlantCard } from '../components/SickPlantCard';
 import { TimeSheet } from '../components/TimeSheet';
+import { Toast } from '../components/Toast';
 import type { ScheduleValues } from '../plants/savePlant';
 import {
   usePlantDetail,
@@ -40,37 +40,7 @@ import type { RootStackParamList } from '../routes/stack.routes';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-const PHOTO_SIZE = 120;
-/** Gradient height below the status bar; the photo circle sits on its bottom edge. */
-const HEADER_HEIGHT = 112;
 const LEADS = [5, 10, 15, 20, 25, 30];
-
-/** "Saved ✓", faded in while `visible` and out after; gone from the tree once faded out. */
-function SavedToast({ visible }: { visible: boolean }) {
-  const { t } = useTranslation();
-  const [opacity] = useState(() => new Animated.Value(0));
-  const [mounted, setMounted] = useState(visible);
-  if (visible && !mounted) setMounted(true);
-
-  useEffect(() => {
-    const animation = Animated.timing(opacity, {
-      toValue: visible ? 1 : 0,
-      duration: 200,
-      useNativeDriver: true,
-    });
-    animation.start(({ finished }) => {
-      if (finished && !visible) setMounted(false);
-    });
-    return () => animation.stop();
-  }, [visible, opacity]);
-
-  if (!mounted) return null;
-  return (
-    <Animated.View style={[styles.toast, { opacity }]} accessibilityLiveRegion="polite">
-      <Text style={styles.toastText}>{t('plantDetail.saved')}</Text>
-    </Animated.View>
-  );
-}
 
 export interface PlantDetailViewProps {
   plant: UserPlant;
@@ -97,7 +67,7 @@ export interface PlantDetailViewProps {
 export function PlantDetailView(props: PlantDetailViewProps) {
   const { plant, values, requiredDays, needsReview, savingField, error } = props;
   const { t } = useTranslation();
-  const { top, bottom } = useSafeAreaInsets();
+  const { bottom } = useSafeAreaInsets();
   const [daysOpen, setDaysOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
   const [leadInfoOpen, setLeadInfoOpen] = useState(false);
@@ -131,11 +101,8 @@ export function PlantDetailView(props: PlantDetailViewProps) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[colors.green, colors.green_light]}
-        style={[styles.header, { paddingTop: top, height: top + HEADER_HEIGHT }]}
-      >
-        <View style={styles.topBar}>
+      <HeroHeader
+        left={
           <TouchableOpacity
             style={styles.headerButton}
             onPress={props.onBack}
@@ -145,6 +112,8 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           >
             <Feather name="chevron-left" size={28} color={colors.white} />
           </TouchableOpacity>
+        }
+        right={
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => setPhotoOpen(true)}
@@ -155,19 +124,15 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           >
             <Feather name="edit-2" size={20} color={colors.white} />
           </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      <View style={styles.photoWrap}>
-        <View style={styles.photoCircle}>
-          {renderPicture()}
-          {props.photoBusy && (
-            <View style={styles.photoBusy}>
-              <ActivityIndicator color={colors.white} />
-            </View>
-          )}
-        </View>
-      </View>
+        }
+      >
+        {renderPicture()}
+        {props.photoBusy && (
+          <View style={styles.photoBusy}>
+            <ActivityIndicator color={colors.white} />
+          </View>
+        )}
+      </HeroHeader>
 
       {/* Only this part scrolls; the header above stays put. */}
       <ScrollView
@@ -305,7 +270,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         </View>
       )}
       <View style={[styles.toastArea, { bottom: bottom + 24 }]} pointerEvents="none">
-        <SavedToast visible={props.saved} />
+        <Toast visible={props.saved} text={t('plantDetail.saved')} />
       </View>
 
       <DaysSheet
@@ -404,15 +369,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    paddingHorizontal: 30,
-  },
-  topBar: {
-    height: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   headerButton: {
     width: 40,
     height: 40,
@@ -420,21 +376,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
-  },
-  photoWrap: {
-    alignItems: 'center',
-    marginTop: -PHOTO_SIZE / 2,
-  },
-  photoCircle: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE,
-    borderRadius: PHOTO_SIZE / 2,
-    borderWidth: 4,
-    borderColor: colors.white,
-    backgroundColor: colors.shape,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
   },
   photo: {
     width: '100%',
@@ -592,22 +533,6 @@ const styles = StyleSheet.create({
     left: 30,
     right: 30,
     alignItems: 'center',
-  },
-  toast: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: colors.green_dark,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  toastText: {
-    fontSize: 14,
-    color: colors.white,
-    fontFamily: fonts.heading,
   },
   errorBar: {
     paddingTop: 12,

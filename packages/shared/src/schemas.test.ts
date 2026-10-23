@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  changePasswordSchema,
   createUserPlantSchema,
   frequencySchema,
   halfHourTimeSchema,
+  passwordSchema,
   reminderLeadSchema,
   reminderTimeSchema,
   timeZoneSchema,
   updateUserPlantSchema,
+  userNameSchema,
+  userSchema,
   wateringDaysSchema,
 } from './schemas';
 
@@ -177,5 +181,72 @@ describe('updateUserPlantSchema', () => {
         reminderLeadMinutes: 5,
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('passwordSchema', () => {
+  it('accepts 8 ASCII characters', () => {
+    expect(passwordSchema.safeParse('abcdefgh').success).toBe(true);
+  });
+  it('rejects 7 characters', () => {
+    expect(passwordSchema.safeParse('abcdefg').success).toBe(false);
+  });
+  it('rejects 129 characters', () => {
+    expect(passwordSchema.safeParse('a'.repeat(129)).success).toBe(false);
+  });
+  it('rejects 25 four-byte emoji (100 bytes)', () => {
+    expect(passwordSchema.safeParse('😀'.repeat(25)).success).toBe(false);
+  });
+});
+
+describe('userNameSchema', () => {
+  it('trims', () => {
+    expect(userNameSchema.parse('  Ana ')).toBe('Ana');
+  });
+  it('rejects blank and 61 characters', () => {
+    expect(userNameSchema.safeParse('   ').success).toBe(false);
+    expect(userNameSchema.safeParse('a'.repeat(61)).success).toBe(false);
+  });
+});
+
+describe('changePasswordSchema', () => {
+  const body = {
+    currentPassword: 'old',
+    newPassword: 'abcdefgh',
+    refreshToken: 'r',
+  };
+  it('accepts a valid body', () => {
+    expect(changePasswordSchema.safeParse(body).success).toBe(true);
+  });
+  it('rejects an extra key', () => {
+    expect(changePasswordSchema.safeParse({ ...body, extra: 1 }).success).toBe(
+      false,
+    );
+  });
+  it('caps the refresh token at 256 characters, like /auth/refresh', () => {
+    const at = (length: number) =>
+      changePasswordSchema.safeParse({
+        ...body,
+        refreshToken: 'r'.repeat(length),
+      }).success;
+    expect(at(256)).toBe(true);
+    expect(at(257)).toBe(false);
+  });
+});
+
+describe('userSchema', () => {
+  it('parses avatar fields', () => {
+    const user = userSchema.parse({
+      id: 'u1',
+      name: 'Ana',
+      email: null,
+      language: 'en',
+      hasPassword: false,
+      hasGoogle: true,
+      hasAvatar: true,
+      avatarVersion: 'v1',
+    });
+    expect(user.hasAvatar).toBe(true);
+    expect(user.avatarVersion).toBe('v1');
   });
 });

@@ -40,7 +40,12 @@ jest.mock('expo-image-picker', () => ({
 
 jest.mock('expo-image', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react');
-  return { Image: (props: object) => createElement('ExpoImage', props) };
+  return {
+    Image: Object.assign((props: object) => createElement('ExpoImage', props), {
+      clearDiskCache: async () => true,
+      clearMemoryCache: async () => true,
+    }),
+  };
 });
 
 // The real swipeable needs the native worklets runtime.
