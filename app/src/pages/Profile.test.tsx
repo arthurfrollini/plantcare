@@ -278,11 +278,14 @@ describe('Profile signed in', () => {
       fillPassword('old-password', 'new-password', 'new-password');
       fireEvent.press(screen.getByRole('button', { name: 'Save' }));
 
+      // The toast lives about 1.7 s; the sheet close can take longer on a slow runner.
+      expect(
+        await screen.findByText('Password changed ✓', undefined, { timeout: 5000 }),
+      ).toBeOnTheScreen();
       await waitFor(
         () => expect(screen.queryByLabelText('Current password')).not.toBeOnTheScreen(),
         { timeout: 10000 },
       );
-      expect(screen.getByText('Password changed ✓')).toBeOnTheScreen();
       expect(bodyOf(mock.history.post[0]?.data)).toEqual({
         currentPassword: 'old-password',
         newPassword: 'new-password',
