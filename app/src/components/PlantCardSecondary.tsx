@@ -100,7 +100,7 @@ export const PlantCardSecondary = ({
                   accessibilityRole="button"
                   accessibilityLabel={t('myPlants.remove')}
                 >
-                  <Feather name="trash" size={32} color={colors.white} />
+                  <Feather name="trash-2" size={28} color={colors.white} />
                 </Tappable>
               </View>
             )
