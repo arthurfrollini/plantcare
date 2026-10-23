@@ -2,18 +2,17 @@ import React from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
-  type TouchableOpacityProps,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Tappable, type TappableProps } from './Tappable';
 import { SvgFromUri } from 'react-native-svg';
 
 import { assetUrl } from '../api/config';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface PlantProps extends TouchableOpacityProps {
+interface PlantProps extends TappableProps {
   data: {
     name: string;
     imageUrl: string | null;
@@ -23,9 +22,8 @@ interface PlantProps extends TouchableOpacityProps {
 
 export const PlantCardPrimary = ({ data, selected = false, ...rest }: PlantProps) => {
   return (
-    <TouchableOpacity
+    <Tappable
       style={[styles.container, selected && styles.containerSelected]}
-      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       {...rest}
@@ -43,7 +41,7 @@ export const PlantCardPrimary = ({ data, selected = false, ...rest }: PlantProps
         </View>
       )}
       <Text style={styles.text}>{data.name}</Text>
-    </TouchableOpacity>
+    </Tappable>
   );
 };
 

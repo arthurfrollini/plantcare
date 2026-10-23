@@ -5,7 +5,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -25,6 +24,7 @@ import { DaysSheet } from '../components/DaysSheet';
 import { LeadInfoSheet } from '../components/LeadInfoSheet';
 import { Load } from '../components/Load';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
+import { Tappable } from '../components/Tappable';
 import { SickPlantCard } from '../components/SickPlantCard';
 import { TimeSheet } from '../components/TimeSheet';
 import { Toast } from '../components/Toast';
@@ -39,6 +39,9 @@ import { WEEKDAYS, weekdayName } from '../plants/weekdays';
 import type { RootStackParamList } from '../routes/stack.routes';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
+
+/** Ripple for the buttons on the green header. */
+const LIGHT_RIPPLE = 'rgba(255, 255, 255, 0.3)';
 
 const LEADS = [5, 10, 15, 20, 25, 30];
 
@@ -103,7 +106,8 @@ export function PlantDetailView(props: PlantDetailViewProps) {
     <View style={styles.container}>
       <HeroHeader
         left={
-          <TouchableOpacity
+          <Tappable
+            rippleColor={LIGHT_RIPPLE}
             style={styles.headerButton}
             onPress={props.onBack}
             accessibilityRole="button"
@@ -111,10 +115,11 @@ export function PlantDetailView(props: PlantDetailViewProps) {
             hitSlop={8}
           >
             <Feather name="chevron-left" size={28} color={colors.white} />
-          </TouchableOpacity>
+          </Tappable>
         }
         right={
-          <TouchableOpacity
+          <Tappable
+            rippleColor={LIGHT_RIPPLE}
             style={styles.headerButton}
             onPress={() => setPhotoOpen(true)}
             disabled={props.photoBusy}
@@ -123,7 +128,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
             hitSlop={8}
           >
             <Feather name="edit-2" size={20} color={colors.white} />
-          </TouchableOpacity>
+          </Tappable>
         }
       >
         {renderPicture()}
@@ -166,7 +171,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           <>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>{t('plantDetail.days')}</Text>
-              <TouchableOpacity
+              <Tappable
                 style={styles.sectionButton}
                 onPress={() => setDaysOpen(true)}
                 accessibilityRole="button"
@@ -174,7 +179,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
                 hitSlop={8}
               >
                 <Feather name="edit-2" size={16} color={colors.green_dark} />
-              </TouchableOpacity>
+              </Tappable>
             </View>
             <View style={styles.chipRow}>
               {WEEKDAYS.map((day) => {
@@ -216,7 +221,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
 
         <View style={[styles.sectionRow, styles.labelWithInfo]}>
           <Text style={styles.sectionTitle}>{t('plantDetail.lead')}</Text>
-          <TouchableOpacity
+          <Tappable
             style={styles.infoButton}
             onPress={() => setLeadInfoOpen(true)}
             accessibilityRole="button"
@@ -224,7 +229,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
             hitSlop={10}
           >
             <Feather name="info" size={16} color={colors.body_dark} />
-          </TouchableOpacity>
+          </Tappable>
         </View>
         <View style={styles.chipRow}>
           {LEADS.map((minutes) => {
@@ -343,7 +348,7 @@ export function PlantDetail() {
 
   return (
     <View style={[styles.container, { paddingTop: top }]}>
-      <TouchableOpacity
+      <Tappable
         style={styles.errorBack}
         onPress={() => navigation.goBack()}
         accessibilityRole="button"
@@ -351,7 +356,7 @@ export function PlantDetail() {
         hitSlop={8}
       >
         <Feather name="chevron-left" size={28} color={colors.heading} />
-      </TouchableOpacity>
+      </Tappable>
       <View style={styles.center}>
         <Text style={styles.error} accessibilityRole="alert">
           {t(detail.load.error === 'network' ? 'plantForm.errors.network' : 'plantForm.loadError')}

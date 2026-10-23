@@ -21,6 +21,7 @@ import { useAvatarSource } from '../auth/useAvatarSource';
 import { DeleteAccountSheet } from '../components/DeleteAccountSheet';
 import { initials } from '../components/Header';
 import { HeroHeader } from '../components/HeroHeader';
+import { Tappable } from '../components/Tappable';
 import { NameRow } from '../components/NameRow';
 import { PasswordSheet } from '../components/PasswordSheet';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
@@ -80,7 +81,8 @@ export function ProfileView(props: ProfileViewProps) {
         }
         right={
           props.canEditPhoto ? (
-            <TouchableOpacity
+            <Tappable
+              rippleColor={'rgba(255, 255, 255, 0.3)'}
               style={styles.headerButton}
               onPress={() => setPhotoOpen(true)}
               disabled={props.photoBusy}
@@ -89,7 +91,7 @@ export function ProfileView(props: ProfileViewProps) {
               hitSlop={8}
             >
               <Feather name="edit-2" size={20} color={colors.white} />
-            </TouchableOpacity>
+            </Tappable>
           ) : undefined
         }
       >

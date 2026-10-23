@@ -1,27 +1,23 @@
 import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  TouchableOpacityProps,
-} from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import { Tappable, type TappableProps } from './Tappable';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-interface ButtonProps extends TouchableOpacityProps {
+interface ButtonProps extends TappableProps {
   title: string;
 }
 
 export function Button({ title, ...rest }: ButtonProps) {
   return (
-    <TouchableOpacity
+    <Tappable
       style={styles.container}
-      activeOpacity={0.7}
+      rippleColor="rgba(255, 255, 255, 0.3)"
       accessibilityRole="button"
       {...rest}
     >
       <Text style={styles.text}>{title}</Text>
-    </TouchableOpacity>
+    </Tappable>
   );
 }
 

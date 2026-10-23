@@ -1,11 +1,12 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Tappable } from '../components/Tappable';
 import { MyPlants } from '../pages/MyPlants';
 import { Profile } from '../pages/Profile';
 
@@ -62,14 +63,15 @@ const AuthRoutes = () => {
         options={{
           tabBarButton: () => (
             <View style={styles.addSlot}>
-              <Pressable
+              <Tappable
                 accessibilityRole="button"
                 accessibilityLabel={t('tabs.newPlant')}
-                style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                rippleColor={'rgba(255, 255, 255, 0.3)'}
+                  style={styles.addButton}
                 onPress={() => navigation.navigate('Catalog')}
               >
                 <Feather name="plus" size={26} color={colors.white} />
-              </Pressable>
+              </Tappable>
             </View>
           ),
         }}
@@ -105,9 +107,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.green,
-  },
-  addButtonPressed: {
-    opacity: 0.8,
   },
 });
 

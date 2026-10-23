@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image as NativeImage, Pressable, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Image as NativeImage, StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { SvgFromUri } from 'react-native-svg';
 import type { UserPlant } from '@plantcare/shared';
 
+import { Tappable } from './Tappable';
 import { assetUrl } from '../api/config';
 import { plantPhotoSource } from '../api/endpoints';
 import mascot from '../assets/watering.png';
@@ -92,21 +93,24 @@ export const PlantCardSecondary = ({
           ? undefined
           : () => (
               <View style={styles.actions}>
-                <TouchableOpacity
+                <Tappable
+                  rippleColor={'rgba(255, 255, 255, 0.3)'}
                   style={styles.buttonRemove}
                   onPress={handleRemove}
                   accessibilityRole="button"
                   accessibilityLabel={t('myPlants.remove')}
                 >
                   <Feather name="trash" size={32} color={colors.white} />
-                </TouchableOpacity>
+                </Tappable>
               </View>
             )
       }
     >
       {/* The card stays opaque when pressed: the delete button is drawn behind it until a swipe. */}
-      <Pressable
-        style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
+      <Tappable
+        feedback="highlight"
+        style={styles.container}
+        pressedStyle={styles.containerPressed}
         onPress={onPress}
         accessibilityRole="button"
       >
@@ -118,7 +122,7 @@ export const PlantCardSecondary = ({
           <Text style={styles.timeLabel}>{t('myPlants.waterAt')}</Text>
           <Text style={styles.time}>{plant.reminderTime}</Text>
         </View>
-      </Pressable>
+      </Tappable>
     </Swipeable>
   );
 };
