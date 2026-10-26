@@ -1,5 +1,4 @@
 import React, { type ReactNode } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import MockAdapter from 'axios-mock-adapter';
@@ -12,7 +11,7 @@ import * as endpoints from '../api/endpoints';
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
-import { resetCapWarning } from '../reminders/sync';
+import * as reminders from '../reminders/sync';
 import { MY_PLANTS_CACHE_KEY } from './myPlantsCache';
 import { setToday } from './testClock';
 import { accountFixture, userPlantFixture } from './testFixtures';
@@ -38,7 +37,6 @@ beforeEach(async () => {
   await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
   mock.onGet('/me').reply(200, accountFixture);
   jest.mocked(Notifications.scheduleNotificationAsync).mockClear();
-  resetCapWarning();
 });
 
 afterEach(() => {
@@ -112,8 +110,13 @@ describe('useMyPlants', () => {
     expect(result.current.plants.map((p) => p.id)).toEqual(['p2']);
     const sent = mock.history.delete[0];
     expect(sent?.headers?.['Content-Type']).toBeUndefined();
-    // Two weekly slots for the one plant left.
-    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+    // Only the plant left gets reminders, plus the keep-going.
+    const data = jest
+      .mocked(Notifications.scheduleNotificationAsync)
+      .mock.calls.map(([request]) => request.content.data);
+    expect(data.length).toBeGreaterThan(1);
+    expect(data.some((d) => d?.userPlantId === 'p1')).toBe(false);
+    expect(data.some((d) => d?.userPlantId === 'p2')).toBe(true);
   });
 
   it('does nothing when removing while offline', async () => {
@@ -126,21 +129,6 @@ describe('useMyPlants', () => {
 
     expect(mock.history.delete).toHaveLength(0);
     expect(result.current.plants).toHaveLength(1);
-  });
-
-  it('reports the 60-reminder cap once, and only when it was hit', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const daily = { ...userPlantFixture, frequency: { times: 1, per: 'day' as const } };
-    const many = Array.from({ length: 62 }, (_, i) => ({ ...daily, id: `d${i}` }));
-    mock.onGet('/me/plants').reply(200, many);
-    mock.onDelete(/\/me\/plants\/.*/).reply(204);
-    const { result } = renderHook(() => useMyPlants(), { wrapper });
-    await waitFor(() => expect(result.current.plants).toHaveLength(62));
-
-    await act(() => result.current.remove('d0'));
-    await act(() => result.current.remove('d1'));
-
-    expect(alert).toHaveBeenCalledTimes(1);
   });
 
   it('keeps a deleted plant gone when a refresh started before the delete answers late', async () => {
@@ -208,6 +196,59 @@ describe('useMyPlants', () => {
         .array(userPlantSchema)
         .parse(JSON.parse((await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)) ?? '[]'));
       expect(cached[0]?.lastWateredOn).toBe(today);
+    });
+
+    it('resyncs reminders with the updated list after a mark', async () => {
+      const sync = jest.spyOn(reminders, 'syncReminders');
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+      sync.mockClear();
+
+      await act(async () => {
+        await result.current.markWatered('p1', today);
+      });
+
+      expect(sync).toHaveBeenCalledTimes(1);
+      expect(sync).toHaveBeenCalledWith([{ ...userPlantFixture, lastWateredOn: today }]);
+    });
+
+    it('resyncs reminders with lastWateredOn cleared after an undo', async () => {
+      const sync = jest.spyOn(reminders, 'syncReminders');
+      mock.onGet('/me/plants').reply(200, [{ ...userPlantFixture, lastWateredOn: today }]);
+      mock
+        .onDelete(`/me/plants/p1/waterings/${today}`)
+        .reply(200, { ...userPlantFixture, lastWateredOn: null });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants[0]?.lastWateredOn).toBe(today));
+      sync.mockClear();
+
+      await act(async () => {
+        await result.current.undoWatered('p1', today);
+      });
+
+      expect(sync).toHaveBeenCalledTimes(1);
+      expect(sync).toHaveBeenCalledWith([{ ...userPlantFixture, lastWateredOn: null }]);
+    });
+
+    it('does not resync reminders when the mark fails', async () => {
+      const sync = jest.spyOn(reminders, 'syncReminders');
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(500, { error: { code: 'internal', message: 'x' } });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+      sync.mockClear();
+
+      await act(async () => {
+        await result.current.markWatered('p1', today);
+      });
+
+      expect(sync).not.toHaveBeenCalled();
     });
 
     it('returns false and leaves the list and cache on failure', async () => {

@@ -10,7 +10,7 @@ import {
   undoWatered as deleteWatered,
 } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
-import { syncReminders, warnIfCapped } from '../reminders/sync';
+import { syncReminders } from '../reminders/sync';
 import { readMyPlantsCache, writeMyPlantsCache } from './myPlantsCache';
 
 export type MyPlantsResult = {
@@ -120,8 +120,7 @@ export function useMyPlants(): MyPlantsResult {
       const remaining = plantsRef.current.filter((p) => p.id !== id);
       apply(remaining);
       void writeMyPlantsCache(remaining);
-      const result = await syncReminders(remaining);
-      warnIfCapped(result);
+      await syncReminders(remaining);
     },
     [offline, apply],
   );
@@ -146,6 +145,8 @@ export function useMyPlants(): MyPlantsResult {
           const next = plantsRef.current.map((p) => (p.id === id ? updated : p));
           apply(next);
           void writeMyPlantsCache(next);
+          // The ticked watering gains or loses its reminder; never awaited, never prompts.
+          void syncReminders(next);
           return true;
         } catch {
           return false;

@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
 
 import { createMyPlant, listMyPlants } from '../api/endpoints';
 import type { ConfirmationParams } from '../pages/Confirmation';
-import { ensureNotificationPermission, syncReminders, warnIfCapped } from '../reminders/sync';
+import { ensureNotificationPermission, syncReminders } from '../reminders/sync';
 import type { SpeciesPick } from './pendingSave';
 
 /** Every plant added from the catalog starts with its reminder at this time; it can be edited. */
@@ -83,8 +83,7 @@ export async function addPlants(picks: SpeciesPick[]): Promise<AddPlantsResult> 
 
 /**
  * Runs after a save the user asked for, so it may prompt for notification permission. A denial,
- * or a list that cannot be fetched, never blocks the save: the plant already exists. Warns once
- * per session when the phone's reminder cap was hit.
+ * or a list that cannot be fetched, never blocks the save: the plant already exists.
  */
 export async function syncAfterSave(): Promise<{ scheduled: number; skipped: number } | null> {
   try {
@@ -93,9 +92,7 @@ export async function syncAfterSave(): Promise<{ scheduled: number; skipped: num
     // Reminders just stay off.
   }
   try {
-    const result = await syncReminders(await listMyPlants());
-    warnIfCapped(result);
-    return result;
+    return await syncReminders(await listMyPlants());
   } catch {
     // The next time a sync runs (sign-in, foreground), it tries again.
     return null;

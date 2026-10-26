@@ -451,6 +451,8 @@ describe('reminder sync', () => {
     createdAt: '2026-10-22T00:00:00.000Z',
   };
   const scheduled = () => jest.mocked(Notifications.scheduleNotificationAsync);
+  // A daily plant fills the cap: 59 reminders plus the keep-going.
+  const DAILY_SYNC_CALLS = 60;
 
   function captureAppState() {
     const handlers: ((state: AppStateStatus) => void)[] = [];
@@ -475,7 +477,9 @@ describe('reminder sync', () => {
     mock.onGet('/me/plants').reply(200, [plant]);
     await renderAuth();
 
-    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(DAILY_SYNC_CALLS), {
+      timeout: 5000,
+    });
   });
 
   it('syncs after sign-in', async () => {
@@ -485,7 +489,9 @@ describe('reminder sync', () => {
 
     await act(() => result.current.signIn('ana@example.com', 'secret123'));
 
-    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(DAILY_SYNC_CALLS), {
+      timeout: 5000,
+    });
   });
 
   it('syncs when the app returns to the foreground while signed in', async () => {
@@ -494,11 +500,15 @@ describe('reminder sync', () => {
     mock.onGet('/me').reply(200, baseUser);
     mock.onGet('/me/plants').reply(200, [plant]);
     await renderAuth();
-    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(DAILY_SYNC_CALLS), {
+      timeout: 5000,
+    });
 
     act(() => fire('active'));
 
-    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(2 * DAILY_SYNC_CALLS), {
+      timeout: 5000,
+    });
   });
 
   it('does not sync on foreground while signed out', async () => {
@@ -538,7 +548,9 @@ describe('reminder sync', () => {
     act(() => {
       release();
     });
-    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(scheduled()).toHaveBeenCalledTimes(DAILY_SYNC_CALLS), {
+      timeout: 5000,
+    });
   });
 
   it('keeps existing reminders when the API is unreachable', async () => {

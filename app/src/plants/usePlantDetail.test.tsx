@@ -1,5 +1,4 @@
 import React, { type ReactNode } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import MockAdapter from 'axios-mock-adapter';
@@ -12,7 +11,6 @@ import { clearTokens, saveTokens } from '../auth/session';
 import { plantPhotoSource } from '../api/endpoints';
 import { changeLanguage, initI18n } from '../i18n';
 import { accountFixture, userPlantFixture } from './testFixtures';
-import { resetCapWarning } from '../reminders/sync';
 import { deviceTimeZone } from './savePlant';
 import { usePlantDetail } from './usePlantDetail';
 
@@ -33,7 +31,6 @@ beforeAll(initI18n);
 beforeEach(async () => {
   mock = new MockAdapter(api);
   mockDispatch.mockClear();
-  resetCapWarning();
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockClear();
   await clearTokens();
   await AsyncStorage.clear();
@@ -237,28 +234,6 @@ describe('usePlantDetail', () => {
 
     expect(result.current.requiredDays).toBe(0);
     expect(result.current.values.wateringDays).toEqual([]);
-  });
-
-  it('warns once that only 60 reminders fit when a save hits the cap', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const daily = { ...userPlantFixture, frequency: { times: 1, per: 'day' as const }, wateringDays: [] };
-    const { result } = await renderDetail();
-    mock.onGet('/me/plants').reply(
-      200,
-      Array.from({ length: 62 }, (_, i) => ({ ...daily, id: `d${i}` })),
-    );
-    const lists = () => mock.history.get.filter((r) => r.url === '/me/plants').length;
-
-    await act(() => result.current.saveLead(10));
-    await waitFor(() => expect(alert).toHaveBeenCalledTimes(1), { timeout: 5000 });
-    const before = lists();
-    await act(() => result.current.saveLead(5));
-    await waitFor(() => expect(lists()).toBe(before + 1), { timeout: 5000 });
-    // Lets the second sync finish scheduling and decide about the warning.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
-
-    expect(alert).toHaveBeenCalledTimes(1);
-    expect(alert).toHaveBeenCalledWith(expect.stringContaining('60 reminders'));
   });
 
   it('stores the last of two quick lead changes', async () => {

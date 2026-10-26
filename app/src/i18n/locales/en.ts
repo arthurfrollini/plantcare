@@ -150,7 +150,6 @@ const en = {
     retry: 'Try again',
     loadError: "Couldn't load your plants.",
     offlineNotice: 'Showing your last synced plants. Changes need a connection.',
-    capReached: 'Only 60 reminders fit on your phone, so some of your plants will not get one.',
   },
   today: {
     title: 'Today',
@@ -183,6 +182,8 @@ const en = {
   notification: {
     title: '🌱 Watering time',
     body: 'In {{minutes}} min you need to water your {{name}}.',
+    keepGoingTitle: '🌱 Your reminders are running out',
+    keepGoingBody: 'Open PlantCare to keep getting watering reminders.',
   },
   profile: {
     title: 'Profile',
