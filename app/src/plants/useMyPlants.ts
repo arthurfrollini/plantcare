@@ -10,6 +10,7 @@ import {
   undoWatered as deleteWatered,
 } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
+import { sessionEpoch } from '../auth/session';
 import { syncReminders } from '../reminders/sync';
 import { readMyPlantsCache, writeMyPlantsCache } from './myPlantsCache';
 
@@ -145,8 +146,14 @@ export function useMyPlants(): MyPlantsResult {
           const next = plantsRef.current.map((p) => (p.id === id ? updated : p));
           apply(next);
           void writeMyPlantsCache(next);
-          // The ticked watering gains or loses its reminder; never awaited, never prompts.
-          void syncReminders(next);
+          // The ticked watering gains or loses its reminder; never awaited, never prompts. The
+          // reminders follow the server's list, since the one on screen may be stale (a refresh
+          // just discarded above); without it, the updated local list will do.
+          const epoch = sessionEpoch();
+          const resync = (plants: UserPlant[]) => {
+            if (sessionEpoch() === epoch) void syncReminders(plants);
+          };
+          void listMyPlants().then(resync, () => resync(next));
           return true;
         } catch {
           return false;

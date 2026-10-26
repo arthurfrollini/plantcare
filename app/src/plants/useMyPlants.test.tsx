@@ -2,7 +2,7 @@ import React, { type ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import MockAdapter from 'axios-mock-adapter';
-import { userPlantSchema } from '@plantcare/shared';
+import { userPlantSchema, type UserPlant } from '@plantcare/shared';
 import { z } from 'zod';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
@@ -198,7 +198,7 @@ describe('useMyPlants', () => {
       expect(cached[0]?.lastWateredOn).toBe(today);
     });
 
-    it('resyncs reminders with the updated list after a mark', async () => {
+    it('resyncs reminders from the server list after a mark', async () => {
       const sync = jest.spyOn(reminders, 'syncReminders');
       mock.onGet('/me/plants').reply(200, [userPlantFixture]);
       mock
@@ -207,16 +207,23 @@ describe('useMyPlants', () => {
       const { result } = renderHook(() => useMyPlants(), { wrapper });
       await waitFor(() => expect(result.current.plants).toHaveLength(1));
       sync.mockClear();
+      // The server knows of a plant added elsewhere that the list on screen does not have yet.
+      const server = [
+        { ...userPlantFixture, lastWateredOn: today },
+        { ...userPlantFixture, id: 'p2' },
+      ];
+      jest.spyOn(endpoints, 'listMyPlants').mockResolvedValueOnce(server);
 
       await act(async () => {
         await result.current.markWatered('p1', today);
       });
 
-      expect(sync).toHaveBeenCalledTimes(1);
-      expect(sync).toHaveBeenCalledWith([{ ...userPlantFixture, lastWateredOn: today }]);
-    });
+      await waitFor(() => expect(sync).toHaveBeenCalledTimes(1), { timeout: 10000 });
+      expect(sync).toHaveBeenCalledWith(server);
+      expect(result.current.plants.map((p) => p.id)).toEqual(['p1']);
+    }, 20000);
 
-    it('resyncs reminders with lastWateredOn cleared after an undo', async () => {
+    it('resyncs reminders from the server list after an undo', async () => {
       const sync = jest.spyOn(reminders, 'syncReminders');
       mock.onGet('/me/plants').reply(200, [{ ...userPlantFixture, lastWateredOn: today }]);
       mock
@@ -225,14 +232,72 @@ describe('useMyPlants', () => {
       const { result } = renderHook(() => useMyPlants(), { wrapper });
       await waitFor(() => expect(result.current.plants[0]?.lastWateredOn).toBe(today));
       sync.mockClear();
+      const server = [
+        { ...userPlantFixture, lastWateredOn: null, reminderTime: '19:00' },
+        { ...userPlantFixture, id: 'p2' },
+      ];
+      jest.spyOn(endpoints, 'listMyPlants').mockResolvedValueOnce(server);
 
       await act(async () => {
         await result.current.undoWatered('p1', today);
       });
 
-      expect(sync).toHaveBeenCalledTimes(1);
-      expect(sync).toHaveBeenCalledWith([{ ...userPlantFixture, lastWateredOn: null }]);
-    });
+      await waitFor(() => expect(sync).toHaveBeenCalledTimes(1), { timeout: 10000 });
+      expect(sync).toHaveBeenCalledWith(server);
+    }, 20000);
+
+    it('falls back to the updated local list when the server list fails', async () => {
+      const sync = jest.spyOn(reminders, 'syncReminders');
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+      sync.mockClear();
+      jest.spyOn(endpoints, 'listMyPlants').mockRejectedValueOnce(new Error('offline'));
+
+      await act(async () => {
+        await result.current.markWatered('p1', today);
+      });
+
+      await waitFor(() => expect(sync).toHaveBeenCalledTimes(1), { timeout: 10000 });
+      expect(sync).toHaveBeenCalledWith([{ ...userPlantFixture, lastWateredOn: today }]);
+    }, 20000);
+
+    it('answers the mark at once, and skips the resync after a sign-out', async () => {
+      const sync = jest.spyOn(reminders, 'syncReminders');
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      const { result } = renderHook(() => ({ my: useMyPlants(), auth: useAuth() }), { wrapper });
+      await waitFor(() => expect(result.current.my.plants).toHaveLength(1));
+      sync.mockClear();
+      let answer: (plants: UserPlant[]) => void = () => undefined;
+      const list = jest.spyOn(endpoints, 'listMyPlants').mockReturnValueOnce(
+        new Promise<UserPlant[]>((resolve) => {
+          answer = resolve;
+        }),
+      );
+
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.my.markWatered('p1', today);
+      });
+      expect(ok).toBe(true);
+      expect(result.current.my.plants[0]?.lastWateredOn).toBe(today);
+      expect(list).toHaveBeenCalledTimes(1);
+      expect(sync).not.toHaveBeenCalled();
+
+      await act(() => result.current.auth.signOut());
+      await act(async () => {
+        answer([{ ...userPlantFixture, lastWateredOn: today }]);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+
+      expect(sync).not.toHaveBeenCalled();
+    }, 20000);
 
     it('does not resync reminders when the mark fails', async () => {
       const sync = jest.spyOn(reminders, 'syncReminders');

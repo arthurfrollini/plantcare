@@ -59,6 +59,14 @@ function monthly(overrides: Partial<UserPlant> = {}): UserPlant {
   });
 }
 
+function deferred() {
+  let resolve: () => void = () => undefined;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 function reminderCount(plants: UserPlant[]): number {
   const now = new Date();
   const later = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate(), now.getHours());
@@ -112,7 +120,8 @@ describe('syncReminders', () => {
 
     const result = await syncReminders([daily('a'), daily('b'), daily('c')]);
 
-    expect(result.scheduled).toBe(59);
+    // Moments left out by the cap are not failures.
+    expect(result).toEqual({ scheduled: 59, skipped: 0 });
     expect(schedule).toHaveBeenCalledTimes(60);
     const reminders = requests().slice(0, 59);
     const times = reminders.map((r) =>
@@ -217,8 +226,7 @@ describe('syncReminders', () => {
     expect(result).toEqual({ scheduled: count - 1, skipped: 1 });
   });
 
-  it('schedules nothing when notifications are not allowed', async () => {
-    const count = reminderCount([monthly()]);
+  it('schedules nothing, and skips nothing, when notifications are not allowed', async () => {
     const denied = {
       granted: false,
       canAskAgain: false,
@@ -228,19 +236,19 @@ describe('syncReminders', () => {
     jest.mocked(Notifications.getPermissionsAsync).mockResolvedValueOnce(denied);
     jest.mocked(Notifications.requestPermissionsAsync).mockResolvedValueOnce(denied);
 
-    const result = await syncReminders([monthly()]);
+    const result = await syncReminders([monthly(), plant({ reminderTime: 'x' })]);
 
-    expect(result).toEqual({ scheduled: 0, skipped: count });
+    expect(result).toEqual({ scheduled: 0, skipped: 0 });
     expect(schedule).not.toHaveBeenCalled();
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 
-  it('never rejects: a failed cancel skips every reminder, and the queue keeps working', async () => {
+  it('never rejects: a failed cancel schedules and skips nothing, and the queue keeps working', async () => {
     const count = reminderCount([monthly()]);
     cancelAll.mockRejectedValueOnce(new Error('boom'));
 
     const failed = await syncReminders([monthly(), plant({ reminderTime: 'x' })]);
-    expect(failed).toEqual({ scheduled: 0, skipped: count + 1 });
+    expect(failed).toEqual({ scheduled: 0, skipped: 0 });
     expect(schedule).not.toHaveBeenCalled();
 
     expect(await syncReminders([monthly()])).toEqual({
@@ -249,7 +257,7 @@ describe('syncReminders', () => {
     });
   });
 
-  it('runs concurrent syncs one after another; the second call wins', async () => {
+  it('runs two syncs asked for together once, with the second call\'s plants', async () => {
     const active = new Set<string>();
     let next = 0;
     const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 5));
@@ -268,6 +276,7 @@ describe('syncReminders', () => {
     const second = syncReminders([monthly({ id: 'second' })]);
     await Promise.all([first, second]);
 
+    expect(cancelAll).toHaveBeenCalledTimes(1);
     expect(active.size).toBe(reminderCount([monthly()]) + 1);
     expect([...active].some((entry) => entry.includes('first'))).toBe(false);
     expect([...active].some((entry) => entry.includes('second'))).toBe(true);
@@ -276,6 +285,149 @@ describe('syncReminders', () => {
     cancelAll.mockResolvedValue(undefined);
     schedule.mockReset();
     schedule.mockResolvedValue('notification-id');
+  });
+
+  describe('queueing', () => {
+    afterEach(() => {
+      cancelAll.mockReset();
+      cancelAll.mockResolvedValue(undefined);
+      schedule.mockReset();
+      schedule.mockResolvedValue('notification-id');
+    });
+
+    /**
+     * Stands in for the phone's list of pending notifications. `log` records each native call in
+     * order: 'cancel', or the plant id (or 'keep' for the keep-going) of each scheduled one.
+     */
+    function fakePhone() {
+      const pending = new Set<string>();
+      const log: string[] = [];
+      let next = 0;
+      cancelAll.mockImplementation(() => {
+        log.push('cancel');
+        pending.clear();
+        return Promise.resolve();
+      });
+      schedule.mockImplementation((request) => {
+        next += 1;
+        const id = request.content.data?.userPlantId;
+        const label = typeof id === 'string' ? id : 'keep';
+        log.push(label);
+        pending.add(`${next}:${label}`);
+        return Promise.resolve(String(next));
+      });
+      return { pending, log };
+    }
+
+    /** The log with repeats in a row folded, so a run reads as cancel, plant, keep. */
+    function runs(log: string[]): string[] {
+      return log.filter((entry, i) => entry === 'cancel' || entry !== log[i - 1]);
+    }
+
+    /** Holds the next native cancel until `release`; `reached` resolves once it is called. */
+    function holdNextCancel() {
+      const reached = deferred();
+      const gate = deferred();
+      const original = cancelAll.getMockImplementation();
+      cancelAll.mockImplementationOnce(async () => {
+        reached.resolve();
+        await gate.promise;
+        await original?.();
+      });
+      return { reached: reached.promise, release: gate.resolve };
+    }
+
+    it(
+      'runs a cancel called during a sync after that sync, so nothing is left scheduled',
+      async () => {
+        const phone = fakePhone();
+        const reached = deferred();
+        const gate = deferred();
+        const original = schedule.getMockImplementation();
+        schedule.mockImplementationOnce(async (request) => {
+          reached.resolve();
+          await gate.promise;
+          return original ? original(request) : 'id';
+        });
+
+        const sync = syncReminders([monthly({ id: 'mine' })]);
+        await reached.promise;
+        const cancel = cancelAllReminders();
+        gate.resolve();
+        await Promise.all([sync, cancel]);
+
+        expect(phone.pending.size).toBe(0);
+        expect(phone.log.at(-1)).toBe('cancel');
+        expect(runs(phone.log)).toEqual(['cancel', 'mine', 'keep', 'cancel']);
+      },
+      20000,
+    );
+
+    it(
+      'runs only the newest of the syncs asked for while one runs, and answers every caller',
+      async () => {
+        const phone = fakePhone();
+        const held = holdNextCancel();
+
+        const first = syncReminders([monthly({ id: 'first' })]);
+        await held.reached;
+        const later = [1, 2, 3, 4, 5].map((n) => syncReminders([monthly({ id: `n${n}` })]));
+        held.release();
+        const results = await Promise.all([first, ...later]);
+
+        const count = reminderCount([monthly()]);
+        expect(cancelAll).toHaveBeenCalledTimes(2);
+        expect(runs(phone.log)).toEqual(['cancel', 'first', 'keep', 'cancel', 'n5', 'keep']);
+        expect(results).toEqual(
+          Array.from({ length: 6 }, () => ({ scheduled: count, skipped: 0 })),
+        );
+        expect([...phone.pending].every((entry) => /:(n5|keep)$/.test(entry))).toBe(true);
+      },
+      20000,
+    );
+
+    it(
+      'keeps a cancel between the syncs asked for before and after it',
+      async () => {
+        const phone = fakePhone();
+        const held = holdNextCancel();
+
+        const first = syncReminders([monthly({ id: 'first' })]);
+        await held.reached;
+        const second = syncReminders([monthly({ id: 'second' })]);
+        const cancel = cancelAllReminders();
+        const third = syncReminders([monthly({ id: 'third' })]);
+        const fourth = syncReminders([monthly({ id: 'fourth' })]);
+        held.release();
+        await Promise.all([first, second, cancel, third, fourth]);
+
+        expect(runs(phone.log)).toEqual([
+          'cancel',
+          'first',
+          'keep',
+          'cancel',
+          'second',
+          'keep',
+          'cancel',
+          'cancel',
+          'fourth',
+          'keep',
+        ]);
+      },
+      20000,
+    );
+
+    it(
+      'passes a failed cancel to its caller, and the queue keeps working',
+      async () => {
+        cancelAll.mockRejectedValueOnce(new Error('boom'));
+
+        await expect(cancelAllReminders()).rejects.toThrow('boom');
+        const count = reminderCount([monthly()]);
+        expect(await syncReminders([monthly()])).toEqual({ scheduled: count, skipped: 0 });
+      },
+      20000,
+    );
   });
 });
 

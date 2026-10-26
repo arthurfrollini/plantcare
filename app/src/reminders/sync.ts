@@ -19,10 +19,6 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return request.granted;
 }
 
-export async function cancelAllReminders(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-}
-
 type Planned = { at: Date; plant: UserPlant };
 
 /** Every upcoming reminder of one plant that is not for a watering already ticked; null if malformed. */
@@ -46,9 +42,14 @@ function dateTrigger(date: Date): Notifications.NotificationTriggerInput {
   return { type: Notifications.SchedulableTriggerInputTypes.DATE, date };
 }
 
-let queue: Promise<unknown> = Promise.resolve();
+type SyncResult = { scheduled: number; skipped: number };
 
-async function runSync(plants: UserPlant[]): Promise<{ scheduled: number; skipped: number }> {
+/** Syncs and cancels run one at a time, in the order they were asked for. */
+let queue: Promise<unknown> = Promise.resolve();
+/** The sync at the end of the queue that has not started yet; a newer request replaces its plants. */
+let waiting: { slot: { plants: UserPlant[] }; run: Promise<SyncResult> } | null = null;
+
+async function runSync(plants: UserPlant[]): Promise<SyncResult> {
   const now = new Date();
   const until = new Date(
     now.getFullYear() + 1,
@@ -65,12 +66,11 @@ async function runSync(plants: UserPlant[]): Promise<{ scheduled: number; skippe
     else malformed += 1;
   }
   upcoming.sort(byTimeThenPlant);
-  const totalSkipped = upcoming.length + malformed;
 
   try {
-    await cancelAllReminders();
+    await Notifications.cancelAllScheduledNotificationsAsync();
   } catch {
-    return { scheduled: 0, skipped: totalSkipped };
+    return { scheduled: 0, skipped: 0 };
   }
 
   let allowed = false;
@@ -79,11 +79,12 @@ async function runSync(plants: UserPlant[]): Promise<{ scheduled: number; skippe
   } catch {
     // Treated as not allowed.
   }
+  if (!allowed) return { scheduled: 0, skipped: 0 };
   // With nothing to remind about there is nothing to keep going with either.
-  if (!allowed || upcoming.length === 0) return { scheduled: 0, skipped: totalSkipped };
+  if (upcoming.length === 0) return { scheduled: 0, skipped: malformed };
 
   let scheduled = 0;
-  let skipped = malformed + Math.max(0, upcoming.length - MAX_REMINDERS);
+  let skipped = malformed;
   for (const { at, plant } of upcoming.slice(0, MAX_REMINDERS)) {
     try {
       await Notifications.scheduleNotificationAsync({
@@ -125,15 +126,40 @@ async function runSync(plants: UserPlant[]): Promise<{ scheduled: number; skippe
  * Replaces every scheduled reminder with one dated notification per upcoming watering of the
  * given plants, up to a year ahead, skipping waterings already ticked. The MAX_REMINDERS soonest
  * across all plants are kept, followed by one "keep going" notification. Never prompts for
- * permission and never rejects. `skipped` counts reminders left out by the cap, one per plant
- * with a malformed reminder time, and every reminder when notifications are not allowed or the
- * old ones could not be cancelled. With no reminders to schedule, nothing is scheduled at all.
- * Calls run one at a time.
+ * permission and never rejects. `skipped` counts failures only: one per plant with a malformed
+ * reminder time, plus one per reminder that failed to schedule. Reminders left out by the cap or
+ * the one-year horizon are not counted. When notifications are not allowed or the old ones could
+ * not be cancelled, the result is `{ scheduled: 0, skipped: 0 }`. With no reminders to schedule,
+ * nothing is scheduled at all.
+ *
+ * Calls run one at a time, queued with cancelAllReminders. A call made while an earlier sync
+ * still waits for its turn replaces that sync's plants, and both callers get the result of the
+ * one run.
  */
-export function syncReminders(
-  plants: UserPlant[],
-): Promise<{ scheduled: number; skipped: number }> {
-  const run = queue.then(() => runSync(plants));
+export function syncReminders(plants: UserPlant[]): Promise<SyncResult> {
+  if (waiting) {
+    waiting.slot.plants = plants;
+    return waiting.run;
+  }
+  const slot = { plants };
+  const run = queue.then(() => {
+    // Started: a newer request queues a run of its own.
+    if (waiting?.slot === slot) waiting = null;
+    return runSync(slot.plants);
+  });
+  waiting = { slot, run };
+  queue = run.catch(() => undefined);
+  return run;
+}
+
+/**
+ * Cancels every scheduled notification once the syncs asked for before it have run, so none of
+ * them can schedule after it. Rejects when the native cancel fails; the queue keeps going.
+ */
+export function cancelAllReminders(): Promise<void> {
+  // A sync asked for after this cancel must run after it, so it cannot join the waiting one.
+  waiting = null;
+  const run = queue.then(() => Notifications.cancelAllScheduledNotificationsAsync());
   queue = run.catch(() => undefined);
   return run;
 }
