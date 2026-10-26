@@ -202,21 +202,45 @@ describe('reminderMoments', () => {
     expect(times).toEqual([...times].sort((a, b) => a - b));
   });
 
-  it('one year of a monthly and a two-weekly plant is cheap', () => {
-    const until = at(2027, 9, 26, 12, 0);
-    for (const per of ['month', 'twoWeeks'] as const) {
-      const input: ScheduleInput = {
-        ...base,
-        frequency: { times: 1, per },
-        wateringDays: [1],
-        scheduleStartsOn: '2024-03-04',
-      };
-      const start = performance.now();
-      const runs = 20;
-      for (let i = 0; i < runs; i++) reminderMoments(input, now, until);
-      const each = (performance.now() - start) / runs;
-      expect(each).toBeLessThan(25);
-    }
+  describe('one year from Thu 2026-10-22 12:00, anchored on Mon 2024-03-04', () => {
+    const until = at(2027, 9, 22, 12, 0);
+    // 2026-10-26 is 966 days after the anchor (69 x 14); 2027-10-11 is 1316 (94 x 14).
+    const anchored = (per: 'month' | 'twoWeeks'): ScheduleInput => ({
+      ...base,
+      frequency: { times: 1, per },
+      wateringDays: [1],
+      scheduleStartsOn: '2024-03-04',
+    });
+
+    it('two-weekly has 26 moments, every 14 days', () => {
+      const moments = reminderMoments(anchored('twoWeeks'), now, until);
+      expect(moments).toHaveLength(26);
+      expect(moments[0]).toEqual({
+        at: at(2026, 9, 26, 6, 45),
+        wateringOn: '2026-10-26',
+      });
+      expect(moments[25]?.wateringOn).toBe('2027-10-11');
+      moments.slice(1).forEach((m, i) => {
+        const prev = moments[i];
+        const gap = Math.round(
+          (Date.UTC(m.at.getFullYear(), m.at.getMonth(), m.at.getDate()) -
+            Date.UTC(
+              prev?.at.getFullYear() ?? 0,
+              prev?.at.getMonth() ?? 0,
+              prev?.at.getDate() ?? 0,
+            )) /
+            86_400_000,
+        );
+        expect(gap).toBe(14);
+      });
+    });
+
+    it('monthly has 13 moments, first 2026-11-09 and last 2027-10-11', () => {
+      const moments = reminderMoments(anchored('month'), now, until);
+      expect(moments).toHaveLength(13);
+      expect(moments[0]?.wateringOn).toBe('2026-11-09');
+      expect(moments[12]?.wateringOn).toBe('2027-10-11');
+    });
   });
 
   it.each(['25:00', '', '9:5'])('throws on malformed time %j', (time) => {
