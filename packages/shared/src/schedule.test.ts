@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultWateringDays,
   nextWatering,
-  type ReminderTrigger,
-  reminderTriggers,
+  reminderMoments,
   toLocalDateString,
   requiredWateringDays,
   type ScheduleInput,
@@ -45,43 +44,47 @@ describe('requiredWateringDays / defaultWateringDays', () => {
   });
 });
 
-describe('reminderTriggers', () => {
-  it('daily fires lead minutes before', () => {
-    expect(reminderTriggers(base, now)).toEqual([
-      { kind: 'daily', hour: 6, minute: 45 },
+describe('reminderMoments', () => {
+  const at = (y: number, m: number, d: number, h: number, min: number) =>
+    new Date(y, m, d, h, min);
+
+  it('daily lists each reminder still ahead, with its watering day', () => {
+    const input = { ...base, reminderTime: '08:30' };
+    expect(
+      reminderMoments(input, at(2026, 9, 22, 9, 0), at(2026, 9, 25, 23, 59)),
+    ).toEqual([
+      { at: at(2026, 9, 23, 8, 15), wateringOn: '2026-10-23' },
+      { at: at(2026, 9, 24, 8, 15), wateringOn: '2026-10-24' },
+      { at: at(2026, 9, 25, 8, 15), wateringOn: '2026-10-25' },
     ]);
   });
 
-  it('daily wraps past midnight', () => {
-    expect(reminderTriggers({ ...base, reminderTime: '00:00' }, now)).toEqual([
-      { kind: 'daily', hour: 23, minute: 45 },
+  it('includes a reminder exactly at until and excludes one exactly at from', () => {
+    const from = at(2026, 9, 22, 6, 45);
+    const until = at(2026, 9, 23, 6, 45);
+    expect(reminderMoments(base, from, until)).toEqual([
+      { at: until, wateringOn: '2026-10-23' },
     ]);
   });
 
-  it('weekly converts ISO days to Expo weekdays', () => {
+  it('weekly lists only the chosen weekdays', () => {
     const input: ScheduleInput = {
       ...base,
       frequency: { times: 2, per: 'week' },
-      wateringDays: [1, 4],
-      reminderTime: '08:30',
-      reminderLeadMinutes: 30,
+      wateringDays: [2, 4],
     };
-    expect(reminderTriggers(input, now)).toEqual([
-      { kind: 'weekly', weekday: 2, hour: 8, minute: 0 },
-      { kind: 'weekly', weekday: 5, hour: 8, minute: 0 },
+    const moments = reminderMoments(
+      input,
+      at(2026, 9, 25, 0, 0),
+      at(2026, 10, 8, 23, 59),
+    );
+    expect(moments.map((m) => m.wateringOn)).toEqual([
+      '2026-10-27',
+      '2026-10-29',
+      '2026-11-03',
+      '2026-11-05',
     ]);
-  });
-
-  it('weekly moves to the previous day below midnight (Monday to Sunday)', () => {
-    const input: ScheduleInput = {
-      ...base,
-      frequency: { times: 1, per: 'week' },
-      wateringDays: [1],
-      reminderTime: '00:00',
-    };
-    expect(reminderTriggers(input, now)).toEqual([
-      { kind: 'weekly', weekday: 1, hour: 23, minute: 45 },
-    ]);
+    expect(moments.every((m) => m.at.getHours() === 6)).toBe(true);
   });
 
   it('weekly falls back to default days on a wrong count', () => {
@@ -90,12 +93,31 @@ describe('reminderTriggers', () => {
       frequency: { times: 3, per: 'week' },
       wateringDays: [1, 4],
     };
-    expect(
-      reminderTriggers(input, now).map((t) => t.kind === 'weekly' && t.weekday),
-    ).toEqual([2, 5, 1]);
+    const moments = reminderMoments(
+      input,
+      at(2026, 9, 25, 0, 0),
+      at(2026, 10, 1, 23, 59),
+    );
+    // Defaults Mon, Thu, Sun: Oct 25, 26, 29, Nov 1.
+    expect(moments.map((m) => m.wateringOn)).toEqual([
+      '2026-10-25',
+      '2026-10-26',
+      '2026-10-29',
+      '2026-11-01',
+    ]);
   });
 
-  it('monthly steps 28 days from the anchor', () => {
+  it('a lead across midnight belongs to the next day watering', () => {
+    const input = { ...base, reminderTime: '00:10' };
+    expect(
+      reminderMoments(input, at(2026, 9, 22, 12, 0), at(2026, 9, 24, 12, 0)),
+    ).toEqual([
+      { at: at(2026, 9, 22, 23, 55), wateringOn: '2026-10-23' },
+      { at: at(2026, 9, 23, 23, 55), wateringOn: '2026-10-24' },
+    ]);
+  });
+
+  it('monthly steps 28 days from the anchor, matching wateringTimeOn', () => {
     const input: ScheduleInput = {
       ...base,
       frequency: { times: 1, per: 'month' },
@@ -103,77 +125,50 @@ describe('reminderTriggers', () => {
       reminderTime: '09:00',
       scheduleStartsOn: '2026-01-05',
     };
-    // 2026-01-05 + 28k: ... Oct 19 is k=40? compute expected independently
-    const anchor = new Date(2026, 0, 5, 9, 0);
-    const expected: ReminderTrigger[] = [];
-    for (let k = 0; expected.length < 3; k++) {
-      const d = new Date(2026, 0, 5 + 28 * k, 8, 45);
-      if (d > now) expected.push({ kind: 'date', date: d });
+    const moments = reminderMoments(input, now, at(2027, 1, 28, 0, 0));
+    const expected: { at: Date; wateringOn: string }[] = [];
+    for (let k = 0; expected.length < 4; k++) {
+      const d = at(2026, 0, 5 + 28 * k, 8, 45);
+      if (d > now) expected.push({ at: d, wateringOn: toLocalDateString(d) });
     }
-    expect(anchor.getDay()).toBe(1);
-    expect(reminderTriggers(input, now)).toEqual(expected);
-    expect(expected[0]?.kind).toBe('date');
+    expect(moments.slice(0, 4)).toEqual(expected);
+    for (const m of moments) {
+      const day = new Date(m.at.getFullYear(), m.at.getMonth(), m.at.getDate());
+      expect(wateringTimeOn(input, day)).not.toBeNull();
+    }
   });
 
-  it('twoWeeks skips a reminder that already passed today', () => {
+  it('twoWeeks without an anchor lands on the fixed-reference days', () => {
     const input: ScheduleInput = {
       ...base,
       frequency: { times: 1, per: 'twoWeeks' },
-      wateringDays: [4],
+      wateringDays: [1],
       reminderTime: '09:00',
-      scheduleStartsOn: '2026-10-22',
     };
-    const triggers = reminderTriggers(input, new Date(2026, 9, 22, 8, 50));
-    expect(triggers).toHaveLength(3);
-    expect(triggers[0]).toEqual({
-      kind: 'date',
-      date: new Date(2026, 10, 5, 8, 45),
-    });
+    // Every 14 days from Monday 2024-01-01: 2026-11-02 is a multiple of 14 days away.
+    const moments = reminderMoments(input, now, at(2026, 11, 31, 0, 0));
+    const days = Math.round(
+      (Date.UTC(2026, 10, 2) - Date.UTC(2024, 0, 1)) / 86_400_000,
+    );
+    expect(days % 14).toBe(0);
+    expect(moments.slice(0, 3)).toEqual([
+      { at: at(2026, 10, 2, 8, 45), wateringOn: '2026-11-02' },
+      { at: at(2026, 10, 16, 8, 45), wateringOn: '2026-11-16' },
+      { at: at(2026, 10, 30, 8, 45), wateringOn: '2026-11-30' },
+    ]);
   });
 
-  it('twoWeeks keeps today when the reminder is still ahead', () => {
+  it('is the same wherever the window starts', () => {
     const input: ScheduleInput = {
       ...base,
       frequency: { times: 1, per: 'twoWeeks' },
-      wateringDays: [4],
-      reminderTime: '09:00',
-      scheduleStartsOn: '2026-10-22',
-    };
-    expect(reminderTriggers(input, new Date(2026, 9, 22, 8, 0))[0]).toEqual({
-      kind: 'date',
-      date: new Date(2026, 9, 22, 8, 45),
-    });
-  });
-
-  it('twoWeeks without an anchor keeps a fixed phase between syncs', () => {
-    const input: ScheduleInput = {
-      ...base,
-      frequency: { times: 1, per: 'twoWeeks' },
-      wateringDays: [3],
+      wateringDays: [1],
       reminderTime: '09:00',
     };
-    // Every 14 days from Wednesday 2024-01-03, the chosen weekday after the reference Monday.
-    const expectedFrom = (at: Date): ReminderTrigger[] => {
-      const expected: ReminderTrigger[] = [];
-      for (let k = 0; expected.length < 3; k++) {
-        const d = new Date(2024, 0, 3 + 14 * k, 8, 45);
-        if (d > at) expected.push({ kind: 'date', date: d });
-      }
-      return expected;
-    };
-    const weekLater = new Date(2026, 9, 29, 12, 0);
-    // Thursday Oct 22: the phase lands on Nov 4, not the Wednesday right after.
-    expect(reminderTriggers(input, now)).toEqual(expectedFrom(now));
-    expect(reminderTriggers(input, now)[0]).toEqual({
-      kind: 'date',
-      date: new Date(2026, 10, 4, 8, 45),
-    });
-    // A sync a week later still waters on Nov 4, so the plant is not watered weekly.
-    expect(reminderTriggers(input, weekLater)).toEqual(expectedFrom(weekLater));
-    expect(reminderTriggers(input, weekLater)[0]).toEqual({
-      kind: 'date',
-      date: new Date(2026, 10, 4, 8, 45),
-    });
+    const until = at(2027, 3, 1, 0, 0);
+    const early = reminderMoments(input, now, until);
+    const late = reminderMoments(input, at(2026, 9, 29, 12, 0), until);
+    expect(late).toEqual(early.filter((m) => m.at > at(2026, 9, 29, 12, 0)));
   });
 
   it('monthly without an anchor waters every 28 days whenever it syncs', () => {
@@ -190,9 +185,71 @@ describe('reminderTriggers', () => {
     expect(later).toEqual(first);
   });
 
+  it('a year of a daily plant is 365 or 366 moments', () => {
+    const from = at(2026, 9, 26, 12, 0);
+    const moments = reminderMoments(base, from, at(2027, 9, 26, 12, 0));
+    expect(moments.length).toBeGreaterThanOrEqual(365);
+    expect(moments.length).toBeLessThanOrEqual(366);
+  });
+
+  it('stays in time order', () => {
+    const moments = reminderMoments(
+      { ...base, reminderTime: '00:10' },
+      now,
+      at(2026, 10, 30, 0, 0),
+    );
+    const times = moments.map((m) => m.at.getTime());
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+  });
+
+  describe('one year from Thu 2026-10-22 12:00, anchored on Mon 2024-03-04', () => {
+    const until = at(2027, 9, 22, 12, 0);
+    // 2026-10-26 is 966 days after the anchor (69 x 14); 2027-10-11 is 1316 (94 x 14).
+    const anchored = (per: 'month' | 'twoWeeks'): ScheduleInput => ({
+      ...base,
+      frequency: { times: 1, per },
+      wateringDays: [1],
+      scheduleStartsOn: '2024-03-04',
+    });
+
+    it('two-weekly has 26 moments, every 14 days', () => {
+      const moments = reminderMoments(anchored('twoWeeks'), now, until);
+      expect(moments).toHaveLength(26);
+      expect(moments[0]).toEqual({
+        at: at(2026, 9, 26, 6, 45),
+        wateringOn: '2026-10-26',
+      });
+      expect(moments[25]?.wateringOn).toBe('2027-10-11');
+      moments.slice(1).forEach((m, i) => {
+        const prev = moments[i];
+        const gap = Math.round(
+          (Date.UTC(m.at.getFullYear(), m.at.getMonth(), m.at.getDate()) -
+            Date.UTC(
+              prev?.at.getFullYear() ?? 0,
+              prev?.at.getMonth() ?? 0,
+              prev?.at.getDate() ?? 0,
+            )) /
+            86_400_000,
+        );
+        expect(gap).toBe(14);
+      });
+    });
+
+    it('monthly has 13 moments, first 2026-11-09 and last 2027-10-11', () => {
+      const moments = reminderMoments(anchored('month'), now, until);
+      expect(moments).toHaveLength(13);
+      expect(moments[0]?.wateringOn).toBe('2026-11-09');
+      expect(moments[12]?.wateringOn).toBe('2027-10-11');
+    });
+  });
+
   it.each(['25:00', '', '9:5'])('throws on malformed time %j', (time) => {
     expect(() =>
-      reminderTriggers({ ...base, reminderTime: time }, now),
+      reminderMoments(
+        { ...base, reminderTime: time },
+        now,
+        at(2026, 9, 30, 0, 0),
+      ),
     ).toThrow('Invalid reminder time');
   });
 });

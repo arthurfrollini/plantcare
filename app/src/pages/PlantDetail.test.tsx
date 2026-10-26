@@ -12,7 +12,6 @@ import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
-import { resetCapWarning } from '../reminders/sync';
 import { deviceTimeZone } from '../plants/savePlant';
 import { accountFixture, userPlantFixture } from '../plants/testFixtures';
 import { PlantDetail } from './PlantDetail';
@@ -42,7 +41,6 @@ beforeEach(async () => {
   mock = new MockAdapter(api);
   mockDispatch.mockClear();
   mockGoBack.mockClear();
-  resetCapWarning();
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');

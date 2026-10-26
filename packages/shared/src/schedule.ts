@@ -10,16 +10,12 @@ export type ScheduleInput = {
   scheduleStartsOn: string | null;
 };
 
-export type ReminderTrigger =
-  | { kind: 'daily'; hour: number; minute: number }
-  | {
-      kind: 'weekly';
-      /** Expo convention: 1 = Sunday ... 7 = Saturday. */
-      weekday: number;
-      hour: number;
-      minute: number;
-    }
-  | { kind: 'date'; date: Date };
+export type ReminderMoment = {
+  /** When the reminder fires. */
+  at: Date;
+  /** Local YYYY-MM-DD of the watering it belongs to. */
+  wateringOn: string;
+};
 
 const DEFAULT_WEEKDAYS: Record<number, number[]> = {
   1: [1],
@@ -30,8 +26,6 @@ const DEFAULT_WEEKDAYS: Record<number, number[]> = {
   6: [1, 2, 3, 4, 5, 6],
   7: [1, 2, 3, 4, 5, 6, 7],
 };
-
-const DAY_MINUTES = 24 * 60;
 
 export function requiredWateringDays(f: Frequency): number {
   if (f.per === 'day') return 0;
@@ -112,40 +106,6 @@ function* dateOccurrences(
   }
 }
 
-export function reminderTriggers(
-  input: ScheduleInput,
-  now: Date,
-  upcoming = 3,
-): ReminderTrigger[] {
-  const time = parseTime(input.reminderTime);
-  if (!time) throw new Error(`Invalid reminder time: ${input.reminderTime}`);
-
-  const total = time.hour * 60 + time.minute - input.reminderLeadMinutes;
-  const dayShift = total < 0 ? -1 : 0;
-  const minutes = (total + DAY_MINUTES) % DAY_MINUTES;
-  const hour = Math.floor(minutes / 60);
-  const minute = minutes % 60;
-
-  const { per } = input.frequency;
-  if (per === 'day') return [{ kind: 'daily', hour, minute }];
-  if (per === 'week') {
-    return effectiveDays(input).map((iso) => {
-      const shifted = ((iso - 1 + dayShift + 7) % 7) + 1;
-      return { kind: 'weekly', weekday: (shifted % 7) + 1, hour, minute };
-    });
-  }
-
-  const triggers: ReminderTrigger[] = [];
-  for (const watering of dateOccurrences(input, time, now)) {
-    const date = new Date(
-      watering.getTime() - input.reminderLeadMinutes * 60_000,
-    );
-    if (date > now) triggers.push({ kind: 'date', date });
-    if (triggers.length >= upcoming) break;
-  }
-  return triggers;
-}
-
 export function nextWatering(input: ScheduleInput, now: Date): Date | null {
   const time = parseTime(input.reminderTime);
   if (!time) return null;
@@ -205,4 +165,50 @@ export function wateringTimeOn(input: ScheduleInput, day: Date): Date | null {
     if (watering >= at) return watering.getTime() === at.getTime() ? at : null;
   }
   return null;
+}
+
+/**
+ * Every reminder with `from < at <= until`, in time order. `at` is the
+ * watering time minus the lead, so a reminder can fall on the day before its
+ * watering. Throws on a malformed reminder time.
+ */
+export function reminderMoments(
+  input: ScheduleInput,
+  from: Date,
+  until: Date,
+): ReminderMoment[] {
+  if (!parseTime(input.reminderTime)) {
+    throw new Error(`Invalid reminder time: ${input.reminderTime}`);
+  }
+  const moments: ReminderMoment[] = [];
+  // A watering up to a day after `until` can still remind inside the window
+  // when the lead is long, and one a day before `from` can still be ahead.
+  // Stepping by calendar day (not 24 h) keeps DST changes from drifting.
+  const first = new Date(
+    from.getFullYear(),
+    from.getMonth(),
+    from.getDate() - 1,
+  );
+  const last = new Date(
+    until.getFullYear(),
+    until.getMonth(),
+    until.getDate() + 1,
+  );
+  for (let k = 0; ; k++) {
+    const day = new Date(
+      first.getFullYear(),
+      first.getMonth(),
+      first.getDate() + k,
+    );
+    if (day > last) break;
+    const watering = wateringTimeOn(input, day);
+    if (!watering) continue;
+    const at = new Date(
+      watering.getTime() - input.reminderLeadMinutes * 60_000,
+    );
+    if (at > from && at <= until) {
+      moments.push({ at, wateringOn: toLocalDateString(watering) });
+    }
+  }
+  return moments.sort((a, b) => a.at.getTime() - b.at.getTime());
 }

@@ -10,7 +10,6 @@ import { api } from '../api/client';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
-import { resetCapWarning } from '../reminders/sync';
 import { MY_PLANTS_CACHE_KEY } from '../plants/myPlantsCache';
 import { setToday } from '../plants/testClock';
 import { accountFixture, userPlantFixture } from '../plants/testFixtures';
@@ -41,7 +40,6 @@ beforeEach(async () => {
   setToday(new Date(2026, 9, 21, 12, 0));
   mock = new MockAdapter(api);
   mockNavigate.mockClear();
-  resetCapWarning();
   await clearTokens();
   await AsyncStorage.clear();
   await changeLanguage('en');

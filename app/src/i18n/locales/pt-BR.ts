@@ -152,7 +152,6 @@ const ptBR: typeof en = {
     retry: 'Tentar de novo',
     loadError: 'Não foi possível carregar suas plantas.',
     offlineNotice: 'Mostrando suas últimas plantas sincronizadas. Alterações precisam de conexão.',
-    capReached: 'Só cabem 60 lembretes no celular, então algumas plantas ficarão sem lembrete.',
   },
   today: {
     title: 'Hoje',
@@ -182,6 +181,8 @@ const ptBR: typeof en = {
   notification: {
     title: '🌱 Hora de regar',
     body: 'Em {{minutes}} min você precisa regar: {{name}}.',
+    keepGoingTitle: '🌱 Seus lembretes estão acabando',
+    keepGoingBody: 'Abra o PlantCare pra continuar recebendo os lembretes de rega.',
   },
   profile: {
     title: 'Perfil',
