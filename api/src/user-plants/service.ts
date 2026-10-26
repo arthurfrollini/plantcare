@@ -19,14 +19,20 @@ import type {
 } from '../generated/prisma/client';
 import { pickTranslation } from '../plants/service';
 import type { PhotoStorage } from '../storage';
-import { nextOccurrenceDate } from './schedule-start';
+import { daysBetween, nextOccurrenceDate, todayInZone } from './schedule-start';
 
 export type UserPlantWithSpecies = UserPlantRow & {
   catalogPlant: Plant & { translations: PlantTranslation[] };
+  waterings: { wateredOn: Date }[];
 };
 
 const include = {
   catalogPlant: { include: { translations: true } },
+  waterings: {
+    orderBy: { wateredOn: 'desc' },
+    take: 1,
+    select: { wateredOn: true },
+  },
 } as const;
 
 function isDateBased(frequency: { per: string }): boolean {
@@ -34,7 +40,10 @@ function isDateBased(frequency: { per: string }): boolean {
 }
 
 export function toUserPlantDto(
-  row: UserPlantRow & { catalogPlant: Plant },
+  row: UserPlantRow & {
+    catalogPlant: Plant;
+    waterings: { wateredOn: Date }[];
+  },
   translation: PlantTranslation | null,
 ): UserPlant {
   const frequency = frequencySchema.parse({
@@ -65,6 +74,8 @@ export function toUserPlantDto(
     reminderLeadMinutes: row.reminderLeadMinutes,
     scheduleStartsOn: row.scheduleStartsOn?.toISOString().slice(0, 10) ?? null,
     scheduleNeedsReview,
+    lastWateredOn:
+      row.waterings[0]?.wateredOn.toISOString().slice(0, 10) ?? null,
     timeZone: row.timeZone,
     notes: row.notes,
     imageUrl: row.catalogPlant.imageFile
@@ -310,4 +321,72 @@ export async function deleteUserPlant(
   });
   if (count === 0) throw notFound();
   if (photoKey !== null) await storage.remove(photoKey);
+}
+
+const MAX_DAYS_OFF = 1;
+
+async function ownedWithZone(
+  prisma: PrismaClient,
+  userId: string,
+  id: string,
+): Promise<{ timeZone: string }> {
+  const owned = await prisma.userPlant.findFirst({
+    where: { id, userId },
+    select: { timeZone: true },
+  });
+  if (!owned) throw notFound();
+  return owned;
+}
+
+async function presentById(
+  prisma: PrismaClient,
+  id: string,
+  locale: Locale,
+): Promise<UserPlant> {
+  const row = await prisma.userPlant.findUniqueOrThrow({
+    where: { id },
+    include,
+  });
+  return present(row, locale);
+}
+
+/** Records a watering; `created` is false when the day was already marked. */
+export async function markWatered(
+  prisma: PrismaClient,
+  userId: string,
+  id: string,
+  locale: Locale,
+  wateredOn: string,
+): Promise<{ plant: UserPlant; created: boolean }> {
+  const { timeZone } = await ownedWithZone(prisma, userId, id);
+  const off = Math.abs(
+    daysBetween(todayInZone(timeZone, new Date()), wateredOn),
+  );
+  if (off > MAX_DAYS_OFF) {
+    throw new AppError(
+      400,
+      'invalid_watering_date',
+      'The date is too far from today in the plant time zone',
+    );
+  }
+  const date = new Date(`${wateredOn}T00:00:00Z`);
+  const { count } = await prisma.watering.createMany({
+    data: [{ userPlantId: id, wateredOn: date }],
+    skipDuplicates: true,
+  });
+  return { plant: await presentById(prisma, id, locale), created: count > 0 };
+}
+
+export async function unmarkWatered(
+  prisma: PrismaClient,
+  userId: string,
+  id: string,
+  locale: Locale,
+  wateredOn: string,
+): Promise<UserPlant> {
+  await ownedWithZone(prisma, userId, id);
+  await prisma.watering.deleteMany({
+    where: { userPlantId: id, wateredOn: new Date(`${wateredOn}T00:00:00Z`) },
+  });
+  return presentById(prisma, id, locale);
 }

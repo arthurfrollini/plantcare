@@ -29,6 +29,7 @@ function plant(overrides: Partial<UserPlant> = {}): UserPlant {
     imageUrl: null,
     hasPhoto: false,
     photoVersion: null,
+    lastWateredOn: null,
     createdAt: '2026-10-22T00:00:00.000Z',
     ...overrides,
   };

@@ -127,6 +127,20 @@ export const authResponseSchema = z.object({
 });
 export type AuthResponse = z.infer<typeof authResponseSchema>;
 
+/** A real calendar date as YYYY-MM-DD, in the device's local time. */
+export const localDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((text) => {
+    const [year = 0, month = 0, day = 0] = text.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return (
+      date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day
+    );
+  }, 'Not a real calendar date');
+
 export const userPlantSchema = z.object({
   id: z.string(),
   catalogPlantId: z.string(),
@@ -151,6 +165,9 @@ export const userPlantSchema = z.object({
   hasPhoto: z.boolean(),
   // ISO time of the last photo save; use it to bust image caches.
   photoVersion: z.string().nullable(),
+  // Local date of the latest watering, or null if never watered. Defaults to null so a list cached
+  // or served before waterings existed still reads.
+  lastWateredOn: localDateSchema.nullable().default(null),
   createdAt: z.string(),
 });
 export type UserPlant = z.infer<typeof userPlantSchema>;

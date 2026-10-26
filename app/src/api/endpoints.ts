@@ -98,6 +98,18 @@ export async function deleteMyPlant(id: string): Promise<void> {
   await api.delete(`/me/plants/${encodeURIComponent(id)}`);
 }
 
+export function markWatered(id: string, wateredOn: string): Promise<UserPlant> {
+  return api
+    .post(`/me/plants/${encodeURIComponent(id)}/waterings`, { wateredOn })
+    .then((r) => userPlantSchema.parse(r.data));
+}
+
+export function undoWatered(id: string, wateredOn: string): Promise<UserPlant> {
+  return api
+    .delete(`/me/plants/${encodeURIComponent(id)}/waterings/${encodeURIComponent(wateredOn)}`)
+    .then((r) => userPlantSchema.parse(r.data));
+}
+
 export function uploadPlantPhoto(
   id: string,
   file: { uri: string; mimeType: string },

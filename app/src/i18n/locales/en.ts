@@ -138,9 +138,8 @@ const en = {
     hard: 'Hard',
   },
   myPlants: {
-    nextWatering: "Don't forget to water your {{name}} {{time}}.",
     empty: "You haven't added any plants yet. Tap + to add your first one.",
-    upcoming: 'Coming up',
+    garden: 'My garden',
     waterAt: 'Water at',
     removeTitle: 'Remove {{name}}?',
     remove: 'Remove',
@@ -152,6 +151,29 @@ const en = {
     loadError: "Couldn't load your plants.",
     offlineNotice: 'Showing your last synced plants. Changes need a connection.',
     capReached: 'Only 60 reminders fit on your phone, so some of your plants will not get one.',
+  },
+  today: {
+    title: 'Today',
+    progress: '{{done}} of {{total}}',
+    water: 'Watered ✓',
+    watered: '✓ Watered',
+    // Screen reader labels for the pill.
+    markLabel: 'Mark {{name}} as watered',
+    wateredLabel: '{{name}} watered',
+    undoHint: "Undoes today's watering",
+    late: 'late',
+    allDone: 'All watered today 🌱',
+    nothing: 'Nothing to water today 🌱',
+    next: 'Next: {{name}} {{when}}',
+    tomorrowAt: 'tomorrow {{at}}',
+    weekdayAt: 'on {{day}} {{at}}',
+    dateAt: 'on {{date}} {{at}}',
+    // The time of day; Portuguese says "à" for one o'clock and "às" for every other hour.
+    at: 'at {{time}}',
+    atOne: 'at {{time}}',
+    // date-fns pattern for a watering more than a week away.
+    dateFormat: 'MMMM d',
+    saveError: "Couldn't save. Try again.",
   },
   tabs: {
     profile: 'Profile',

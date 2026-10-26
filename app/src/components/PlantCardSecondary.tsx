@@ -1,16 +1,12 @@
-import React, { useState } from 'react';
-import { Image as NativeImage, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Feather } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
-import { SvgFromUri } from 'react-native-svg';
 import type { UserPlant } from '@plantcare/shared';
 
+import { PlantPicture } from './PlantPicture';
 import { Tappable } from './Tappable';
-import { assetUrl } from '../api/config';
-import { plantPhotoSource } from '../api/endpoints';
-import mascot from '../assets/watering.png';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -34,55 +30,7 @@ export const PlantCardSecondary = ({
   onPhotoError,
 }: PlantProps) => {
   const { t } = useTranslation();
-  const [photoRetried, setPhotoRetried] = useState(false);
-  const [photoGone, setPhotoGone] = useState(false);
-  const [illustrationGone, setIllustrationGone] = useState(false);
-
-  const photo = !photoGone && accessToken ? plantPhotoSource(plant, accessToken) : null;
   const name = plant.speciesName;
-
-  // One retry with a refreshed token; any other failure falls back to the illustration.
-  function handlePhotoError() {
-    if (photoRetried) {
-      setPhotoGone(true);
-      return;
-    }
-    setPhotoRetried(true);
-    const failedWith = accessToken;
-    void onPhotoError().then((next) => {
-      if (next === null || next === failedWith) setPhotoGone(true);
-    });
-  }
-
-  function renderPicture() {
-    if (photo) {
-      return (
-        <Image
-          testID="plant-photo"
-          source={photo}
-          style={styles.photo}
-          onError={handlePhotoError}
-          accessibilityIgnoresInvertColors
-        />
-      );
-    }
-    if (plant.imageUrl && !illustrationGone) {
-      return (
-        <SvgFromUri
-          uri={assetUrl(plant.imageUrl)}
-          width={50}
-          height={50}
-          onError={() => setIllustrationGone(true)}
-        />
-      );
-    }
-    return <NativeImage
-        testID="plant-mascot"
-        source={mascot}
-        style={styles.photo}
-        accessibilityIgnoresInvertColors
-      />;
-  }
 
   return (
     <Swipeable
@@ -114,7 +62,12 @@ export const PlantCardSecondary = ({
         onPress={onPress}
         accessibilityRole="button"
       >
-        {renderPicture()}
+        <PlantPicture
+          plant={plant}
+          accessToken={accessToken}
+          size={50}
+          onPhotoError={onPhotoError}
+        />
         <View style={styles.names}>
           <Text style={styles.title}>{name}</Text>
         </View>
@@ -144,11 +97,6 @@ const styles = StyleSheet.create({
   },
   containerPressed: {
     backgroundColor: colors.shape_pressed,
-  },
-  photo: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
   },
   names: {
     flex: 1,

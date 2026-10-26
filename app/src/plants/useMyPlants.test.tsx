@@ -3,14 +3,18 @@ import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import MockAdapter from 'axios-mock-adapter';
+import { userPlantSchema } from '@plantcare/shared';
+import { z } from 'zod';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { api } from '../api/client';
+import * as endpoints from '../api/endpoints';
 import { AuthProvider, useAuth } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
 import { resetCapWarning } from '../reminders/sync';
 import { MY_PLANTS_CACHE_KEY } from './myPlantsCache';
+import { setToday } from './testClock';
 import { accountFixture, userPlantFixture } from './testFixtures';
 import { useMyPlants } from './useMyPlants';
 
@@ -172,5 +176,186 @@ describe('useMyPlants', () => {
     await act(() => result.current.auth.signOut());
 
     expect(result.current.my.plants).toHaveLength(0);
+  });
+
+  describe('marking watered', () => {
+    const today = '2026-10-22';
+    beforeEach(() => {
+      // Thursday, noon.
+      setToday(new Date(2026, 9, 22, 12, 0));
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('sends the given day, replaces the plant and the cache', async () => {
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.markWatered('p1', today);
+      });
+
+      expect(ok).toBe(true);
+      expect(z.object({ wateredOn: z.string() }).parse(JSON.parse(z.string().parse(mock.history.post[0]?.data)))).toEqual({
+        wateredOn: today,
+      });
+      expect(result.current.plants[0]?.lastWateredOn).toBe(today);
+      const cached = z
+        .array(userPlantSchema)
+        .parse(JSON.parse((await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)) ?? '[]'));
+      expect(cached[0]?.lastWateredOn).toBe(today);
+    });
+
+    it('returns false and leaves the list and cache on failure', async () => {
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(500, { error: { code: 'internal', message: 'x' } });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+      let ok = true;
+      await act(async () => {
+        ok = await result.current.markWatered('p1', today);
+      });
+
+      expect(ok).toBe(false);
+      expect(result.current.plants[0]?.lastWateredOn).toBeNull();
+      const cached = z
+        .array(userPlantSchema)
+        .parse(JSON.parse((await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)) ?? '[]'));
+      expect(cached[0]?.lastWateredOn).toBeNull();
+    });
+
+    it('sends one request for two quick calls on the same plant', async () => {
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      let release: () => void = () => undefined;
+      mock.onPost('/me/plants/p1/waterings').reply(
+        () =>
+          new Promise((resolve) => {
+            release = () => resolve([201, { ...userPlantFixture, lastWateredOn: today }]);
+          }),
+      );
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+      let first: Promise<boolean> = Promise.resolve(false);
+      let second: Promise<boolean> = Promise.resolve(false);
+      act(() => {
+        first = result.current.markWatered('p1', today);
+        second = result.current.markWatered('p1', today);
+      });
+      await waitFor(() => expect(mock.history.post).toHaveLength(1), { timeout: 5000 });
+      const results: boolean[] = [];
+      await act(async () => {
+        release();
+        results.push(await first, await second);
+      });
+
+      expect(mock.history.post).toHaveLength(1);
+      expect(results).toEqual([true, true]);
+    });
+
+    it('ends with no watering after mark then undo', async () => {
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      mock
+        .onDelete(`/me/plants/p1/waterings/${today}`)
+        .reply(200, { ...userPlantFixture, lastWateredOn: null });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+      await act(async () => {
+        await result.current.markWatered('p1', today);
+      });
+      expect(result.current.plants[0]?.lastWateredOn).toBe(today);
+      await act(async () => {
+        await result.current.undoWatered('p1', today);
+      });
+
+      expect(result.current.plants[0]?.lastWateredOn).toBeNull();
+      const cached = z
+        .array(userPlantSchema)
+        .parse(JSON.parse((await AsyncStorage.getItem(MY_PLANTS_CACHE_KEY)) ?? '[]'));
+      expect(cached[0]?.lastWateredOn).toBeNull();
+    });
+
+    it('can undo a plant loaded with today as its last watering', async () => {
+      mock.onGet('/me/plants').reply(200, [{ ...userPlantFixture, lastWateredOn: today }]);
+      mock
+        .onDelete(`/me/plants/p1/waterings/${today}`)
+        .reply(200, { ...userPlantFixture, lastWateredOn: null });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants[0]?.lastWateredOn).toBe(today));
+
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.undoWatered('p1', today);
+      });
+
+      expect(ok).toBe(true);
+      expect(mock.history.delete[0]?.headers?.['Content-Type']).toBeUndefined();
+      expect(result.current.plants[0]?.lastWateredOn).toBeNull();
+    });
+
+    it("sends the row's day, not the clock's, once midnight has passed", async () => {
+      mock.onGet('/me/plants').reply(200, [{ ...userPlantFixture, lastWateredOn: today }]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      mock
+        .onDelete(`/me/plants/p1/waterings/${today}`)
+        .reply(200, { ...userPlantFixture, lastWateredOn: null });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+
+      // Friday 00:01: the row on screen is still Thursday's.
+      jest.setSystemTime(new Date(2026, 9, 23, 0, 1));
+      await act(async () => {
+        await result.current.undoWatered('p1', today);
+      });
+      await act(async () => {
+        await result.current.markWatered('p1', today);
+      });
+
+      expect(mock.history.delete.map((request) => request.url)).toEqual([
+        `/me/plants/p1/waterings/${today}`,
+      ]);
+      expect(
+        z
+          .object({ wateredOn: z.string() })
+          .parse(JSON.parse(z.string().parse(mock.history.post[0]?.data))),
+      ).toEqual({ wateredOn: today });
+    });
+
+    it('lets a later call through after a request that failed before it started', async () => {
+      mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+      mock
+        .onPost('/me/plants/p1/waterings')
+        .reply(201, { ...userPlantFixture, lastWateredOn: today });
+      const { result } = renderHook(() => useMyPlants(), { wrapper });
+      await waitFor(() => expect(result.current.plants).toHaveLength(1));
+      jest.spyOn(endpoints, 'markWatered').mockImplementationOnce(() => {
+        throw new Error('thrown before any request');
+      });
+
+      const results: boolean[] = [];
+      await act(async () => {
+        results.push(await result.current.markWatered('p1', today));
+      });
+      await act(async () => {
+        results.push(await result.current.markWatered('p1', today));
+      });
+
+      expect(results).toEqual([false, true]);
+      expect(mock.history.post).toHaveLength(1);
+      expect(result.current.plants[0]?.lastWateredOn).toBe(today);
+    });
   });
 });

@@ -4,8 +4,10 @@ import {
   nextWatering,
   type ReminderTrigger,
   reminderTriggers,
+  toLocalDateString,
   requiredWateringDays,
   type ScheduleInput,
+  wateringTimeOn,
 } from './schedule';
 
 const base: ScheduleInput = {
@@ -225,5 +227,73 @@ describe('nextWatering', () => {
 
   it('returns null for a malformed time', () => {
     expect(nextWatering({ ...base, reminderTime: '25:00' }, now)).toBeNull();
+  });
+});
+
+describe('wateringTimeOn', () => {
+  const weekly: ScheduleInput = {
+    ...base,
+    frequency: { times: 2, per: 'week' },
+    wateringDays: [2, 4],
+    reminderTime: '08:30',
+  };
+
+  it('gives the watering time on a scheduled weekday only', () => {
+    expect(wateringTimeOn(weekly, new Date(2026, 9, 20, 22, 0))).toEqual(
+      new Date(2026, 9, 20, 8, 30),
+    ); // Tuesday
+    expect(wateringTimeOn(weekly, new Date(2026, 9, 21, 9, 0))).toBeNull();
+  });
+
+  it('waters every day for daily plants', () => {
+    expect(wateringTimeOn(base, new Date(2026, 9, 21, 23, 0))).toEqual(
+      new Date(2026, 9, 21, 7, 0),
+    );
+  });
+
+  it('uses the anchor for monthly plants (28-day step)', () => {
+    const monthly: ScheduleInput = {
+      ...base,
+      frequency: { times: 1, per: 'month' },
+      wateringDays: [1],
+      reminderTime: '09:00',
+      scheduleStartsOn: '2026-01-05',
+    };
+    expect(wateringTimeOn(monthly, new Date(2026, 10, 9, 15, 0))).toEqual(
+      new Date(2026, 10, 9, 9, 0),
+    );
+    expect(wateringTimeOn(monthly, new Date(2026, 10, 10))).toBeNull();
+    expect(wateringTimeOn(monthly, new Date(2026, 0, 4))).toBeNull();
+    expect(wateringTimeOn(monthly, new Date(2026, 0, 5))).toEqual(
+      new Date(2026, 0, 5, 9, 0),
+    );
+  });
+
+  it('uses the fixed reference Monday without an anchor', () => {
+    const twoWeekly: ScheduleInput = {
+      ...base,
+      frequency: { times: 1, per: 'twoWeeks' },
+      wateringDays: [1],
+    };
+    expect(wateringTimeOn(twoWeekly, new Date(2024, 0, 15))).toEqual(
+      new Date(2024, 0, 15, 7, 0),
+    );
+    expect(wateringTimeOn(twoWeekly, new Date(2024, 0, 8))).toBeNull();
+    expect(wateringTimeOn(twoWeekly, new Date(2026, 9, 19))).toEqual(
+      new Date(2026, 9, 19, 7, 0),
+    ); // 2024-01-01 + 73 * 14 days
+    expect(wateringTimeOn(twoWeekly, new Date(2026, 9, 26))).toBeNull();
+  });
+
+  it('returns null for a malformed time', () => {
+    expect(
+      wateringTimeOn({ ...base, reminderTime: 'soon' }, new Date(2026, 9, 21)),
+    ).toBeNull();
+  });
+});
+
+describe('toLocalDateString', () => {
+  it('formats the device-local date', () => {
+    expect(toLocalDateString(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
   });
 });

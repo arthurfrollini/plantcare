@@ -81,22 +81,34 @@ model PlantAlias {
 }
 
 model UserPlant {
-  id                  String    @id @default(cuid())
+  id                  String     @id @default(cuid())
   userId              String
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   catalogPlantId      String
-  catalogPlant        Plant     @relation(fields: [catalogPlantId], references: [id])
+  catalogPlant        Plant      @relation(fields: [catalogPlantId], references: [id])
   nickname            String?
-  wateringDays        Int[]     @default([])
+  wateringDays        Int[]      @default([])
   reminderTime        String
-  reminderLeadMinutes Int       @default(15)
-  scheduleStartsOn    DateTime? @db.Date
+  reminderLeadMinutes Int        @default(15)
+  scheduleStartsOn    DateTime?  @db.Date
   timeZone            String
   notes               String?
   photoPath           String?
   photoUpdatedAt      DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  waterings           Watering[]
 
   @@index([userId])
+}
+
+model Watering {
+  id          String    @id @default(cuid())
+  userPlantId String
+  userPlant   UserPlant @relation(fields: [userPlantId], references: [id], onDelete: Cascade)
+  wateredOn   DateTime  @db.Date
+  createdAt   DateTime  @default(now())
+
+  @@unique([userPlantId, wateredOn])
+  @@index([userPlantId])
 }

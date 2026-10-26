@@ -174,3 +174,35 @@ export function nextWatering(input: ScheduleInput, now: Date): Date | null {
   }
   return null;
 }
+
+/** Device-local YYYY-MM-DD for a moment. */
+export function toLocalDateString(date: Date): string {
+  const pad = (n: number, width: number) => String(n).padStart(width, '0');
+  return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1, 2)}-${pad(date.getDate(), 2)}`;
+}
+
+/** The watering time on that local calendar day, or null if none. */
+export function wateringTimeOn(input: ScheduleInput, day: Date): Date | null {
+  const time = parseTime(input.reminderTime);
+  if (!time) return null;
+  const at = new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    time.hour,
+    time.minute,
+  );
+
+  const { per } = input.frequency;
+  if (per === 'day') return at;
+  if (per === 'week') {
+    return effectiveDays(input).includes(isoWeekday(at)) ? at : null;
+  }
+
+  for (const watering of dateOccurrences(input, time, day)) {
+    // Occurrences share the time of day, so the first one not before `at`
+    // is either this very day or a later one.
+    if (watering >= at) return watering.getTime() === at.getTime() ? at : null;
+  }
+  return null;
+}

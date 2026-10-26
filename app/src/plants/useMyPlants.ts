@@ -3,7 +3,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { UserPlant } from '@plantcare/shared';
 
 import { ApiError, toApiError } from '../api/client';
-import { deleteMyPlant, listMyPlants } from '../api/endpoints';
+import {
+  deleteMyPlant,
+  listMyPlants,
+  markWatered as postWatered,
+  undoWatered as deleteWatered,
+} from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
 import { syncReminders, warnIfCapped } from '../reminders/sync';
 import { readMyPlantsCache, writeMyPlantsCache } from './myPlantsCache';
@@ -16,6 +21,14 @@ export type MyPlantsResult = {
   error: ApiError | null;
   refresh: () => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /**
+   * Records a watering on `day` (YYYY-MM-DD, local), the date of the row tapped rather than of the
+   * tap, so a tap just after midnight still marks the row on screen. False when it failed. A call
+   * while one for this plant is in flight joins it.
+   */
+  markWatered: (id: string, day: string) => Promise<boolean>;
+  /** Takes the watering on `day` back. Same rules as markWatered. */
+  undoWatered: (id: string, day: string) => Promise<boolean>;
 };
 
 export function useMyPlants(): MyPlantsResult {
@@ -27,6 +40,8 @@ export function useMyPlants(): MyPlantsResult {
   const [error, setError] = useState<ApiError | null>(null);
   const latest = useRef(0);
   const plantsRef = useRef<UserPlant[]>([]);
+  // Plants with a watering request in flight; a repeat call for one joins it.
+  const watering = useRef(new Map<string, Promise<boolean>>());
   const shownFor = useRef<string | null>(null);
   // True while the list on screen is the cached one shown ahead of the request.
   const fromCache = useRef(false);
@@ -111,5 +126,47 @@ export function useMyPlants(): MyPlantsResult {
     [offline, apply],
   );
 
-  return { plants, offline, loading, error, refresh, remove };
+  const changeWatering = useCallback(
+    (
+      id: string,
+      day: string,
+      send: (id: string, day: string) => Promise<UserPlant>,
+    ): Promise<boolean> => {
+      // A call during an in-flight one, mark or undo, joins it; the card disables the row meanwhile.
+      const running = watering.current.get(id);
+      if (running) return running;
+      const run = (async () => {
+        try {
+          // Sent on a later microtask, so the map entry below is set before `finally` deletes it,
+          // even if `send` throws at once.
+          const updated = await Promise.resolve().then(() => send(id, day));
+          // A refresh already in flight may still carry the old state of this plant.
+          latest.current += 1;
+          setLoading(false);
+          const next = plantsRef.current.map((p) => (p.id === id ? updated : p));
+          apply(next);
+          void writeMyPlantsCache(next);
+          return true;
+        } catch {
+          return false;
+        } finally {
+          watering.current.delete(id);
+        }
+      })();
+      watering.current.set(id, run);
+      return run;
+    },
+    [apply],
+  );
+
+  const markWatered = useCallback(
+    (id: string, day: string) => changeWatering(id, day, postWatered),
+    [changeWatering],
+  );
+  const undoWatered = useCallback(
+    (id: string, day: string) => changeWatering(id, day, deleteWatered),
+    [changeWatering],
+  );
+
+  return { plants, offline, loading, error, refresh, remove, markWatered, undoWatered };
 }

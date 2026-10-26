@@ -29,6 +29,7 @@ import { plantRoutes } from './plants/routes';
 import { createDiskStorage, type PhotoStorage } from './storage';
 import { photoRoutes } from './user-plants/photo-routes';
 import { userPlantRoutes } from './user-plants/routes';
+import { wateringRoutes } from './user-plants/waterings-routes';
 import { healthRoutes } from './routes/health';
 
 export type BuildAppOptions = {
@@ -174,6 +175,7 @@ export async function buildApp(
   avatarRoutes(app, photoStorage);
   accountRoutes(app, photoStorage);
   userPlantRoutes(app, photoStorage);
+  wateringRoutes(app);
   photoRoutes(app, photoStorage);
   options.extraRoutes?.(app);
 
