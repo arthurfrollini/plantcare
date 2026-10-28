@@ -83,9 +83,12 @@ export const PlantCardSecondary = ({
             {plant.scientificName}
           </Text>
           <View style={styles.badges}>
-            <View testID="next-watering" style={[styles.pill, dueToday && styles.pillToday]}>
-              <Feather name="droplet" size={13} color={dueToday ? colors.blue : colors.body_dark} />
-              <Text style={[styles.pillText, dueToday && styles.pillTextToday]}>
+            <View
+              testID="next-watering"
+              style={[styles.pill, styles.pillWater, dueToday && styles.pillToday]}
+            >
+              <Feather name="droplet" size={13} color={dueToday ? colors.white : colors.blue} />
+              <Text style={[styles.pillText, styles.pillTextWater, dueToday && styles.pillTextToday]}>
                 {next
                   ? describeWatering(t, next, now)
                   : `${t('myPlants.waterAt')} ${plant.reminderTime}`}
@@ -163,8 +166,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.shape,
   },
-  pillToday: {
+  // The light blue of the old "next watering" spotlight; solid blue when the watering is today.
+  pillWater: {
     backgroundColor: colors.blue_light,
+  },
+  pillToday: {
+    backgroundColor: colors.blue,
   },
   pillCare: {
     backgroundColor: colors.yellow_light,
@@ -174,8 +181,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.heading,
     color: colors.body_dark,
   },
-  pillTextToday: {
+  pillTextWater: {
     color: colors.blue,
+  },
+  pillTextToday: {
+    color: colors.white,
   },
   pillTextCare: {
     color: colors.yellow_dark,
