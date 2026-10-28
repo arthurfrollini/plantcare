@@ -159,11 +159,11 @@ describe('catalog routes', () => {
     );
   });
 
-  it('serves the illustration at imageUrl', async () => {
-    const items = (await list('')).json<Page>().items;
-    const item = items.find((p) => p.slug === 'aningapara');
-    expect(item?.imageUrl).toMatch(/^\/static\/plants\/.+\.svg$/);
-    const res = await app.inject({ method: 'GET', url: item?.imageUrl ?? '' });
+  it('still serves the old illustrations', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/static/plants/aningapara.svg',
+    });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('image/svg+xml');
   });

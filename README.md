@@ -4,7 +4,7 @@ A phone app that reminds you to water your plants. The catalog knows what each s
 
 ## What it does
 
-- Browse the catalog without an account: search with or without accents, filter by light and care difficulty, and add several plants at once. Sign-up comes when you add your first plants. The catalog photos are public domain or CC0 from Wikimedia Commons, credited on each plant's screen.
+- Browse the catalog without an account: search with or without accents, filter by light and care difficulty, and add several plants at once. Sign-up comes when you add your first plants. Catalog photos from Wikimedia Commons are public domain or CC0 and credited on each plant's screen.
 - Each plant's screen shows the species' difficulty, light and watering. You pick the watering days, a time on the half hour and a reminder 5 to 30 minutes ahead, and every change saves right away.
 - Reminders are local notifications ("In 15 min you need to water your Snake plant.") on daily, weekly, every-two-weeks and monthly schedules.
 - The Today card on the home screen shows what to water today. Tap "Watered ✓" ("Reguei ✓" in Portuguese) to tick a plant and see your progress; a ticked watering skips its reminder, and undoing the tick brings it back.

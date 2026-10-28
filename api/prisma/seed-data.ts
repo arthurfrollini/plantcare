@@ -26,7 +26,8 @@ export const plantSeeds: PlantSeed[] = [
     light: 'partial_shade',
     difficulty: 'easy',
     frequency: { times: 2, per: 'week' },
-    imageFile: 'aningapara.svg',
+    // Arthur's own photo; Commons has no photo of this species, only a botanical plate.
+    imageFile: 'aningapara.webp',
     en: {
       name: 'Aninga',
       about: 'A tropical species that grows fast and is easy to handle.',

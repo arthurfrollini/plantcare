@@ -90,15 +90,15 @@ describe('seed', () => {
     }
   });
 
-  it('credits every catalog photo; only aningapara keeps its illustration', async () => {
+  it('uses a photo for every species, crediting the ones from Commons', async () => {
     const plants = await prisma.plant.findMany({ orderBy: { slug: 'asc' } });
     for (const plant of plants) {
+      expect(plant.imageFile).toBe(`${plant.slug}.webp`);
       if (plant.slug === 'aningapara') {
-        expect(plant.imageFile).toBe('aningapara.svg');
+        // Arthur's own photo: nothing to credit.
         expect(plant.imageAuthor).toBeNull();
         continue;
       }
-      expect(plant.imageFile).toBe(`${plant.slug}.webp`);
       expect(plant.imageAuthor).toBeTruthy();
       expect(plant.imageLicense).toMatch(/^(CC0|Public domain)/);
       expect(plant.imageSource).toMatch(
