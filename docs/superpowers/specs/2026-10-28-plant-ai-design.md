@@ -63,9 +63,18 @@ Arthur on his own phone, and maybe a few friends. The app won't go to the stores
 - Every call records input/output tokens and cost.
 - Identification runs with thinking off and low effort. Check-ups run adaptive at low effort. The eval below confirms both hold up.
 
+### Real plant photos (Arthur's decision, 2026-10-28)
+
+The catalog's SVG illustrations are replaced by real photos in the public domain, and species created by the AI follow the same rule.
+
+- **Source:** Wikimedia Commons, **CC0 or public domain only**. CC BY and CC BY-SA images need attribution and are left out. Each photo is stored with its source URL, author and license (new `Plant` fields `imageSource`, `imageAuthor`, `imageLicense`), and the species screen shows a small credit line.
+- **The 9 curated species:** picked by hand from Commons, cropped square, resized to 800 px, saved as WebP next to the current SVGs, and reviewed by Arthur on a contact sheet before the seed changes. A test of the Commons API (2026-10-28) found public-domain photos for 8 of the 9 species in the first 50 results. Hydrangea had none, and Peperomia and Phalaenopsis one each, so those need a wider search (common names, more pages).
+- **AI-created species:** when you confirm a new species, the API searches Commons by scientific name, takes the first CC0/public-domain photo at least 800 px on its short side, crops and stores it the same way, and records the credit. If nothing qualifies, the species keeps the placeholder. The search runs after the user's plant is saved, so a slow Commons never blocks **Add to my garden**.
+- Commons requests send a descriptive `User-Agent`, as its API policy asks.
+
 ### Evals
 
-A small set in the repo: about 10 identification photos of real plants (Arthur's own) with the expected scientific name, and about 6 check-up cases including 2 traps that invite harmful advice. A script runs them against the real model (about US$0.01 a run), off CI, and stores a baseline. It runs before changing prompts or the model.
+A small set in the repo: about 10 identification photos of real plants from Wikimedia Commons (CC0 or public domain, none of them the photos used in the catalog) with the expected scientific name, and about 6 check-up cases including 2 traps that invite harmful advice. A script runs them against the real model (about US$0.01 a run), off CI, and stores a baseline. It runs before changing prompts or the model.
 
 ## Data
 
@@ -88,7 +97,6 @@ A small set in the repo: about 10 identification photos of real plants (Arthur's
 
 ## Calls made during the builder check
 
-- AI-created species have no catalog illustration; the catalog card shows the existing placeholder (my call).
 - The API key defaults to the finwise key in `api/.env`; a separate key is a one-line change (my call).
 
 ## Left to the builder
