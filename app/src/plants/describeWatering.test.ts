@@ -1,10 +1,10 @@
 import { changeLanguage, initI18n } from '../i18n';
-import i18n from 'i18next';
+import { t as translate } from 'i18next';
 import { describeWatering } from './describeWatering';
 
 // Wednesday, October 28, 2026, 10:00.
 const now = new Date(2026, 9, 28, 10, 0);
-const t = i18n.t.bind(i18n);
+const t = translate;
 
 beforeAll(initI18n);
 beforeEach(() => changeLanguage('en'));
