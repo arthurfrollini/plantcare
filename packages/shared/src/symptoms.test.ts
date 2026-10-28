@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { findHarmfulAdvice } from './ai';
 import { SYMPTOMS } from './symptoms';
-
-// Replaced by findHarmfulAdvice once the AI schemas land (plan Task 2).
-const HARMFUL =
-  /\b(salt|bleach|vinegar|sugar|alcohol|motor oil|insecticide|pesticide|sal|água sanitária|vinagre|açúcar|álcool|óleo de motor|inseticida|pesticida)\b/i;
 
 describe('SYMPTOMS', () => {
   it('lists the nine symptoms in order', () => {
@@ -42,8 +39,8 @@ describe('SYMPTOMS', () => {
   it('never recommends anything harmful', () => {
     for (const cause of SYMPTOMS.flatMap((s) => s.causes)) {
       for (const text of [cause.title, cause.check, cause.do]) {
-        expect(text.en).not.toMatch(HARMFUL);
-        expect(text['pt-BR']).not.toMatch(HARMFUL);
+        expect(findHarmfulAdvice(text.en)).toBeNull();
+        expect(findHarmfulAdvice(text['pt-BR'])).toBeNull();
       }
     }
   });
