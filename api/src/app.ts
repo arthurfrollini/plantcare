@@ -167,11 +167,11 @@ export async function buildApp(
   });
 
   healthRoutes(app);
-  plantRoutes(app);
   authRoutes(app);
   meRoutes(app);
   const photoStorage =
     options.photoStorage ?? createDiskStorage(env.UPLOADS_DIR);
+  plantRoutes(app, photoStorage);
   avatarRoutes(app, photoStorage);
   accountRoutes(app, photoStorage);
   userPlantRoutes(app, photoStorage);

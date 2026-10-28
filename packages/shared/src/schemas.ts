@@ -80,6 +80,12 @@ export const catalogPlantSchema = z.object({
   difficulty: difficultySchema,
   frequency: frequencySchema,
   imageUrl: z.string().nullable(),
+  // Who took the species photo and under which license, when it came from Wikimedia Commons.
+  // Defaults to null so a catalog cached or served before credits existed still reads.
+  imageCredit: z
+    .object({ author: z.string(), license: z.string(), source: z.string() })
+    .nullable()
+    .default(null),
 });
 export type CatalogPlant = z.infer<typeof catalogPlantSchema>;
 

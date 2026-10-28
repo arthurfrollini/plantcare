@@ -29,6 +29,21 @@ describe('disk storage', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('accepts species, proposal and check-up keys', async () => {
+    const storage = createDiskStorage(root);
+    for (const key of [
+      'species/abc.webp',
+      'proposals/p1.jpg',
+      'checkups/c1.jpg',
+    ]) {
+      await storage.save(key, Buffer.from('x'));
+      expect(await storage.read(key)).toEqual(Buffer.from('x'));
+    }
+    await expect(
+      storage.save('species/../x.webp', Buffer.from('x')),
+    ).rejects.toThrow('Invalid storage key');
+  });
+
   it('rejects keys that could escape the directory', async () => {
     const storage = createDiskStorage(root);
     await expect(storage.save('../evil.png', Buffer.from('x'))).rejects.toThrow(

@@ -25,6 +25,8 @@ model User {
   avatarUpdatedAt DateTime?
   refreshTokens   RefreshToken[]
   plants          UserPlant[]
+  aiProposals     AiProposal[]
+  aiUsage         AiUsage[]
 }
 
 model RefreshToken {
@@ -48,6 +50,11 @@ model Plant {
   frequencyTimes Int
   frequencyPer   String
   imageFile      String?
+  /// Stored photo (storage key), preferred over imageFile when set.
+  imageKey       String?
+  imageSource    String?
+  imageAuthor    String?
+  imageLicense   String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   translations   PlantTranslation[]
@@ -98,6 +105,7 @@ model UserPlant {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
   waterings           Watering[]
+  checkups            Checkup[]
 
   @@index([userId])
 }
@@ -111,4 +119,48 @@ model Watering {
 
   @@unique([userPlantId, wateredOn])
   @@index([userPlantId])
+}
+
+/// A species the model proposed, held until the user confirms it (24 h).
+model AiProposal {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payload   Json
+  photoKey  String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// One AI check-up of a sick plant.
+model Checkup {
+  id          String    @id @default(cuid())
+  userPlantId String
+  userPlant   UserPlant @relation(fields: [userPlantId], references: [id], onDelete: Cascade)
+  photoKey    String
+  description String?
+  problem     String
+  steps       String[]
+  whenToWorry String
+  status      String    @default("open") // "open" | "healed", validated by zod
+  createdAt   DateTime  @default(now())
+  healedAt    DateTime?
+
+  @@index([userPlantId, createdAt])
+}
+
+/// Model calls per user per UTC day, for the daily limits and the spend ceiling.
+model AiUsage {
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day     DateTime @db.Date
+  kind    String // "identify" | "checkup"
+  count   Int      @default(0)
+  costUsd Decimal  @default(0) @db.Decimal(10, 6)
+
+  @@id([userId, day, kind])
+  @@index([day])
 }

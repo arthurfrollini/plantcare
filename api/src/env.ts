@@ -29,6 +29,14 @@ const envSchema = z.object({
     .transform((dir) => path.resolve(apiRoot, dir)),
   PORT: z.coerce.number().int().positive().default(3333),
   CORS_ORIGIN: z.string().min(1).default('*'),
+  /** Without a key the AI features are off. */
+  ANTHROPIC_API_KEY: z
+    .string()
+    .optional()
+    .transform((key) => (key && key.trim() !== '' ? key.trim() : undefined)),
+  AI_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+  /** Spend ceiling for all users together, per UTC day. 0 turns the AI off. */
+  AI_DAILY_SPEND_LIMIT_USD: z.coerce.number().min(0).default(0.5),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,3 +1,5 @@
+import type { PhotoStorage } from '../storage';
+import { contentTypeForKey } from '../user-plants/photo';
 import {
   catalogPageSchema,
   catalogPlantSchema,
@@ -11,7 +13,7 @@ import { AppError } from '../errors';
 import { resolveLocale } from '../i18n';
 import { getCatalogPlant, listCatalog } from './service';
 
-export function plantRoutes(app: FastifyInstance): void {
+export function plantRoutes(app: FastifyInstance, storage: PhotoStorage): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
 
   typed.get(
@@ -57,6 +59,31 @@ export function plantRoutes(app: FastifyInstance): void {
       );
       if (!plant) throw new AppError(404, 'plant_not_found', 'Plant not found');
       return plant;
+    },
+  );
+
+  typed.get(
+    '/plants/:id/image',
+    {
+      schema: {
+        tags: ['plants'],
+        summary: 'Stored species photo',
+        params: z.object({ id: z.string() }),
+      },
+    },
+    async (request, reply) => {
+      const plant = await app.prisma.plant.findUnique({
+        where: { id: request.params.id },
+        select: { imageKey: true },
+      });
+      const data = plant?.imageKey ? await storage.read(plant.imageKey) : null;
+      if (!plant?.imageKey || !data) {
+        throw new AppError(404, 'not_found', 'Image not found');
+      }
+      return reply
+        .header('content-type', contentTypeForKey(plant.imageKey))
+        .header('cache-control', 'public, max-age=86400')
+        .send(data);
     },
   );
 }

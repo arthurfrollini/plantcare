@@ -58,8 +58,26 @@ function toCatalogPlant(row: PlantRow, locale: Locale): CatalogPlant | null {
       times: row.frequencyTimes,
       per: row.frequencyPer,
     }),
-    imageUrl: row.imageFile ? `/static/plants/${row.imageFile}` : null,
+    imageUrl: speciesImageUrl(row),
+    imageCredit:
+      row.imageAuthor && row.imageLicense && row.imageSource
+        ? {
+            author: row.imageAuthor,
+            license: row.imageLicense,
+            source: row.imageSource,
+          }
+        : null,
   };
+}
+
+/** A stored species photo wins over the bundled illustration. */
+export function speciesImageUrl(row: {
+  id: string;
+  imageKey: string | null;
+  imageFile: string | null;
+}): string | null {
+  if (row.imageKey) return `/plants/${row.id}/image`;
+  return row.imageFile ? `/static/plants/${row.imageFile}` : null;
 }
 
 /** Escapes LIKE wildcards so user input matches literally. */

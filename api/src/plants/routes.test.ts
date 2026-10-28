@@ -1,7 +1,11 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { seed } from '../../prisma/seed';
 import { createTestApp, resetDb } from '../../test/helpers';
+import { createDiskStorage } from '../storage';
 
 type Item = {
   id: string;
@@ -160,5 +164,78 @@ describe('catalog routes', () => {
     const res = await app.inject({ method: 'GET', url: item?.imageUrl ?? '' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('image/svg+xml');
+  });
+});
+
+describe('catalog images', () => {
+  let created: Awaited<ReturnType<typeof createTestApp>>;
+  let dir: string;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), 'plantcare-images-'));
+    created = await createTestApp({ photoStorage: createDiskStorage(dir) });
+    await resetDb(created.prisma);
+    await seed(created.prisma);
+  });
+  afterAll(async () => {
+    await created.app.close();
+    await created.prisma.$disconnect();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it('serves a stored species photo and its credit', async () => {
+    const plant = await created.prisma.plant.findFirstOrThrow();
+    const key = `species/${plant.id}.webp`;
+    await createDiskStorage(dir).save(key, Buffer.from('webp-bytes'));
+    await created.prisma.plant.update({
+      where: { id: plant.id },
+      data: {
+        imageKey: key,
+        imageSource: 'https://commons.wikimedia.org/wiki/File:X.jpg',
+        imageAuthor: 'Jane Doe',
+        imageLicense: 'CC0',
+      },
+    });
+
+    const res = await created.app.inject({
+      method: 'GET',
+      url: `/plants/${plant.id}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      imageUrl: `/plants/${plant.id}/image`,
+      imageCredit: {
+        author: 'Jane Doe',
+        license: 'CC0',
+        source: 'https://commons.wikimedia.org/wiki/File:X.jpg',
+      },
+    });
+
+    const image = await created.app.inject({
+      method: 'GET',
+      url: `/plants/${plant.id}/image`,
+    });
+    expect(image.statusCode).toBe(200);
+    expect(image.headers['content-type']).toBe('image/webp');
+    expect(image.rawPayload).toEqual(Buffer.from('webp-bytes'));
+  });
+
+  it('keeps the static image and no credit for a species without a stored photo', async () => {
+    const plant = await created.prisma.plant.findFirstOrThrow({
+      where: { imageKey: null },
+    });
+    const res = await created.app.inject({
+      method: 'GET',
+      url: `/plants/${plant.id}`,
+    });
+    expect(res.json()).toMatchObject({
+      imageUrl: `/static/plants/${plant.imageFile}`,
+      imageCredit: null,
+    });
+    const image = await created.app.inject({
+      method: 'GET',
+      url: `/plants/${plant.id}/image`,
+    });
+    expect(image.statusCode).toBe(404);
   });
 });

@@ -7,7 +7,8 @@ export interface PhotoStorage {
   remove(key: string): Promise<void>;
 }
 
-const SAFE_KEY = /^(avatars\/)?[A-Za-z0-9_-]+\.(jpg|png|webp)$/;
+const SAFE_KEY =
+  /^((avatars|species|proposals|checkups)\/)?[A-Za-z0-9_-]+\.(jpg|png|webp)$/;
 
 function assertSafeKey(key: string): void {
   if (!SAFE_KEY.test(key)) {

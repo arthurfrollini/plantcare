@@ -1,3 +1,4 @@
+import { speciesImageUrl } from '../plants/service';
 import {
   DEFAULT_REMINDER_LEAD,
   difficultySchema,
@@ -78,9 +79,7 @@ export function toUserPlantDto(
       row.waterings[0]?.wateredOn.toISOString().slice(0, 10) ?? null,
     timeZone: row.timeZone,
     notes: row.notes,
-    imageUrl: row.catalogPlant.imageFile
-      ? `/static/plants/${row.catalogPlant.imageFile}`
-      : null,
+    imageUrl: speciesImageUrl(row.catalogPlant),
     hasPhoto: row.photoPath !== null,
     photoVersion: row.photoUpdatedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),

@@ -23,6 +23,7 @@ export const catalogFixture: CatalogPlant = {
   difficulty: 'easy',
   frequency: { times: 2, per: 'week' },
   imageUrl: null,
+  imageCredit: null,
 };
 
 export const userPlantFixture: UserPlant = {
