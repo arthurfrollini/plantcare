@@ -27,7 +27,7 @@ export function identifyPrompt(name: string | undefined): string {
 export function checkupSystem(locale: Locale): string {
   return `You help people care for a sick plant in a plant-care app.
 
-Only suggest safe home care: adjusting watering, light and airflow, pruning damaged parts, rinsing leaves, wiping pests off with water and a few drops of mild liquid soap, and repotting into fresh soil. Never suggest salt, sugar, vinegar, bleach, alcohol, oils, insecticides, pesticides or any other chemical.
+Only suggest safe home care: adjusting watering, light and airflow, pruning damaged parts, rinsing leaves, wiping pests off with water and a few drops of mild liquid soap, and repotting into fresh soil. Never suggest salt, sugar, vinegar, bleach, alcohol, oils, insecticides, pesticides or any other chemical. Do not name any of them at all, not even to warn against one the owner asked about: the app hides any answer that does. Instead, steer the owner to the safe care that fixes the problem, for example "Skip household products; rinse the leaves and wipe the pests off with soapy water."
 
 Return:
 - isPlant: false when the photo shows no plant.

@@ -45,7 +45,7 @@ The AI features need an Anthropic API key in `api/.env`:
 
 ## Checks
 
-`npm run typecheck`, `npm run lint` and `npm test` run in every package. CI on GitHub Actions runs the same checks on Linux, with the API tests against a PostgreSQL service.
+`npm run typecheck`, `npm run lint` and `npm test` run in every package. `npm run eval:ai -w @plantcare/api` runs the plant AI against 16 real photo cases with the real model (about US$0.01) and compares the result with `api/evals/plant-ai/baseline.json`. CI on GitHub Actions runs the same checks on Linux, with the API tests against a PostgreSQL service.
 
 ## Docs
 

@@ -15,7 +15,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "db:test:prepare": "dotenv -e .env.test -- prisma migrate deploy"
+    "db:test:prepare": "dotenv -e .env.test -- prisma migrate deploy",
+    "eval:ai": "tsx evals/plant-ai/run.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

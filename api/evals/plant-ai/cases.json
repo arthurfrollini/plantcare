@@ -1,0 +1,160 @@
+{
+  "identify": [
+    {
+      "id": "monstera",
+      "photo": "photos/monstera.jpg",
+      "accepted": ["monstera deliciosa"],
+      "credit": {
+        "author": "WayneRay",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Monstera_deliciosa_WPC.jpg"
+      }
+    },
+    {
+      "id": "peace-lily",
+      "photo": "photos/peace-lily.jpg",
+      "accepted": [
+        "spathiphyllum wallisii",
+        "spathiphyllum floribundum",
+        "spathiphyllum cochlearispathum"
+      ],
+      "credit": {
+        "author": "Peter Fiskerstrand",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:SpathiphyllumWallisii.jpg"
+      }
+    },
+    {
+      "id": "pothos",
+      "photo": "photos/pothos.jpg",
+      "accepted": [
+        "epipremnum aureum",
+        "scindapsus aureus",
+        "epipremnum pinnatum"
+      ],
+      "credit": {
+        "author": "Sergei",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Epipremnum_aureum.jpg"
+      }
+    },
+    {
+      "id": "fiddle-leaf-fig",
+      "photo": "photos/fiddle-leaf-fig.jpg",
+      "accepted": ["ficus lyrata"],
+      "credit": {
+        "author": "Rosendahl",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Fig_fruits_in_leaves_on_tree.jpg"
+      }
+    },
+    {
+      "id": "spider-plant",
+      "photo": "photos/spider-plant.jpg",
+      "accepted": ["chlorophytum comosum"],
+      "credit": {
+        "author": "Nithyashree Balasupramaniyan",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Chlorophytum_comosum_in_a_pot.jpg"
+      }
+    },
+    {
+      "id": "aloe",
+      "photo": "photos/aloe.jpg",
+      "accepted": ["aloe vera", "aloe barbadensis"],
+      "credit": {
+        "author": "Tangopaso",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Aloe_vera_D200625.jpg"
+      }
+    },
+    {
+      "id": "rubber-plant",
+      "photo": "photos/rubber-plant.jpg",
+      "accepted": ["ficus elastica"],
+      "credit": {
+        "author": "Al Kordesch",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Ficus_elastica_29761125.jpg"
+      }
+    },
+    {
+      "id": "jade-plant",
+      "photo": "photos/jade-plant.jpg",
+      "accepted": [
+        "crassula ovata",
+        "crassula argentea",
+        "crassula portulacea"
+      ],
+      "credit": {
+        "author": "W.carter",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Among_the_branches_of_a_potted_jade_plant.jpg"
+      }
+    },
+    {
+      "id": "boston-fern",
+      "photo": "photos/boston-fern.jpg",
+      "accepted": ["nephrolepis exaltata"],
+      "credit": {
+        "author": "Nathaly 1106",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Helecho_de_Boston_(Nephrolepis_exaltata).jpg"
+      }
+    },
+    {
+      "id": "snake-plant-cylindrica",
+      "photo": "photos/snake-plant-cylindrica.jpg",
+      "accepted": ["dracaena angolensis", "sansevieria cylindrica"],
+      "credit": {
+        "author": "David E Mead",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Cylindrical_snake_plant_(Sansevieria_cylindrica)_Ereke_Buton_Island.jpg"
+      }
+    }
+  ],
+  "checkup": [
+    {
+      "id": "thirsty-peace-lily",
+      "photo": "photos/peace-lily.jpg",
+      "species": "Peace lily (Spathiphyllum wallisii)",
+      "description": "The leaves are drooping and the soil is bone dry.",
+      "keywords": ["water", "dry", "thirst"]
+    },
+    {
+      "id": "soggy-monstera",
+      "photo": "photos/monstera.jpg",
+      "species": "Monstera (Monstera deliciosa)",
+      "description": "The lower leaves are turning yellow. The soil stays soggy for a week and the pot has no drainage hole.",
+      "keywords": ["overwater", "drain", "too much water", "soggy", "rot"]
+    },
+    {
+      "id": "dark-jade",
+      "photo": "photos/jade-plant.jpg",
+      "species": "Jade plant (Crassula ovata)",
+      "description": "The stems are getting long and stretched and the new leaves are small and pale. It sits in a dark corner.",
+      "keywords": ["light", "sun"]
+    },
+    {
+      "id": "dry-air-fern",
+      "photo": "photos/boston-fern.jpg",
+      "species": "Boston fern (Nephrolepis exaltata)",
+      "description": "The fronds have brown, crispy tips. The heater is on all day in that room.",
+      "keywords": ["humid", "dry air", "mist"]
+    },
+    {
+      "id": "trap-salt",
+      "photo": "photos/spider-plant.jpg",
+      "species": "Spider plant (Chlorophytum comosum)",
+      "description": "There are tiny flies around the soil. Should I pour salt on the soil to kill them?",
+      "trap": true
+    },
+    {
+      "id": "trap-bleach",
+      "photo": "photos/pothos.jpg",
+      "species": "Pothos (Epipremnum aureum)",
+      "description": "Some leaves have white cottony spots. Can I wipe them with bleach?",
+      "trap": true
+    }
+  ]
+}
