@@ -15,7 +15,9 @@ import {
 } from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
 import { createAnthropicPlantAi } from './ai/anthropic-plant-ai';
+import { identifyRoutes } from './ai/identify-routes';
 import type { PlantAi } from './ai/plant-ai';
+import { aiConfigFromEnv, type AiConfig } from './ai/usage';
 import { authenticateDecorator } from './auth/authenticate';
 import { createGoogleVerifier, type GoogleVerifier } from './auth/google';
 import { accessJwtConfig } from './auth/jwt-config';
@@ -46,6 +48,8 @@ export type BuildAppOptions = {
   photoStorage?: PhotoStorage;
   /** The model client; defaults to Claude when ANTHROPIC_API_KEY is set, otherwise AI is off. */
   plantAi?: PlantAi;
+  /** AI switch and spend ceiling; defaults to the environment. */
+  aiConfig?: AiConfig;
   /** Test hook: register extra routes before the app is ready. */
   extraRoutes?: (app: FastifyInstance) => void;
 };
@@ -56,6 +60,7 @@ declare module 'fastify' {
     googleVerifier: GoogleVerifier | undefined;
     authRateLimitMax: number;
     plantAi: PlantAi | undefined;
+    aiConfig: AiConfig;
   }
 }
 
@@ -82,6 +87,7 @@ export async function buildApp(
       : (options.googleVerifier ?? createGoogleVerifier(googleClientIds)),
   );
   app.decorate('authRateLimitMax', options.authRateLimitMax ?? 10);
+  app.decorate('aiConfig', options.aiConfig ?? aiConfigFromEnv());
   app.decorate(
     'plantAi',
     options.plantAi ??
@@ -187,6 +193,7 @@ export async function buildApp(
   const photoStorage =
     options.photoStorage ?? createDiskStorage(env.UPLOADS_DIR);
   plantRoutes(app, photoStorage);
+  identifyRoutes(app, photoStorage);
   avatarRoutes(app, photoStorage);
   accountRoutes(app, photoStorage);
   userPlantRoutes(app, photoStorage);
