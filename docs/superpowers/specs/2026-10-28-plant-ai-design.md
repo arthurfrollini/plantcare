@@ -48,7 +48,20 @@ Arthur on his own phone, and maybe a few friends. The app won't go to the stores
 - **Proposal held on the server:** a new species is stored as a pending proposal (expires after 24 h) and the app only gets its id. Confirming sends the id, so the app can't make up species data.
 - **Add to my garden** (`POST /ai/proposals/:id/add`, or the existing add route for a catalog hit): creates the species with `source: ai` when it's new, then the user's plant with the species defaults (frequency, light, 08:00 reminder, as the catalog's multi-add does). The identification photo becomes the plant's photo.
 
-### Sick-plant help
+### Symptom guide first, AI second (Arthur's decision, 2026-10-28)
+
+**My plant is sick** opens a free, offline guide before any AI:
+
+1. A short list of **symptoms** (the nine in the appendix).
+2. Tapping one shows its **likely causes**, most common first. Each cause has **what to check** and **what to do**, in English and Brazilian Portuguese.
+3. The guide is **personalized with the species data the app already has**: its light and watering needs, plus the user's own schedule. For example: "Your ZZ plant prefers partial shade and watering every 2 weeks; you water it twice a week, so start there."
+4. At the bottom, a quieter **Still not sure? Ask AI for a closer look** opens the AI check-up. The symptom picked is pre-filled as the description.
+
+The guide text is fixed, written and reviewed by hand, and lives in `packages/shared` as typed data, with no network and no cost. It only recommends water, light, airflow, pruning, mild soap and repotting, never chemicals. The appendix is the content to review. During implementation each cause is checked against RHS and university extension houseplant guides, and the pages used go in a comment next to the data.
+
+The cost saving is small, because an AI check-up costs about US$0.0005. The real gains are instant answers, offline use, no photo needed, and advice that a person wrote.
+
+### Sick-plant help (AI check-up)
 
 - `POST /me/plants/:id/checkups` (multipart: photo, optional description). The model gets the photo, the species and the description.
 - **Output** (structured, zod): `{ isPlant, matchesSpecies, problem, steps: string[] (1-5), whenToWorry, safe: boolean }`, in the app's language (`Accept-Language`).
@@ -110,3 +123,52 @@ A small set in the repo: about 10 identification photos of real plants from Wiki
 - Unit and e2e tests cover the catalog-first path, duplicates, proposals, limits, the AI-off switch, the harm guard, `isPlant: false`, and healed/ask-again.
 - The eval runs and its baseline is committed.
 - The PlantCare README's "Next up" line is replaced by the shipped features.
+
+## Appendix: symptom guide content (for review)
+
+Causes are listed most common first. "Check" is what to look at, "Do" is what to do. Species data (light, watering) is used where it says *species*.
+
+### 1. Yellow leaves
+- **Too much water** (the most common cause). Check: the soil is still wet days after watering, the pot has no drainage hole, or water sits in the saucer; lower leaves go yellow and soft. Do: let the top 2–3 cm of soil dry before watering again, empty the saucer, use a pot with a drainage hole.
+- **Too little water.** Check: the soil is dry all the way down and pulls away from the pot; leaves are yellow and crisp. Do: water slowly until it runs out of the bottom, then follow the *species* schedule.
+- **Too much direct sun.** Check: pale yellow or bleached patches on the leaves facing the window, on a *species* that prefers partial shade or shade. Do: move it to bright light without direct midday sun.
+- **An old leaf finishing its life.** Check: only one or two of the lowest, oldest leaves turn yellow, and new growth looks healthy. Do: nothing; remove the leaf once it is fully yellow.
+- **Hungry plant.** Check: new leaves come in pale overall, and the plant hasn't been fed in months during spring or summer. Do: feed a balanced houseplant fertilizer at half the label dose, only in spring and summer.
+
+### 2. Brown tips or edges
+- **Dry air.** Check: crisp brown tips, the plant sits near air conditioning, a heater or a draft. Do: move it away from the airflow; grouping plants together raises humidity around them.
+- **Uneven watering.** Check: the soil swings between bone dry and soaked. Do: water deeply when the top 2–3 cm are dry, and keep a steady schedule.
+- **Salt build-up from fertilizer.** Check: a white crust on the soil or the pot rim. Do: flush the pot with plenty of water a few times, letting it drain, and fertilize less often.
+
+### 3. Spots on leaves
+- **Sunburn.** Check: dry, pale or brown patches on the side facing the sun, appearing after a move to a sunnier spot. Do: move it out of direct midday sun; damaged patches won't recover, but new leaves will be fine.
+- **Leaf spot disease.** Check: brown or black spots, often with a yellow ring, that grow or multiply. Do: cut off the affected leaves, water the soil and not the leaves, give it more airflow, and keep it away from other plants for a while.
+
+### 4. Holes or chewed leaves
+- **Natural shape.** Check: some species have splits or holes that are part of the leaf, like the lobed leaves of the imbé. Do: nothing.
+- **Chewing pests: caterpillars, snails or slugs, beetles.** Mostly on balconies or near open windows. Check: the undersides of the leaves and the soil, also at night; slime trails mean snails or slugs. Do: remove them by hand and check again over the next days.
+- **Physical damage.** Check: clean tears where the plant gets bumped or brushed. Do: move it out of the way; trim the leaf if it bothers you.
+
+### 5. Wilting or drooping
+- **Dry soil.** Check: the soil is dry well below the surface. Do: water slowly until it drains; it should perk up within hours.
+- **Rotting roots.** Check: the plant wilts even though the soil is wet; the soil smells bad, or the roots are brown and mushy instead of firm. Do: stop watering; if the roots are mushy, take the plant out, cut away the soft roots and repot in fresh, barely moist soil, in a pot with drainage.
+- **Heat or a sudden change.** Check: it was moved recently or sits in a hot spot. Do: give it a stable spot away from heat and a few days to adjust.
+
+### 6. White powder, mold or cotton
+- **Powdery mildew.** Check: a white, dusty layer on the leaves that rubs off. Do: remove the worst leaves, improve airflow, avoid wetting the leaves.
+- **Mold on the soil surface.** Check: white fuzz on top of the soil. Do: mostly harmless and a sign of soil staying wet; scrape it off and water less often.
+- **Mealybugs.** Check: small white cottony clumps in the leaf joints or under the leaves. Do: wipe them off with a cotton swab dipped in water with a few drops of mild liquid soap, and repeat weekly until they are gone; keep the plant apart from the others meanwhile.
+
+### 7. Leaves falling off
+- **A recent change.** Check: it was moved, repotted or brought home in the last few weeks. Do: keep its spot, light and watering steady; some leaf drop while it adjusts is normal.
+- **Watering problems.** Check: the soil is soaked or bone dry. Do: see **Yellow leaves** for too much or too little water.
+- **Cold drafts.** Check: it sits near an open window on cold nights or under air conditioning. Do: move it out of the draft.
+
+### 8. Long, stretched, pale growth
+- **Not enough light.** Check: long gaps between leaves, the plant leaning toward the window, new leaves smaller and paler. Do: move it closer to a bright window, with indirect light for a *species* that prefers shade or partial shade, and turn the pot a quarter turn each week.
+
+### 9. Tiny bugs
+- **Fungus gnats.** Check: tiny dark flies around the soil, worse when the soil stays wet. Do: let the top of the soil dry out between waterings; yellow sticky traps catch the adults.
+- **Aphids.** Check: clusters of small green, black or white insects on new growth, sometimes with sticky leaves. Do: rinse them off with a shower of water, then wipe with water and a few drops of mild liquid soap.
+- **Spider mites.** Check: fine webbing and tiny speckles on the leaves, often in dry air. Do: rinse the leaves top and bottom, wipe them, raise the humidity around the plant, and repeat weekly.
+- **Scale insects.** Check: small brown bumps stuck to stems and leaves, often with sticky leaves. Do: scrape them off gently and wipe with water and a few drops of mild liquid soap.
