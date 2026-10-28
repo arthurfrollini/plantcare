@@ -6,6 +6,7 @@ import {
   type CatalogPage,
   type CatalogPlant,
   type Difficulty,
+  type ImageCredit,
   type Light,
   type Locale,
 } from '@plantcare/shared';
@@ -59,14 +60,7 @@ function toCatalogPlant(row: PlantRow, locale: Locale): CatalogPlant | null {
       per: row.frequencyPer,
     }),
     imageUrl: speciesImageUrl(row),
-    imageCredit:
-      row.imageAuthor && row.imageLicense && row.imageSource
-        ? {
-            author: row.imageAuthor,
-            license: row.imageLicense,
-            source: row.imageSource,
-          }
-        : null,
+    imageCredit: speciesImageCredit(row),
   };
 }
 
@@ -133,4 +127,19 @@ export async function getCatalogPlant(
 ): Promise<CatalogPlant | null> {
   const row = await prisma.plant.findUnique({ where: { id }, include });
   return row ? toCatalogPlant(row, locale) : null;
+}
+
+/** The stored photo's credit, or null when the species has no photo from Commons. */
+export function speciesImageCredit(row: {
+  imageAuthor: string | null;
+  imageLicense: string | null;
+  imageSource: string | null;
+}): ImageCredit | null {
+  return row.imageAuthor && row.imageLicense && row.imageSource
+    ? {
+        author: row.imageAuthor,
+        license: row.imageLicense,
+        source: row.imageSource,
+      }
+    : null;
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +27,7 @@ import { LeadInfoSheet } from '../components/LeadInfoSheet';
 import { Load } from '../components/Load';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
 import { PlantHealth } from '../components/PlantHealth';
+import { isIllustration } from '../components/SpeciesImage';
 import { Tappable } from '../components/Tappable';
 import { TimeSheet } from '../components/TimeSheet';
 import { Toast } from '../components/Toast';
@@ -79,6 +81,8 @@ export function PlantDetailView(props: PlantDetailViewProps) {
   const [leadInfoOpen, setLeadInfoOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [illustrationGone, setIllustrationGone] = useState(false);
+  // Credited only while the species photo is the one on screen.
+  const credit = !props.photoSource && !illustrationGone ? plant.imageCredit : null;
 
   function renderPicture() {
     if (props.photoSource) {
@@ -88,6 +92,17 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           source={props.photoSource}
           style={styles.photo}
           onError={props.onSavedPhotoError}
+          accessibilityIgnoresInvertColors
+        />
+      );
+    }
+    if (plant.imageUrl && !illustrationGone && !isIllustration(plant.imageUrl)) {
+      return (
+        <Image
+          testID="species-photo"
+          source={{ uri: assetUrl(plant.imageUrl) }}
+          style={styles.photo}
+          onError={() => setIllustrationGone(true)}
           accessibilityIgnoresInvertColors
         />
       );
@@ -155,6 +170,15 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         )}
         <Text style={styles.name}>{plant.speciesName}</Text>
         <Text style={styles.scientific}>{plant.scientificName}</Text>
+        {credit && (
+          <Text
+            accessibilityRole="link"
+            style={styles.credit}
+            onPress={() => void Linking.openURL(credit.source)}
+          >
+            {t('plantDetail.photoCredit', { author: credit.author, license: credit.license })}
+          </Text>
+        )}
         {plant.about ? <Text style={styles.about}>{plant.about}</Text> : null}
 
         <View style={styles.tiles}>
@@ -467,6 +491,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.body_dark,
     fontFamily: fonts.italic,
+  },
+  credit: {
+    marginTop: 4,
+    textAlign: 'center',
+    fontSize: 12,
+    color: colors.body_light,
+    fontFamily: fonts.text,
+    textDecorationLine: 'underline',
   },
   about: {
     marginTop: 12,

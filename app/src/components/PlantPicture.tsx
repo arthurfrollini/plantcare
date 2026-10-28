@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Image as NativeImage } from 'react-native';
 import { Image } from 'expo-image';
-import { SvgFromUri } from 'react-native-svg';
 import type { UserPlant } from '@plantcare/shared';
 
-import { assetUrl } from '../api/config';
 import { plantPhotoSource } from '../api/endpoints';
 import mascot from '../assets/watering.png';
+import { SpeciesImage } from './SpeciesImage';
 
 interface PlantPictureProps {
   plant: UserPlant;
@@ -54,10 +53,10 @@ export function PlantPicture({ plant, accessToken, size, onPhotoError }: PlantPi
   }
   if (plant.imageUrl && !illustrationGone) {
     return (
-      <SvgFromUri
-        uri={assetUrl(plant.imageUrl)}
-        width={size}
-        height={size}
+      <SpeciesImage
+        url={plant.imageUrl}
+        size={size}
+        round
         onError={() => setIllustrationGone(true)}
       />
     );

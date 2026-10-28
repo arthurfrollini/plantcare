@@ -45,6 +45,7 @@ export const userPlantFixture: UserPlant = {
   scheduleNeedsReview: false,
   notes: null,
   imageUrl: null,
+  imageCredit: null,
   hasPhoto: false,
   photoVersion: null,
   lastWateredOn: null,

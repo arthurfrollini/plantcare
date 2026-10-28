@@ -6,9 +6,8 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Tappable, type TappableProps } from './Tappable';
-import { SvgFromUri } from 'react-native-svg';
+import { SpeciesImage } from './SpeciesImage';
 
-import { assetUrl } from '../api/config';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -34,7 +33,7 @@ export const PlantCardPrimary = ({ data, selected = false, ...rest }: PlantProps
         </View>
       )}
       {data.imageUrl ? (
-        <SvgFromUri uri={assetUrl(data.imageUrl)} width={70} height={70} />
+        <SpeciesImage url={data.imageUrl} size={70} />
       ) : (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderText}>🌱</Text>

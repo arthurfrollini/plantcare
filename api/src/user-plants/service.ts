@@ -1,5 +1,5 @@
 import { toCheckupDto, type CheckupRow } from '../ai/checkup-dto';
-import { speciesImageUrl } from '../plants/service';
+import { speciesImageCredit, speciesImageUrl } from '../plants/service';
 import {
   DEFAULT_REMINDER_LEAD,
   difficultySchema,
@@ -87,6 +87,7 @@ export function toUserPlantDto(
     timeZone: row.timeZone,
     notes: row.notes,
     imageUrl: speciesImageUrl(row.catalogPlant),
+    imageCredit: speciesImageCredit(row.catalogPlant),
     hasPhoto: row.photoPath !== null,
     photoVersion: row.photoUpdatedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),

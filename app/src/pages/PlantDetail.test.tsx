@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, Linking, type AlertButton } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import MockAdapter from 'axios-mock-adapter';
@@ -247,6 +247,32 @@ describe('PlantDetail', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Got it' }));
     await waitFor(() => expect(screen.queryByText('Reminders')).not.toBeOnTheScreen(), { timeout: 5000 });
   }, 15000);
+
+  it('shows a species photo with its credit, linking to its page on Commons', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    await renderScreen({
+      ...userPlantFixture,
+      imageUrl: '/plants/c1/image',
+      imageCredit: {
+        author: 'Jane Doe',
+        license: 'CC0',
+        source: 'https://commons.wikimedia.org/wiki/File:X.jpg',
+      },
+    });
+
+    expect(screen.getByTestId('species-photo')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('link', { name: 'Photo: Jane Doe, CC0' }));
+
+    expect(openURL).toHaveBeenCalledWith('https://commons.wikimedia.org/wiki/File:X.jpg');
+    openURL.mockRestore();
+  });
+
+  it('shows no credit for an illustration', async () => {
+    await renderScreen({ ...userPlantFixture, imageUrl: '/static/plants/monstera.svg' });
+
+    expect(screen.queryByTestId('species-photo')).not.toBeOnTheScreen();
+    expect(screen.queryByText(/^Photo:/)).not.toBeOnTheScreen();
+  });
 
   it('opens the symptom guide from My plant is sick', async () => {
     await renderScreen();
