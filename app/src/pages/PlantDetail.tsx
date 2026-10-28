@@ -25,8 +25,8 @@ import { DaysSheet } from '../components/DaysSheet';
 import { LeadInfoSheet } from '../components/LeadInfoSheet';
 import { Load } from '../components/Load';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
+import { PlantHealth } from '../components/PlantHealth';
 import { Tappable } from '../components/Tappable';
-import { SickPlantCard } from '../components/SickPlantCard';
 import { TimeSheet } from '../components/TimeSheet';
 import { Toast } from '../components/Toast';
 import type { ScheduleValues } from '../plants/savePlant';
@@ -265,7 +265,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         </View>
 
         <View style={styles.sick}>
-          <SickPlantCard />
+          <PlantHealth plant={plant} />
         </View>
 
         {/* For people who never find the swipe on My plants. */}

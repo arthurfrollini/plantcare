@@ -248,13 +248,32 @@ describe('PlantDetail', () => {
     await waitFor(() => expect(screen.queryByText('Reminders')).not.toBeOnTheScreen(), { timeout: 5000 });
   }, 15000);
 
-  it('offers to ask the AI about a sick plant, disabled until it ships', async () => {
+  it('opens the symptom guide from My plant is sick', async () => {
     await renderScreen();
 
-    const button = screen.getByRole('button', { name: /ask AI for help/ });
-    expect(button).toBeDisabled();
-    expect(within(button).getByText('My plant is sick 🤒, ask AI for help ✨')).toBeTruthy();
-    expect(within(button).getByText('Soon')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'My plant is sick 🤒' }));
+
+    expect(await screen.findByRole('button', { name: 'Yellow leaves' })).toBeOnTheScreen();
+  });
+
+  it('shows the open check-up in the yellow box', async () => {
+    await renderScreen({
+      ...userPlantFixture,
+      openCheckup: {
+        id: 'k1',
+        createdAt: '2026-10-27T12:00:00.000Z',
+        description: null,
+        problem: 'Overwatering',
+        steps: ['Let the soil dry out.'],
+        whenToWorry: 'If the stems go soft.',
+        status: 'open',
+        healedAt: null,
+        photoUrl: '/me/plants/p1/checkups/k1/photo',
+      },
+    });
+
+    expect(within(screen.getByTestId('checkup-box')).getByText('Overwatering')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'My plant is sick 🤒' })).not.toBeOnTheScreen();
   });
 
   it('hides the days for a daily plant', async () => {
