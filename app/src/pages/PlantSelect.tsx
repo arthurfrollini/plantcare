@@ -18,6 +18,7 @@ import type { CatalogPlant, Difficulty, Light } from '@plantcare/shared';
 
 import { toApiError } from '../api/client';
 import { useAuth } from '../auth/AuthProvider';
+import { AiIdentify } from '../components/AiIdentify';
 import { Button } from '../components/Button';
 import { FilterSheet } from '../components/FilterSheet';
 import { PlantCardPrimary } from '../components/PlantCardPrimary';
@@ -37,7 +38,7 @@ export function PlantSelect() {
   const [light, setLight] = useState<Light | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // Always opens on the catalog; adding with AI comes with the AI step.
+  // Always opens on the catalog.
   const [mode, setMode] = useState<Mode>('catalog');
   // Kept across searches and filters, in the order the user picked them.
   const [selected, setSelected] = useState<SpeciesPick[]>([]);
@@ -250,14 +251,7 @@ export function PlantSelect() {
       </View>
 
       {mode === 'ai' ? (
-        <View style={[styles.aiSoon, { paddingBottom: bottom + 32 }]}>
-          <View style={styles.aiIcon}>
-            <MaterialCommunityIcons name="creation" size={32} color={colors.green_dark} />
-          </View>
-          <Text style={styles.aiTitle}>{t('plantSelect.aiTitle')}</Text>
-          <Text style={styles.aiText}>{t('plantSelect.aiText')}</Text>
-          <Text style={styles.soon}>{t('plantSelect.soon')}</Text>
-        </View>
+        <AiIdentify bottomInset={bottom} />
       ) : (
         <>
           {/* Only the grid scrolls; the header above and the add bar below stay put. */}
@@ -439,45 +433,6 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     color: colors.green_dark,
     fontFamily: fonts.heading,
-  },
-  aiSoon: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  aiIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.green_light,
-  },
-  aiTitle: {
-    marginTop: 20,
-    fontSize: 20,
-    color: colors.heading,
-    fontFamily: fonts.heading,
-  },
-  aiText: {
-    marginTop: 8,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    color: colors.body_dark,
-    fontFamily: fonts.text,
-  },
-  soon: {
-    marginTop: 16,
-    fontSize: 12,
-    color: colors.green_dark,
-    fontFamily: fonts.heading,
-    backgroundColor: colors.green_light,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
   },
   adding: {
     height: 56,

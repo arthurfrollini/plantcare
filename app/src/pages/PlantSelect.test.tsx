@@ -79,7 +79,10 @@ describe('PlantSelect', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('opens on the catalog, with Add with AI as a tab that is coming soon', async () => {
+  it('opens on the catalog, with Add with AI as the other tab', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, accountFixture);
+    mock.onGet('/ai/status').reply(200, { enabled: true, identifyLeft: 10, checkupLeft: 5 });
     mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
     renderScreen();
 
@@ -88,7 +91,8 @@ describe('PlantSelect', () => {
 
     fireEvent.press(screen.getByRole('tab', { name: 'Add with AI' }));
 
-    expect(screen.getByText('Soon')).toBeTruthy();
+    expect(screen.getByLabelText('Plant name')).toBeTruthy();
+    expect(screen.queryByText('Soon')).toBeNull();
     expect(screen.queryByText('Monstera')).toBeNull();
     expect(screen.queryByText('Add plant(s)')).toBeNull();
   });
