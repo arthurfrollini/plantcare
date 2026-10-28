@@ -37,7 +37,7 @@ export function BottomSheet({ visible, onClose, onClosed, children }: BottomShee
     const animation = Animated.timing(progress, {
       toValue: visible ? 1 : 0,
       duration: visible ? 280 : 220,
-      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      easing: visible ? Easing.out((t) => Easing.cubic(t)) : Easing.in((t) => Easing.cubic(t)),
       useNativeDriver: true,
     });
     animation.start(({ finished }) => {

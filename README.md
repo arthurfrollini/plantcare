@@ -18,7 +18,7 @@ An npm workspaces monorepo:
 
 | Package | What's in it |
 |---|---|
-| `app/` | Expo SDK 57, React Native 0.86, React Navigation 7, i18next, expo-notifications, expo-image, Jest |
+| `app/` | Expo SDK 58, React Native 0.88, React Navigation 7, i18next, expo-notifications, expo-image, Jest |
 | `api/` | Fastify 5, Prisma 7 on PostgreSQL 17, zod, JWT access tokens with rotating refresh tokens, private photo storage, Vitest |
 | `packages/shared/` | zod schemas and the watering schedule rules, used by both the app and the API |
 
