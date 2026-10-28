@@ -4,13 +4,13 @@ A phone app that reminds you to water your plants. The catalog knows what each s
 
 ## What it does
 
-- Browse the catalog without an account: search with or without accents, filter by light and care difficulty, and add several plants at once. Sign-up comes when you add your first plants. Catalog photos from Wikimedia Commons are public domain or CC0 and credited on each plant's screen.
+- Browse the catalog without an account: search with or without accents, filter by light and care difficulty, and add several plants at once. Sign-up comes when you add your first plants. Catalog photos from Wikimedia Commons are public domain or CC0; their credits are kept with the species data.
 - Each plant's screen shows the species' difficulty, light and watering. You pick the watering days, a time on the half hour and a reminder 5 to 30 minutes ahead, and every change saves right away.
 - Reminders are local notifications ("In 15 min you need to water your Snake plant.") on daily, weekly, every-two-weeks and monthly schedules.
 - The Today card on the home screen shows what to water today. Tap "Watered ✓" ("Reguei ✓" in Portuguese) to tick a plant and see your progress; a ticked watering skips its reminder, and undoing the tick brings it back.
 - My plants lists your garden by next watering, with your own photos, and still opens offline.
 - In Profile you set an avatar, your name and the language (English or Brazilian Portuguese), change your password, sign out or delete your account.
-- Add with AI: type a plant's name or take a photo, and Claude Haiku finds the species. A catalog match comes back as is; a new species gets a preview with its care, and "Add to my garden" adds it with a public-domain photo from Wikimedia Commons, credited on the plant screen.
+- Add with AI: type a plant's name or take a photo, and Claude Haiku finds the species. A catalog match comes back as is; a new species gets a preview with its care, and "Add to my garden" adds it with a public-domain photo from Wikimedia Commons.
 - "My plant is sick" opens a free, offline symptom guide first, with nine symptoms, their likely causes and your plant's own light and watering next to them. If that isn't enough, an AI check-up reads a photo and an optional note; its advice stays in a yellow box until you mark the plant as healed.
 - AI use has limits: 10 identifications and 5 check-ups per person per day, plus a daily spending ceiling for the whole app. Advice that mentions harmful substances is replaced before it is saved.
 

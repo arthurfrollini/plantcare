@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Linking, type AlertButton } from 'react-native';
+import { Alert, type AlertButton } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import MockAdapter from 'axios-mock-adapter';
@@ -248,8 +248,7 @@ describe('PlantDetail', () => {
     await waitFor(() => expect(screen.queryByText('Reminders')).not.toBeOnTheScreen(), { timeout: 5000 });
   }, 15000);
 
-  it('shows a species photo with its credit, linking to its page on Commons', async () => {
-    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+  it('shows a species photo without a credit line', async () => {
     await renderScreen({
       ...userPlantFixture,
       imageUrl: '/plants/c1/image',
@@ -261,13 +260,11 @@ describe('PlantDetail', () => {
     });
 
     expect(screen.getByTestId('species-photo')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('link', { name: 'Photo: Jane Doe, CC0' }));
-
-    expect(openURL).toHaveBeenCalledWith('https://commons.wikimedia.org/wiki/File:X.jpg');
-    openURL.mockRestore();
+    expect(screen.queryByText(/Jane Doe/)).not.toBeOnTheScreen();
+    expect(screen.queryByRole('link')).not.toBeOnTheScreen();
   });
 
-  it('opens the photo full screen, with its credit, and closes it', async () => {
+  it('opens the photo full screen, without a credit, and closes it', async () => {
     await renderScreen({
       ...userPlantFixture,
       imageUrl: '/plants/c1/image',
@@ -282,7 +279,7 @@ describe('PlantDetail', () => {
 
     const viewer = await screen.findByTestId('viewer-photo');
     expect(viewer.props).toMatchObject({ contentFit: 'contain' });
-    expect(screen.getAllByText('Photo: Jane Doe, CC0')).toHaveLength(2);
+    expect(screen.queryByText(/Jane Doe/)).not.toBeOnTheScreen();
 
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));
 

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -82,11 +81,6 @@ export function PlantDetailView(props: PlantDetailViewProps) {
   const [leadInfoOpen, setLeadInfoOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [illustrationGone, setIllustrationGone] = useState(false);
-  // Credited only while the species photo is the one on screen.
-  const credit = !props.photoSource && !illustrationGone ? plant.imageCredit : null;
-  const creditText = credit
-    ? t('plantDetail.photoCredit', { author: credit.author, license: credit.license })
-    : null;
   const [viewerOpen, setViewerOpen] = useState(false);
   // What the full-screen viewer shows: the user's photo, else the species photo; never a drawing.
   const viewerSource =
@@ -192,15 +186,6 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         )}
         <Text style={styles.name}>{plant.speciesName}</Text>
         <Text style={styles.scientific}>{plant.scientificName}</Text>
-        {credit && (
-          <Text
-            accessibilityRole="link"
-            style={styles.credit}
-            onPress={() => void Linking.openURL(credit.source)}
-          >
-            {creditText}
-          </Text>
-        )}
         {plant.about ? <Text style={styles.about}>{plant.about}</Text> : null}
 
         <View style={styles.tiles}>
@@ -373,7 +358,6 @@ export function PlantDetailView(props: PlantDetailViewProps) {
       <PhotoViewer
         visible={viewerOpen}
         source={viewerSource}
-        credit={creditText}
         onClose={() => setViewerOpen(false)}
       />
       <PhotoSheet
@@ -517,14 +501,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.body_dark,
     fontFamily: fonts.italic,
-  },
-  credit: {
-    marginTop: 4,
-    textAlign: 'center',
-    fontSize: 12,
-    color: colors.body_light,
-    fontFamily: fonts.text,
-    textDecorationLine: 'underline',
   },
   about: {
     marginTop: 12,

@@ -162,7 +162,6 @@ const ptBR: typeof en = {
   plantDetail: {
     viewPhoto: 'Ver foto',
     closePhoto: 'Fechar',
-    photoCredit: 'Foto: {{author}}, {{license}}',
     remove: 'Excluir planta',
     back: 'Voltar',
     editPhoto: 'Editar foto',

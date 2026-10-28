@@ -1,25 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text } from 'react-native';
+import { Animated, Easing, Modal, Pressable, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Image, type ImageSource } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import colors from '../styles/colors';
-import fonts from '../styles/fonts';
 
 interface PhotoViewerProps {
   visible: boolean;
   source: ImageSource | null;
-  /** The Commons credit line, shown under the photo. */
-  credit?: string | null;
   onClose: () => void;
 }
 
 /** A plant photo full screen on black: it fades and grows in, and a tap anywhere closes it. */
-export function PhotoViewer({ visible, source, credit = null, onClose }: PhotoViewerProps) {
+export function PhotoViewer({ visible, source, onClose }: PhotoViewerProps) {
   const { t } = useTranslation();
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
   const [progress] = useState(() => new Animated.Value(0));
   // Stays mounted while it fades out, so the modal closes only after the animation.
   const [mounted, setMounted] = useState(visible);
@@ -63,11 +60,6 @@ export function PhotoViewer({ visible, source, credit = null, onClose }: PhotoVi
             />
           )}
         </Animated.View>
-        {credit && (
-          <Text style={[styles.credit, { bottom: bottom + 24 }]} pointerEvents="none">
-            {credit}
-          </Text>
-        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('plantDetail.closePhoto')}
@@ -91,15 +83,6 @@ const styles = StyleSheet.create({
   frame: {
     height: '75%',
     marginHorizontal: 12,
-  },
-  credit: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    textAlign: 'center',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontFamily: fonts.text,
   },
   close: {
     position: 'absolute',

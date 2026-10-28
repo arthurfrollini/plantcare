@@ -160,7 +160,6 @@ const en = {
   plantDetail: {
     viewPhoto: 'View photo',
     closePhoto: 'Close',
-    photoCredit: 'Photo: {{author}}, {{license}}',
     remove: 'Remove plant',
     back: 'Back',
     editPhoto: 'Edit photo',
