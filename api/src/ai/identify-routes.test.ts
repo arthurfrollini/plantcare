@@ -50,6 +50,7 @@ describe('AI identification', () => {
   async function start(
     script: Parameters<typeof createFakePlantAi>[0],
     config: AiConfig = on,
+    commonsFetch?: typeof fetch,
   ) {
     if (app) await app.close();
     ai = createFakePlantAi(script);
@@ -57,6 +58,7 @@ describe('AI identification', () => {
       plantAi: ai,
       aiConfig: config,
       photoStorage: createDiskStorage(dir),
+      ...(commonsFetch ? { commonsFetch } : {}),
     }));
     await resetDb(prisma);
     await seed(prisma);
@@ -187,6 +189,28 @@ describe('AI identification', () => {
       'Costela-de-adão',
       'Swiss cheese plant',
     ]);
+  });
+
+  it('answers the add before the species photo arrives from Commons', async () => {
+    let commonsCalled = false;
+    // Commons never answers here; the add must not wait for it.
+    const hanging = () => {
+      commonsCalled = true;
+      return new Promise<Response>(() => {});
+    };
+    await start({ identify: [monstera] }, on, hanging);
+    const { proposalId } = (await byName('costela')).json<{
+      proposalId: string;
+    }>();
+
+    const res = await add(proposalId);
+
+    expect(res.statusCode).toBe(201);
+    expect(commonsCalled).toBe(true);
+    const species = await prisma.plant.findUniqueOrThrow({
+      where: { scientificName: 'Monstera deliciosa' },
+    });
+    expect(species.imageKey).toBeNull();
   });
 
   it('adds a proposal once, even with two taps at the same time', async () => {

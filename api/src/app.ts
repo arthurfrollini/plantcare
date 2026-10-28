@@ -15,6 +15,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
 import { createAnthropicPlantAi } from './ai/anthropic-plant-ai';
+import { attachSpeciesPhoto } from './ai/commons';
 import { identifyRoutes } from './ai/identify-routes';
 import type { PlantAi } from './ai/plant-ai';
 import { aiConfigFromEnv, type AiConfig } from './ai/usage';
@@ -50,6 +51,8 @@ export type BuildAppOptions = {
   plantAi?: PlantAi;
   /** AI switch and spend ceiling; defaults to the environment. */
   aiConfig?: AiConfig;
+  /** fetch for Wikimedia Commons species photos; tests pass a stub. */
+  commonsFetch?: typeof fetch;
   /** Test hook: register extra routes before the app is ready. */
   extraRoutes?: (app: FastifyInstance) => void;
 };
@@ -193,7 +196,17 @@ export async function buildApp(
   const photoStorage =
     options.photoStorage ?? createDiskStorage(env.UPLOADS_DIR);
   plantRoutes(app, photoStorage);
-  identifyRoutes(app, photoStorage);
+  const commonsFetch = options.commonsFetch ?? fetch;
+  identifyRoutes(app, photoStorage, (plantId, scientificName) => {
+    void attachSpeciesPhoto(
+      app.prisma,
+      photoStorage,
+      plantId,
+      scientificName,
+      commonsFetch,
+      (message, error) => app.log.warn({ err: error }, message),
+    );
+  });
   avatarRoutes(app, photoStorage);
   accountRoutes(app, photoStorage);
   userPlantRoutes(app, photoStorage);

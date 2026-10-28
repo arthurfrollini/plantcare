@@ -1,0 +1,503 @@
+{
+  "batchcomplete": "",
+  "continue": {
+    "gsroffset": 12,
+    "continue": "gsroffset||"
+  },
+  "query": {
+    "pages": {
+      "169013861": {
+        "pageid": 169013861,
+        "ns": 6,
+        "title": "File:\"Zamio Mater\" Zamioculcas zamiifolia communis plant.jpg",
+        "index": 8,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1717995,
+            "width": 1932,
+            "height": 2576,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg/1920px-%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2133,
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg/1920px-%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2133
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/7/7f/%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=169013861",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:O_fungo_azul&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:O fungo azul (page does not exist)\">O fungo azul</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "115625713": {
+        "pageid": 115625713,
+        "ns": 6,
+        "title": "File:Millonaria (Zamioculcas zamiifolia).jpg",
+        "index": 9,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2767506,
+            "width": 3120,
+            "height": 4160,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/59/Millonaria_%28Zamioculcas_zamiifolia%29.jpg/1920px-Millonaria_%28Zamioculcas_zamiifolia%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2133,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/5/59/Millonaria_%28Zamioculcas_zamiifolia%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/59/Millonaria_%28Zamioculcas_zamiifolia%29.jpg/1920px-Millonaria_%28Zamioculcas_zamiifolia%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2133,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/5/59/Millonaria_%28Zamioculcas_zamiifolia%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/5/59/Millonaria_%28Zamioculcas_zamiifolia%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Millonaria_(Zamioculcas_zamiifolia).jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=115625713",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Muago&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Muago (page does not exist)\">Muago</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "156416581": {
+        "pageid": 156416581,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia. Tashkent. 01.jpg",
+        "index": 6,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 2146111,
+            "width": 3024,
+            "height": 4032,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cc/Zamioculcas_zamiifolia._Tashkent._01.jpg/1920px-Zamioculcas_zamiifolia._Tashkent._01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2133,
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cc/Zamioculcas_zamiifolia._Tashkent._01.jpg/1920px-Zamioculcas_zamiifolia._Tashkent._01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2133
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/c/cc/Zamioculcas_zamiifolia._Tashkent._01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia._Tashkent._01.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=156416581",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Jamshid_Nurkulov\" title=\"User:Jamshid Nurkulov\">Jamshid Nurkulov</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "133477259": {
+        "pageid": 133477259,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia.png",
+        "index": 3,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 3334253,
+            "width": 2576,
+            "height": 3288,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8f/Zamioculcas_zamiifolia.png/1920px-Zamioculcas_zamiifolia.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2042,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Zamioculcas_zamiifolia.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8f/Zamioculcas_zamiifolia.png/1920px-Zamioculcas_zamiifolia.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2042,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Zamioculcas_zamiifolia.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Zamioculcas_zamiifolia.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia.png",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=133477259",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Mx_Lucy\" title=\"User:Mx Lucy\">Mx Lucy</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "75624": {
+        "pageid": 75624,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia 1.jpg",
+        "index": 1,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 1422211,
+            "width": 1536,
+            "height": 2048,
+            "thumburl": "https://upload.wikimedia.org/wikipedia/commons/c/cf/Zamioculcas_zamiifolia_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+            "thumbwidth": 1600,
+            "thumbheight": 2133,
+            "thumbattribs": {
+              "src": "https://upload.wikimedia.org/wikipedia/commons/c/cf/Zamioculcas_zamiifolia_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2133
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/c/cf/Zamioculcas_zamiifolia_1.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_1.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=75624",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:WeFt\" class=\"mw-redirect\" title=\"User:WeFt\">User:WeFt</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 3.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "61231832": {
+        "pageid": 61231832,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia 7zz.jpg",
+        "index": 4,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 439370,
+            "width": 3504,
+            "height": 2336,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Zamioculcas_zamiifolia_7zz.jpg/1920px-Zamioculcas_zamiifolia_7zz.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 1067,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/7/74/Zamioculcas_zamiifolia_7zz.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/74/Zamioculcas_zamiifolia_7zz.jpg/1920px-Zamioculcas_zamiifolia_7zz.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 1067,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/7/74/Zamioculcas_zamiifolia_7zz.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/7/74/Zamioculcas_zamiifolia_7zz.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_7zz.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=61231832",
+            "extmetadata": {
+              "Artist": {
+                "value": "Photo by David J. Stang",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "12608349": {
+        "pageid": 12608349,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia DPR.png",
+        "index": 5,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 3531177,
+            "width": 2144,
+            "height": 1947,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f4/Zamioculcas_zamiifolia_DPR.png/1920px-Zamioculcas_zamiifolia_DPR.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 1453,
+            "responsiveUrls": {
+              "2": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Zamioculcas_zamiifolia_DPR.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f4/Zamioculcas_zamiifolia_DPR.png/1920px-Zamioculcas_zamiifolia_DPR.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 1453,
+              "srcset": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Zamioculcas_zamiifolia_DPR.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Zamioculcas_zamiifolia_DPR.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_DPR.png",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=12608349",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"https://en.wikipedia.org/wiki/Adolf_Engler\" class=\"extiw\" title=\"en:Adolf Engler\">Adolf Engler</a> (d. 1930)",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "Public domain",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "191365179": {
+        "pageid": 191365179,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia in China.jpg",
+        "index": 7,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 9590349,
+            "width": 4497,
+            "height": 7167,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Zamioculcas_zamiifolia_in_China.jpg/1920px-Zamioculcas_zamiifolia_in_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2550,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Zamioculcas_zamiifolia_in_China.jpg/3840px-Zamioculcas_zamiifolia_in_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Zamioculcas_zamiifolia_in_China.jpg/1920px-Zamioculcas_zamiifolia_in_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2550,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3e/Zamioculcas_zamiifolia_in_China.jpg/3840px-Zamioculcas_zamiifolia_in_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Zamioculcas_zamiifolia_in_China.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_in_China.jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=191365179",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Dinkun_Chen\" title=\"User:Dinkun Chen\">Dinkun Chen</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "192008919": {
+        "pageid": 192008919,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia in China (3).jpg",
+        "index": 10,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 11865884,
+            "width": 3934,
+            "height": 7167,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6a/Zamioculcas_zamiifolia_in_China_%283%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%283%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2915,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6a/Zamioculcas_zamiifolia_in_China_%283%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%283%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6a/Zamioculcas_zamiifolia_in_China_%283%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%283%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2915,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6a/Zamioculcas_zamiifolia_in_China_%283%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%283%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/6/6a/Zamioculcas_zamiifolia_in_China_%283%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_in_China_(3).jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=192008919",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Dinkun_Chen\" title=\"User:Dinkun Chen\">Dinkun Chen</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "192010481": {
+        "pageid": 192010481,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia in China (4).jpg",
+        "index": 2,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 14588895,
+            "width": 4468,
+            "height": 7846,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Zamioculcas_zamiifolia_in_China_%284%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2810,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Zamioculcas_zamiifolia_in_China_%284%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Zamioculcas_zamiifolia_in_China_%284%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2810,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/97/Zamioculcas_zamiifolia_in_China_%284%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/9/97/Zamioculcas_zamiifolia_in_China_%284%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_in_China_(4).jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=192010481",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Dinkun_Chen\" title=\"User:Dinkun Chen\">Dinkun Chen</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "192013025": {
+        "pageid": 192013025,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia in China (5).jpg",
+        "index": 12,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 14787408,
+            "width": 5132,
+            "height": 6720,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Zamioculcas_zamiifolia_in_China_%285%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%285%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2095,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Zamioculcas_zamiifolia_in_China_%285%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%285%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Zamioculcas_zamiifolia_in_China_%285%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%285%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2095,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/Zamioculcas_zamiifolia_in_China_%285%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%285%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/1/11/Zamioculcas_zamiifolia_in_China_%285%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_in_China_(5).jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=192013025",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Dinkun_Chen\" title=\"User:Dinkun Chen\">Dinkun Chen</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      },
+      "192586799": {
+        "pageid": 192586799,
+        "ns": 6,
+        "title": "File:Zamioculcas zamiifolia in China (6).jpg",
+        "index": 11,
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "size": 8945124,
+            "width": 4713,
+            "height": 7326,
+            "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a9/Zamioculcas_zamiifolia_in_China_%286%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%286%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+            "thumbwidth": 1600,
+            "thumbheight": 2487,
+            "responsiveUrls": {
+              "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a9/Zamioculcas_zamiifolia_in_China_%286%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%286%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+            },
+            "thumbattribs": {
+              "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a9/Zamioculcas_zamiifolia_in_China_%286%29.jpg/1920px-Zamioculcas_zamiifolia_in_China_%286%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+              "decoding": "async",
+              "loading": "lazy",
+              "width": 1600,
+              "height": 2487,
+              "srcset": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a9/Zamioculcas_zamiifolia_in_China_%286%29.jpg/3840px-Zamioculcas_zamiifolia_in_China_%286%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+            },
+            "url": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Zamioculcas_zamiifolia_in_China_%286%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_in_China_(6).jpg",
+            "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=192586799",
+            "extmetadata": {
+              "Artist": {
+                "value": "<a href=\"//commons.wikimedia.org/wiki/User:Dinkun_Chen\" title=\"User:Dinkun Chen\">Dinkun Chen</a>",
+                "source": "commons-desc-page"
+              },
+              "LicenseShortName": {
+                "value": "CC BY-SA 4.0",
+                "source": "commons-desc-page",
+                "hidden": ""
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
