@@ -159,7 +159,7 @@ export function PlantSelect() {
                 <Text style={styles.retryText}>{t('plantSelect.retry')}</Text>
               </TouchableOpacity>
             </View>
-          ) : null
+          ) : undefined
         }
       />
     );

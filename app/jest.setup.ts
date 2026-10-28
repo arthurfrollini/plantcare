@@ -29,6 +29,13 @@ jest.mock('expo-notifications', () => ({
   getAllScheduledNotificationsAsync: jest.fn(async () => []),
 }));
 
+// jest-expo 58 no longer treats icon fonts as loaded, and loading them needs Metro's asset registry.
+jest.mock('expo-font', () => ({
+  ...jest.requireActual<object>('expo-font'),
+  isLoaded: () => true,
+  loadAsync: async () => undefined,
+}));
+
 jest.mock('expo-image-picker', () => ({
   PermissionStatus: { GRANTED: 'granted', DENIED: 'denied', UNDETERMINED: 'undetermined' },
   UIImagePickerPreferredAssetRepresentationMode: { Automatic: 'automatic', Compatible: 'compatible', Current: 'current' },

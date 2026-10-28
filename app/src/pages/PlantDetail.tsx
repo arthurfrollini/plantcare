@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import { Image, type ImageStyle } from 'expo-image';
 import { SvgFromUri } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -449,10 +449,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
+  // expo-image's style type still wants a percentage literal, not RN 0.88's plain string.
+  photo: { width: '100%', height: '100%' } satisfies ImageStyle,
   photoBusy: {
     position: 'absolute',
     top: 0,

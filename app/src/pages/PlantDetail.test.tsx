@@ -249,7 +249,7 @@ describe('PlantDetail', () => {
   }, 15000);
 
   it('shows a species photo with its credit, linking to its page on Commons', async () => {
-    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await renderScreen({
       ...userPlantFixture,
       imageUrl: '/plants/c1/image',
