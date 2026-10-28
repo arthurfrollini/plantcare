@@ -382,7 +382,7 @@ describe('MyPlants Today card', () => {
     renderScreen();
 
     expect(await screen.findByText('My garden')).toBeOnTheScreen();
-    expect(screen.getAllByText('Water at')).toHaveLength(3);
+    expect(screen.getAllByTestId('next-watering')).toHaveLength(3);
     expect(screen.getAllByLabelText('Remove')).toHaveLength(3);
   });
 

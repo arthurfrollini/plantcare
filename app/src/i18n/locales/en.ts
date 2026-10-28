@@ -200,6 +200,7 @@ const en = {
   myPlants: {
     empty: "You haven't added any plants yet. Tap + to add your first one.",
     garden: 'My garden',
+    needsCare: 'Needs care',
     waterAt: 'Water at',
     removeTitle: 'Remove {{name}}?',
     remove: 'Remove',
@@ -233,6 +234,12 @@ const en = {
     // date-fns pattern for a watering more than a week away.
     dateFormat: 'MMMM d',
     saveError: "Couldn't save. Try again.",
+  },
+  when: {
+    today: 'Today {{at}}',
+    tomorrow: 'Tomorrow {{at}}',
+    weekday: '{{day}} {{at}}',
+    date: '{{date}} {{at}}',
   },
   tabs: {
     profile: 'Profile',

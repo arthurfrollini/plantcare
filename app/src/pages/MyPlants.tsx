@@ -204,6 +204,8 @@ export function MyPlants() {
         renderItem={({ item }) => (
           <PlantCardSecondary
             plant={item.plant}
+            next={item.next}
+            now={now}
             accessToken={accessToken}
             readOnly={offline}
             onPress={() => handleEdit(item.plant)}

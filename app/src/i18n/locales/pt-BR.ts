@@ -202,6 +202,7 @@ const ptBR: typeof en = {
   myPlants: {
     empty: 'Você ainda não cadastrou nenhuma planta. Toque no + para adicionar a primeira.',
     garden: 'Meu jardim',
+    needsCare: 'Precisa de cuidado',
     waterAt: 'Regar às',
     removeTitle: 'Remover {{name}}?',
     remove: 'Remover',
@@ -232,6 +233,12 @@ const ptBR: typeof en = {
     atOne: 'à {{time}}',
     dateFormat: "d 'de' MMMM",
     saveError: 'Não consegui salvar. Tente de novo.',
+  },
+  when: {
+    today: 'Hoje {{at}}',
+    tomorrow: 'Amanhã {{at}}',
+    weekday: '{{day}} {{at}}',
+    date: '{{date}} {{at}}',
   },
   tabs: {
     profile: 'Perfil',
