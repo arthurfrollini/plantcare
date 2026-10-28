@@ -106,4 +106,14 @@ describe('seed', () => {
       );
     }
   });
+
+  it('keeps every illustration, for apps that cached the old image URLs', () => {
+    for (const plant of plantSeeds) {
+      expect(
+        existsSync(
+          new URL(`../public/plants/${plant.slug}.svg`, import.meta.url),
+        ),
+      ).toBe(true);
+    }
+  });
 });
