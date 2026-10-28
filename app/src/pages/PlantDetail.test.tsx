@@ -267,6 +267,36 @@ describe('PlantDetail', () => {
     openURL.mockRestore();
   });
 
+  it('opens the photo full screen, with its credit, and closes it', async () => {
+    await renderScreen({
+      ...userPlantFixture,
+      imageUrl: '/plants/c1/image',
+      imageCredit: {
+        author: 'Jane Doe',
+        license: 'CC0',
+        source: 'https://commons.wikimedia.org/wiki/File:X.jpg',
+      },
+    });
+
+    fireEvent.press(screen.getByRole('imagebutton', { name: 'View photo' }));
+
+    const viewer = await screen.findByTestId('viewer-photo');
+    expect(viewer.props).toMatchObject({ contentFit: 'contain' });
+    expect(screen.getAllByText('Photo: Jane Doe, CC0')).toHaveLength(2);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => expect(screen.queryByTestId('viewer-photo')).not.toBeOnTheScreen(), {
+      timeout: 5000,
+    });
+  }, 15000);
+
+  it('has nothing to open for an illustration', async () => {
+    await renderScreen({ ...userPlantFixture, imageUrl: '/static/plants/monstera.svg' });
+
+    expect(screen.queryByRole('imagebutton', { name: 'View photo' })).not.toBeOnTheScreen();
+  });
+
   it('shows no credit for an illustration', async () => {
     await renderScreen({ ...userPlantFixture, imageUrl: '/static/plants/monstera.svg' });
 

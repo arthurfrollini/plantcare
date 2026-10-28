@@ -160,6 +160,8 @@ const ptBR: typeof en = {
     doneButton: 'Ver minhas plantas',
   },
   plantDetail: {
+    viewPhoto: 'Ver foto',
+    closePhoto: 'Fechar',
     photoCredit: 'Foto: {{author}}, {{license}}',
     remove: 'Excluir planta',
     back: 'Voltar',

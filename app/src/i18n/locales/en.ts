@@ -158,6 +158,8 @@ const en = {
     doneButton: 'See my plants',
   },
   plantDetail: {
+    viewPhoto: 'View photo',
+    closePhoto: 'Close',
     photoCredit: 'Photo: {{author}}, {{license}}',
     remove: 'Remove plant',
     back: 'Back',

@@ -26,6 +26,7 @@ import { DaysSheet } from '../components/DaysSheet';
 import { LeadInfoSheet } from '../components/LeadInfoSheet';
 import { Load } from '../components/Load';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
+import { PhotoViewer } from '../components/PhotoViewer';
 import { PlantHealth } from '../components/PlantHealth';
 import { isIllustration } from '../components/SpeciesImage';
 import { Tappable } from '../components/Tappable';
@@ -83,6 +84,16 @@ export function PlantDetailView(props: PlantDetailViewProps) {
   const [illustrationGone, setIllustrationGone] = useState(false);
   // Credited only while the species photo is the one on screen.
   const credit = !props.photoSource && !illustrationGone ? plant.imageCredit : null;
+  const creditText = credit
+    ? t('plantDetail.photoCredit', { author: credit.author, license: credit.license })
+    : null;
+  const [viewerOpen, setViewerOpen] = useState(false);
+  // What the full-screen viewer shows: the user's photo, else the species photo; never a drawing.
+  const viewerSource =
+    props.photoSource ??
+    (plant.imageUrl && !illustrationGone && !isIllustration(plant.imageUrl)
+      ? { uri: assetUrl(plant.imageUrl) }
+      : null);
 
   function renderPicture() {
     if (props.photoSource) {
@@ -149,7 +160,18 @@ export function PlantDetailView(props: PlantDetailViewProps) {
           </Tappable>
         }
       >
-        {renderPicture()}
+        {viewerSource ? (
+          <Pressable
+            accessibilityRole="imagebutton"
+            accessibilityLabel={t('plantDetail.viewPhoto')}
+            style={StyleSheet.absoluteFill}
+            onPress={() => setViewerOpen(true)}
+          >
+            {renderPicture()}
+          </Pressable>
+        ) : (
+          renderPicture()
+        )}
         {props.photoBusy && (
           <View style={styles.photoBusy}>
             <ActivityIndicator color={colors.white} />
@@ -176,7 +198,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
             style={styles.credit}
             onPress={() => void Linking.openURL(credit.source)}
           >
-            {t('plantDetail.photoCredit', { author: credit.author, license: credit.license })}
+            {creditText}
           </Text>
         )}
         {plant.about ? <Text style={styles.about}>{plant.about}</Text> : null}
@@ -347,6 +369,12 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         visible={leadInfoOpen}
         minutes={values.reminderLeadMinutes}
         onClose={() => setLeadInfoOpen(false)}
+      />
+      <PhotoViewer
+        visible={viewerOpen}
+        source={viewerSource}
+        credit={creditText}
+        onClose={() => setViewerOpen(false)}
       />
       <PhotoSheet
         visible={photoOpen}
