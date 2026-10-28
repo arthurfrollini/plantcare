@@ -4,7 +4,20 @@ import type { UserPlant } from '@plantcare/shared';
 import { clearTokens } from '../auth/session';
 import { api } from './client';
 import { assetUrl } from './config';
-import { deleteMyPlant, deletePlantPhoto, listCatalog, plantPhotoSource } from './endpoints';
+import {
+  addProposal,
+  checkupPhotoSource,
+  createCheckup,
+  deleteMyPlant,
+  deletePlantPhoto,
+  getAiStatus,
+  identifyByName,
+  identifyByPhoto,
+  listCatalog,
+  listCheckups,
+  markHealed,
+  plantPhotoSource,
+} from './endpoints';
 
 let mock: MockAdapter;
 beforeEach(async () => {
@@ -104,5 +117,90 @@ describe('plantPhotoSource', () => {
     expect(a?.uri).toMatch(/\/me\/plants\/up1\/photo$/);
     expect(a?.cacheKey).toBe('up1-v1');
     expect(b?.cacheKey).not.toBe(a?.cacheKey);
+  });
+});
+
+describe('AI endpoints', () => {
+  const identification = {
+    isPlant: true,
+    confidence: 'high',
+    scientificName: 'Monstera deliciosa',
+    names: { en: 'Swiss cheese plant', 'pt-BR': 'Costela-de-adão' },
+    about: { en: 'a', 'pt-BR': 'a' },
+    waterTips: { en: 'w', 'pt-BR': 'w' },
+    light: 'partial_shade',
+    difficulty: 'easy',
+    frequency: { times: 1, per: 'week' },
+  };
+  const checkup = {
+    id: 'c1',
+    createdAt: '2026-10-28T12:00:00.000Z',
+    description: null,
+    problem: 'Too much water.',
+    steps: ['Let it dry.'],
+    whenToWorry: 'If stems go soft.',
+    status: 'open',
+    healedAt: null,
+    photoUrl: '/me/plants/up1/checkups/c1/photo',
+  };
+
+  it('getAiStatus parses the status', async () => {
+    mock.onGet('/ai/status').reply(200, { enabled: true, identifyLeft: 9, checkupLeft: 5 });
+    await expect(getAiStatus()).resolves.toEqual({ enabled: true, identifyLeft: 9, checkupLeft: 5 });
+  });
+
+  it('identifyByName posts the name and parses a proposal', async () => {
+    mock.onPost('/ai/identify/name', { name: 'costela' }).reply(200, {
+      kind: 'proposal',
+      proposalId: 'p9',
+      proposal: identification,
+    });
+    await expect(identifyByName('costela')).resolves.toMatchObject({ kind: 'proposal', proposalId: 'p9' });
+  });
+
+  it('identifyByPhoto sends the photo as multipart', async () => {
+    mock.onPost('/ai/identify/photo').reply((config) => {
+      expect(config.data).toBeInstanceOf(FormData);
+      return [200, { kind: 'none', reason: 'not_a_plant' }];
+    });
+    await expect(identifyByPhoto({ uri: 'file:///p.jpg', mimeType: 'image/jpeg' })).resolves.toEqual({
+      kind: 'none',
+      reason: 'not_a_plant',
+    });
+  });
+
+  it('addProposal posts the schedule and returns the new plant', async () => {
+    const schedule = { reminderTime: '08:00', timeZone: 'America/Sao_Paulo', wateringDays: [1] };
+    mock.onPost('/ai/proposals/p9/add', schedule).reply(201, plant({ id: 'up9' }));
+    await expect(addProposal('p9', schedule)).resolves.toMatchObject({ id: 'up9' });
+  });
+
+  it('createCheckup sends the description before the photo', async () => {
+    mock.onPost('/me/plants/up1/checkups').reply((config) => {
+      expect(config.data).toBeInstanceOf(FormData);
+      return [201, checkup];
+    });
+    await expect(
+      createCheckup('up1', { uri: 'file:///p.jpg', mimeType: 'image/jpeg' }, 'folhas amarelas'),
+    ).resolves.toMatchObject({ id: 'c1' });
+  });
+
+  it('listCheckups and markHealed parse check-ups', async () => {
+    mock.onGet('/me/plants/up1/checkups').reply(200, [checkup]);
+    mock.onPatch('/me/plants/up1/checkups/c1', { status: 'healed' }).reply(200, {
+      ...checkup,
+      status: 'healed',
+      healedAt: '2026-10-29T12:00:00.000Z',
+    });
+    await expect(listCheckups('up1')).resolves.toHaveLength(1);
+    await expect(markHealed('up1', 'c1')).resolves.toMatchObject({ status: 'healed' });
+  });
+
+  it('checkupPhotoSource builds an authorized source', () => {
+    expect(checkupPhotoSource('/me/plants/up1/checkups/c1/photo', 'tok')).toEqual({
+      uri: assetUrl('/me/plants/up1/checkups/c1/photo'),
+      headers: { Authorization: 'Bearer tok' },
+      cacheKey: '/me/plants/up1/checkups/c1/photo',
+    });
   });
 });
