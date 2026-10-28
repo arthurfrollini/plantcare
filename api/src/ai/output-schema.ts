@@ -26,7 +26,9 @@ function cleanObject(node: Record<string, unknown>): Record<string, unknown> {
     if (UNSUPPORTED.has(key)) continue;
     // Structured outputs only take minItems of 0 or 1; zod still checks the real bound.
     if (key === 'minItems' && typeof value === 'number' && value > 1) continue;
-    out[key] = clean(value);
+    // zod writes unions as oneOf; structured outputs only take anyOf. The branches never overlap
+    // (each has its own literal), so the two mean the same here.
+    out[key === 'oneOf' ? 'anyOf' : key] = clean(value);
   }
   if (
     out.type === 'object' &&

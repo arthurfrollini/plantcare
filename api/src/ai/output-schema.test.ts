@@ -30,6 +30,7 @@ describe('toOutputSchema', () => {
         'maximum',
         'maxItems',
         '$schema',
+        'oneOf',
       ]) {
         expect(node).not.toHaveProperty(key);
       }
@@ -43,5 +44,12 @@ describe('toOutputSchema', () => {
         }
       }
     });
+  });
+
+  it('keeps the frequency union as anyOf, the form structured outputs takes', () => {
+    const json = toOutputSchema(identificationSchema);
+    const properties = isNode(json.properties) ? json.properties : {};
+    const frequency = properties.frequency;
+    expect(isNode(frequency) && Array.isArray(frequency.anyOf)).toBe(true);
   });
 });
