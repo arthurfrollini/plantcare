@@ -109,7 +109,10 @@ export function checkupRoutes(
       const locale = resolveLocale(request.headers['accept-language']);
       const plant = await ownPlant(request.userId, request.params.id);
       await assertAiAllowed(app.prisma, request.userId, 'checkup', config());
-      const { data, type, fields } = await readPhotoUpload(request);
+      // 500 characters can take up to 2 KB in UTF-8 (accents, emoji).
+      const { data, type, fields } = await readPhotoUpload(request, {
+        maxFieldBytes: 2048,
+      });
       const description = fields.description?.trim() || undefined;
       if (description && description.length > MAX_DESCRIPTION) {
         throw new AppError(400, 'validation_error', 'Description is too long');

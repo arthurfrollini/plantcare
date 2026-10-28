@@ -47,6 +47,7 @@ function hasTruncatedField(fields: object): boolean {
  */
 export async function readPhotoUpload(
   request: FastifyRequest,
+  options: { maxFieldBytes?: number } = {},
 ): Promise<{ data: Buffer; type: PhotoType; fields: Record<string, string> }> {
   if (!request.isMultipart()) {
     throw new AppError(400, 'photo_missing', 'A photo file is required');
@@ -58,7 +59,7 @@ export async function readPhotoUpload(
         fileSize: MAX_PHOTO_BYTES,
         files: 1,
         fields: 5,
-        fieldSize: 2048,
+        fieldSize: options.maxFieldBytes ?? 1024,
         parts: 6,
       },
     });
