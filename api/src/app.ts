@@ -14,6 +14,8 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
+import { createAnthropicPlantAi } from './ai/anthropic-plant-ai';
+import type { PlantAi } from './ai/plant-ai';
 import { authenticateDecorator } from './auth/authenticate';
 import { createGoogleVerifier, type GoogleVerifier } from './auth/google';
 import { accessJwtConfig } from './auth/jwt-config';
@@ -42,6 +44,8 @@ export type BuildAppOptions = {
   authRateLimitMax?: number;
   /** Where plant photos are kept; defaults to disk under UPLOADS_DIR. */
   photoStorage?: PhotoStorage;
+  /** The model client; defaults to Claude when ANTHROPIC_API_KEY is set, otherwise AI is off. */
+  plantAi?: PlantAi;
   /** Test hook: register extra routes before the app is ready. */
   extraRoutes?: (app: FastifyInstance) => void;
 };
@@ -51,6 +55,7 @@ declare module 'fastify' {
     prisma: PrismaClient;
     googleVerifier: GoogleVerifier | undefined;
     authRateLimitMax: number;
+    plantAi: PlantAi | undefined;
   }
 }
 
@@ -77,6 +82,16 @@ export async function buildApp(
       : (options.googleVerifier ?? createGoogleVerifier(googleClientIds)),
   );
   app.decorate('authRateLimitMax', options.authRateLimitMax ?? 10);
+  app.decorate(
+    'plantAi',
+    options.plantAi ??
+      (env.ANTHROPIC_API_KEY
+        ? createAnthropicPlantAi({
+            model: env.AI_MODEL,
+            apiKey: env.ANTHROPIC_API_KEY,
+          })
+        : undefined),
+  );
 
   await app.register(cors, {
     origin: env.CORS_ORIGIN,
