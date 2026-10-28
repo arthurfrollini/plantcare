@@ -18,6 +18,8 @@ export default {
 
   red: '#E83F5B',
 
+  yellow: '#F2D266',
   yellow_dark: '#8A6D00',
   yellow_light: '#FFF6D6',
+  yellow_pressed: '#FCECB5',
 };

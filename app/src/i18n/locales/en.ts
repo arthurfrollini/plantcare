@@ -179,6 +179,7 @@ const en = {
     review_one: 'The watering for this plant changed. Tap the pencil to pick 1 day.',
     review_other: 'The watering for this plant changed. Tap the pencil to pick {{count}} days.',
     saved: 'Saved ✓',
+    sickHint: 'Find out what is wrong and how to help',
     sick: 'My plant is sick 🤒',
   },
   frequency: {

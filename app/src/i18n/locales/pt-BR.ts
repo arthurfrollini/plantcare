@@ -181,6 +181,7 @@ const ptBR: typeof en = {
     review_one: 'A rega dessa planta mudou. Toque no lápis para escolher 1 dia.',
     review_other: 'A rega dessa planta mudou. Toque no lápis para escolher {{count}} dias.',
     saved: 'Salvo ✓',
+    sickHint: 'Descubra o que ela tem e como ajudar',
     sick: 'Minha planta está doente 🤒',
   },
   frequency: {
