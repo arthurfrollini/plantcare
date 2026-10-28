@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "types": ["node"]
   },
-  "include": ["src", "test", "prisma", "*.ts"]
+  "include": ["src", "test", "prisma", "scripts", "*.ts"]
 }

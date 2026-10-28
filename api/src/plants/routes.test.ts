@@ -13,6 +13,7 @@ type Item = {
   scientificName: string;
   source: string;
   imageUrl: string | null;
+  imageCredit: { author: string; license: string; source: string } | null;
   slug: string;
 };
 type Page = { items: Item[]; nextPage: number | null };
@@ -159,11 +160,22 @@ describe('catalog routes', () => {
   });
 
   it('serves the illustration at imageUrl', async () => {
-    const item = (await list('')).json<Page>().items[0];
+    const items = (await list('')).json<Page>().items;
+    const item = items.find((p) => p.slug === 'aningapara');
     expect(item?.imageUrl).toMatch(/^\/static\/plants\/.+\.svg$/);
     const res = await app.inject({ method: 'GET', url: item?.imageUrl ?? '' });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('image/svg+xml');
+  });
+
+  it('serves a catalog photo at imageUrl, with its credit', async () => {
+    const items = (await list('')).json<Page>().items;
+    const item = items.find((p) => p.slug === 'zamioculca');
+    expect(item?.imageUrl).toBe('/static/plants/zamioculca.webp');
+    expect(item?.imageCredit).toMatchObject({ license: 'CC0' });
+    const res = await app.inject({ method: 'GET', url: item?.imageUrl ?? '' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('image/webp');
   });
 });
 
@@ -184,7 +196,9 @@ describe('catalog images', () => {
   });
 
   it('serves a stored species photo and its credit', async () => {
-    const plant = await created.prisma.plant.findFirstOrThrow();
+    const plant = await created.prisma.plant.findFirstOrThrow({
+      where: { slug: 'yucca' },
+    });
     const key = `species/${plant.id}.webp`;
     await createDiskStorage(dir).save(key, Buffer.from('webp-bytes'));
     await created.prisma.plant.update({
@@ -222,7 +236,7 @@ describe('catalog images', () => {
 
   it('keeps the static image and no credit for a species without a stored photo', async () => {
     const plant = await created.prisma.plant.findFirstOrThrow({
-      where: { imageKey: null },
+      where: { slug: 'aningapara' },
     });
     const res = await created.app.inject({
       method: 'GET',

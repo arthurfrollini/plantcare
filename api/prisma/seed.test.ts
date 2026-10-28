@@ -89,4 +89,21 @@ describe('seed', () => {
       ).toBe(true);
     }
   });
+
+  it('credits every catalog photo; only aningapara keeps its illustration', async () => {
+    const plants = await prisma.plant.findMany({ orderBy: { slug: 'asc' } });
+    for (const plant of plants) {
+      if (plant.slug === 'aningapara') {
+        expect(plant.imageFile).toBe('aningapara.svg');
+        expect(plant.imageAuthor).toBeNull();
+        continue;
+      }
+      expect(plant.imageFile).toBe(`${plant.slug}.webp`);
+      expect(plant.imageAuthor).toBeTruthy();
+      expect(plant.imageLicense).toMatch(/^(CC0|Public domain)/);
+      expect(plant.imageSource).toMatch(
+        /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/,
+      );
+    }
+  });
 });
