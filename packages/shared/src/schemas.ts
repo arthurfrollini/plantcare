@@ -147,6 +147,20 @@ export const localDateSchema = z
     );
   }, 'Not a real calendar date');
 
+/** One AI check-up of a sick plant, as the API returns it. */
+export const checkupSchema = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+  description: z.string().nullable(),
+  problem: z.string(),
+  steps: z.array(z.string()),
+  whenToWorry: z.string(),
+  status: z.enum(['open', 'healed']),
+  healedAt: z.string().nullable(),
+  photoUrl: z.string(),
+});
+export type Checkup = z.infer<typeof checkupSchema>;
+
 export const userPlantSchema = z.object({
   id: z.string(),
   catalogPlantId: z.string(),
@@ -175,6 +189,8 @@ export const userPlantSchema = z.object({
   // or served before waterings existed still reads.
   lastWateredOn: localDateSchema.nullable().default(null),
   createdAt: z.string(),
+  // The newest check-up not yet marked healed. Defaults to null so older caches still read.
+  openCheckup: checkupSchema.nullable().default(null),
 });
 export type UserPlant = z.infer<typeof userPlantSchema>;
 

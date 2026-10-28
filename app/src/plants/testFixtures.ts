@@ -49,4 +49,5 @@ export const userPlantFixture: UserPlant = {
   photoVersion: null,
   lastWateredOn: null,
   createdAt: '2026-10-22T00:00:00.000Z',
+  openCheckup: null,
 };

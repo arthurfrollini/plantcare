@@ -49,19 +49,6 @@ export const identifyResponseSchema = z.discriminatedUnion('kind', [
 ]);
 export type IdentifyResponse = z.infer<typeof identifyResponseSchema>;
 
-export const checkupSchema = z.object({
-  id: z.string(),
-  createdAt: z.string(),
-  description: z.string().nullable(),
-  problem: z.string(),
-  steps: z.array(z.string()),
-  whenToWorry: z.string(),
-  status: z.enum(['open', 'healed']),
-  healedAt: z.string().nullable(),
-  photoUrl: z.string(),
-});
-export type Checkup = z.infer<typeof checkupSchema>;
-
 export const aiStatusSchema = z.object({
   enabled: z.boolean(),
   identifyLeft: z.number().int().min(0),

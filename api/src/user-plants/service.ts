@@ -1,3 +1,4 @@
+import { toCheckupDto, type CheckupRow } from '../ai/checkup-dto';
 import { speciesImageUrl } from '../plants/service';
 import {
   DEFAULT_REMINDER_LEAD,
@@ -34,6 +35,11 @@ const include = {
     take: 1,
     select: { wateredOn: true },
   },
+  checkups: {
+    where: { status: 'open' },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+  },
 } as const;
 
 function isDateBased(frequency: { per: string }): boolean {
@@ -44,6 +50,7 @@ export function toUserPlantDto(
   row: UserPlantRow & {
     catalogPlant: Plant;
     waterings: { wateredOn: Date }[];
+    checkups?: CheckupRow[];
   },
   translation: PlantTranslation | null,
 ): UserPlant {
@@ -83,6 +90,7 @@ export function toUserPlantDto(
     hasPhoto: row.photoPath !== null,
     photoVersion: row.photoUpdatedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
+    openCheckup: row.checkups?.[0] ? toCheckupDto(row.checkups[0]) : null,
   };
 }
 

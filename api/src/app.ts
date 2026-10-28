@@ -15,6 +15,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
 import { createAnthropicPlantAi } from './ai/anthropic-plant-ai';
+import { checkupRoutes } from './ai/checkup-routes';
 import { attachSpeciesPhoto } from './ai/commons';
 import { identifyRoutes } from './ai/identify-routes';
 import type { PlantAi } from './ai/plant-ai';
@@ -212,6 +213,7 @@ export async function buildApp(
   userPlantRoutes(app, photoStorage);
   wateringRoutes(app);
   photoRoutes(app, photoStorage);
+  checkupRoutes(app, photoStorage);
   options.extraRoutes?.(app);
 
   await app.ready();
