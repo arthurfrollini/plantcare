@@ -1,0 +1,107 @@
+{
+  "results": [
+    {
+      "id": 56006,
+      "name": "Zantedeschia aethiopica",
+      "rank": "species",
+      "taxon_photos": [
+        {
+          "photo": {
+            "id": 10183,
+            "license_code": "cc-by-nc-sa",
+            "attribution": "(c) flipsockgrrl, some rights reserved (CC BY-NC-SA)",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/10183/square.jpg",
+            "original_dimensions": {
+              "height": 750,
+              "width": 1000
+            }
+          }
+        },
+        {
+          "photo": {
+            "id": 63504546,
+            "license_code": "cc-by-sa",
+            "attribution": "(c) Dominicus Johannes Bergsma, some rights reserved (CC BY-SA)",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/63504546/square.jpeg",
+            "original_dimensions": {
+              "height": 1365,
+              "width": 2048
+            }
+          }
+        },
+        {
+          "photo": {
+            "id": 7550838,
+            "license_code": "cc0",
+            "attribution": "no rights reserved, uploaded by Peter de Lange",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/7550838/square.jpg",
+            "original_dimensions": {
+              "height": 2048,
+              "width": 1536
+            }
+          }
+        },
+        {
+          "photo": {
+            "id": 188960351,
+            "license_code": "cc-by-nc",
+            "attribution": "(c) arkim, some rights reserved (CC BY-NC), uploaded by arkim",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/188960351/square.jpg",
+            "original_dimensions": {
+              "height": 1536,
+              "width": 2048
+            }
+          }
+        },
+        {
+          "photo": {
+            "id": 11319232,
+            "license_code": "cc-by-nc",
+            "attribution": "(c) Mike Lusk, some rights reserved (CC BY-NC), uploaded by Mike Lusk",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/11319232/square.jpg",
+            "original_dimensions": {
+              "height": 1536,
+              "width": 2048
+            }
+          }
+        },
+        {
+          "photo": {
+            "id": 2499159,
+            "license_code": "cc-by",
+            "attribution": "(c) Bruce Calvert, some rights reserved (CC BY), uploaded by Bruce Calvert",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/2499159/square.jpg",
+            "original_dimensions": {
+              "height": 2048,
+              "width": 1529
+            }
+          }
+        },
+        {
+          "photo": {
+            "id": 63504547,
+            "license_code": "cc-by-sa",
+            "attribution": "(c) \nPhoto by David J. Stang, some rights reserved (CC BY-SA)",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/63504547/square.jpg",
+            "original_dimensions": {
+              "height": 1500,
+              "width": 1000
+            }
+          }
+        },
+        {
+          "photo": {
+            "id": 29144251,
+            "license_code": "cc-by",
+            "attribution": "(c) Murray NZ, some rights reserved (CC BY), uploaded by Murray NZ",
+            "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/29144251/square.jpg",
+            "original_dimensions": {
+              "height": 1536,
+              "width": 2048
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

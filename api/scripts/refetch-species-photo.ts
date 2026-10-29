@@ -4,17 +4,18 @@
  *   npx tsx scripts/refetch-species-photo.ts "<scientific name>"                  # as on an add: AI-checked
  *   npx tsx scripts/refetch-species-photo.ts "<scientific name>" "File:<title>"   # a file picked by hand
  *
- * The file must be CC0 or public domain, at least 800 px on its short side. The automatic pick
+ * The file must be CC0, public domain, CC BY or CC BY-SA, at least 700 px on its short side. The automatic pick
  * needs ANTHROPIC_API_KEY; its checks are not counted in AiUsage.
  */
 import '../src/load-env';
 import { createAnthropicPlantAi } from '../src/ai/anthropic-plant-ai';
 import {
-  attachSpeciesPhoto,
   downloadPhoto,
-  findPublicDomainPhotoByTitle,
+  findCommonsPhotoByTitle,
   storeSpeciesPhoto,
+  toSpeciesWebp,
 } from '../src/ai/commons';
+import { attachSpeciesPhoto } from '../src/ai/reference-photo';
 import { prisma } from '../src/db';
 import { env } from '../src/env';
 import { createDiskStorage } from '../src/storage';
@@ -30,12 +31,18 @@ async function main(): Promise<void> {
   const storage = createDiskStorage(env.UPLOADS_DIR);
 
   if (title) {
-    const photo = await findPublicDomainPhotoByTitle(title);
+    const photo = await findCommonsPhotoByTitle(title);
     if (!photo)
-      throw new Error('Not a CC0 or public-domain photo of at least 800 px');
+      throw new Error('Not a freely licensed photo of at least 700 px');
     const original = await downloadPhoto(photo);
     if (!original) throw new Error(`Could not download ${photo.url}`);
-    await storeSpeciesPhoto(prisma, storage, plant.id, photo, original);
+    await storeSpeciesPhoto(
+      prisma,
+      storage,
+      plant.id,
+      photo,
+      await toSpeciesWebp(original),
+    );
   } else {
     if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
     const ai = createAnthropicPlantAi({

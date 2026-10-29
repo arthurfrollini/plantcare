@@ -8,11 +8,12 @@ import { prisma } from '../db';
 import { createDiskStorage } from '../storage';
 import { resetDb } from '../../test/helpers';
 import {
-  attachSpeciesPhoto,
-  findPublicDomainPhotoByTitle,
-  findPublicDomainPhotos,
+  findCommonsPhotoByTitle,
+  findCommonsPhotos,
+  isFreeLicense,
   type CheckSpeciesPhoto,
 } from './commons';
+import { attachSpeciesPhoto } from './reference-photo';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const search: unknown = JSON.parse(
@@ -22,51 +23,54 @@ const busy: unknown = JSON.parse(
   readFileSync(path.join(here, 'fixtures/commons-busy.json'), 'utf8'),
 );
 
-type Page = {
-  imageinfo: { extmetadata: { LicenseShortName: { value: string } } }[];
-};
-type Search = { query: { pages: Record<string, Page> } };
-
-function isSearch(value: unknown): value is Search {
-  return typeof value === 'object' && value !== null && 'query' in value;
-}
-
-/** The fixture with only its CC BY / CC BY-SA photos left. */
-function onlyAttributionRequired(): unknown {
-  if (!isSearch(search)) throw new Error('bad fixture');
-  const pages = Object.fromEntries(
-    Object.entries(search.query.pages).filter(([, page]) =>
-      page.imageinfo[0]?.extmetadata.LicenseShortName.value.startsWith('CC BY'),
-    ),
-  );
-  return { ...search, query: { pages } };
+/** The URL a fetch call asked for. */
+function urlOf(target: Parameters<typeof fetch>[0] | undefined): string {
+  if (typeof target === 'string') return target;
+  return target instanceof URL ? target.href : '';
 }
 
 /** The URL of the stub's first request. */
 function firstUrl(fetchImpl: { mock: { calls: Parameters<typeof fetch>[] } }) {
-  const target = fetchImpl.mock.calls[0]?.[0];
-  if (typeof target === 'string') return target;
-  return target instanceof URL ? target.href : '';
+  return urlOf(fetchImpl.mock.calls[0]?.[0]);
 }
 
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200 });
 
-describe('findPublicDomainPhotos', () => {
-  it('lists up to 3 public-domain or CC0 photos whose short side is at least 800 px, in search order', async () => {
+describe('isFreeLicense', () => {
+  it.each([
+    ['CC0', true],
+    ['CC0 1.0', true],
+    ['Public domain', true],
+    ['PD-self', true],
+    ['CC BY 2.0', true],
+    ['CC BY-SA 4.0', true],
+    ['CC-BY-SA-3.0', true],
+    ['CC BY-SA 3.0 de', true],
+    ['CC BY-NC-SA 4.0', false],
+    ['CC BY-ND 4.0', false],
+    ['GFDL', false],
+    ['Attribution', false],
+    ['', false],
+  ])('%s → %s', (license, free) => {
+    expect(isFreeLicense(license)).toBe(free);
+  });
+});
+
+describe('findCommonsPhotos', () => {
+  it('lists up to 2 freely licensed photos whose short side is at least 700 px, in search order', async () => {
     const fetchImpl = vi.fn<typeof fetch>(() => Promise.resolve(json(search)));
-    const photos = await findPublicDomainPhotos(
-      'Zamioculcas zamiifolia',
-      fetchImpl,
-    );
-    expect(photos.map((photo) => photo.license)).toEqual([
-      'Public domain',
-      'CC0',
-      'CC0',
+    const photos = await findCommonsPhotos('Zamioculcas zamiifolia', fetchImpl);
+    expect(photos?.map((photo) => [photo.license, photo.source])).toEqual([
+      [
+        'CC BY-SA 3.0',
+        'https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_1.jpg',
+      ],
+      [
+        'CC BY-SA 4.0',
+        'https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_in_China_(4).jpg',
+      ],
     ]);
-    expect(photos[0]?.source).toBe(
-      'https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_DPR.png',
-    );
     const url = firstUrl(fetchImpl);
     // Only files filed under the species' own category: a free-text search once
     // returned a coin with "Zantedeschia aethiopica" in its description.
@@ -77,57 +81,89 @@ describe('findPublicDomainPhotos', () => {
     expect(new Headers(init?.headers).get('user-agent')).toContain('PlantCare');
   });
 
-  it('skips photos that need attribution, and is empty when nothing else is left', async () => {
+  it('keeps a 750 px short side and drops a smaller one', async () => {
     const fetchImpl = vi.fn<typeof fetch>(() =>
-      Promise.resolve(json(onlyAttributionRequired())),
+      Promise.resolve(
+        json({
+          query: {
+            pages: {
+              '1': titlePage('CC0', 1000, 750, 1),
+              '2': titlePage('CC0', 1000, 690, 2),
+            },
+          },
+        }),
+      ),
+    );
+    const photos = await findCommonsPhotos('Monstera deliciosa', fetchImpl);
+    expect(photos).toHaveLength(1);
+  });
+
+  it('is empty when Commons answers without a match', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(() =>
+      Promise.resolve(json({ batchcomplete: '' })),
     );
     expect(
-      await findPublicDomainPhotos('Zamioculcas zamiifolia', fetchImpl),
+      await findCommonsPhotos('Zamioculcas zamiifolia', fetchImpl),
     ).toEqual([]);
   });
 
-  it('is empty when Commons answers with an error', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(() => Promise.resolve(json(busy)));
-    expect(
-      await findPublicDomainPhotos('Zamioculcas zamiifolia', fetchImpl),
-    ).toEqual([]);
+  it('is null when Commons fails: an error answer, a 500 or no answer at all', async () => {
+    for (const fetchImpl of [
+      vi.fn<typeof fetch>(() => Promise.resolve(json(busy))),
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(new Response('', { status: 500 })),
+      ),
+      vi.fn<typeof fetch>(() =>
+        Promise.reject(new DOMException('timed out', 'TimeoutError')),
+      ),
+    ]) {
+      expect(
+        await findCommonsPhotos('Zamioculcas zamiifolia', fetchImpl),
+      ).toBeNull();
+    }
   });
 });
 
-describe('findPublicDomainPhotoByTitle', () => {
-  // A titles query answers without the search index.
-  const byTitle = (license: string) => ({
-    query: {
-      pages: {
-        '7': {
-          imageinfo: [
-            {
-              width: 1200,
-              height: 900,
-              url: 'https://upload.wikimedia.org/m.jpg',
-              descriptionurl:
-                'https://commons.wikimedia.org/wiki/File:Monstera1.JPG',
-              extmetadata: {
-                LicenseShortName: { value: license },
-                Artist: { value: '<a href="#">Jo</a>' },
-              },
-            },
-          ],
+/** One Commons file as a titles or search query returns it. */
+function titlePage(
+  license: string,
+  width = 1200,
+  height = 900,
+  index?: number,
+) {
+  return {
+    ...(index === undefined ? {} : { index }),
+    imageinfo: [
+      {
+        width,
+        height,
+        url: 'https://upload.wikimedia.org/m.jpg',
+        descriptionurl: 'https://commons.wikimedia.org/wiki/File:Monstera1.JPG',
+        extmetadata: {
+          LicenseShortName: { value: license },
+          Artist: { value: '<a href="#">Jo</a>' },
         },
       },
-    },
+    ],
+  };
+}
+
+describe('findCommonsPhotoByTitle', () => {
+  // A titles query answers without the search index.
+  const byTitle = (license: string) => ({
+    query: { pages: { '7': titlePage(license) } },
   });
 
-  it('returns the named file when it is public domain', async () => {
+  it('returns the named file when its licence is free', async () => {
     const fetchImpl = vi.fn<typeof fetch>(() =>
-      Promise.resolve(json(byTitle('Public domain'))),
+      Promise.resolve(json(byTitle('CC BY-SA 4.0'))),
     );
     expect(
-      await findPublicDomainPhotoByTitle('File:Monstera1.JPG', fetchImpl),
+      await findCommonsPhotoByTitle('File:Monstera1.JPG', fetchImpl),
     ).toEqual({
       url: 'https://upload.wikimedia.org/m.jpg',
       author: 'Jo',
-      license: 'Public domain',
+      license: 'CC BY-SA 4.0',
       source: 'https://commons.wikimedia.org/wiki/File:Monstera1.JPG',
     });
     expect(new URL(firstUrl(fetchImpl)).searchParams.get('titles')).toBe(
@@ -135,12 +171,12 @@ describe('findPublicDomainPhotoByTitle', () => {
     );
   });
 
-  it('refuses a file that needs attribution', async () => {
+  it('refuses a file under a non-commercial licence', async () => {
     const fetchImpl = vi.fn<typeof fetch>(() =>
-      Promise.resolve(json(byTitle('CC BY-SA 4.0'))),
+      Promise.resolve(json(byTitle('CC BY-NC-SA 4.0'))),
     );
     expect(
-      await findPublicDomainPhotoByTitle('File:Monstera1.JPG', fetchImpl),
+      await findCommonsPhotoByTitle('File:Monstera1.JPG', fetchImpl),
     ).toBeNull();
   });
 });
@@ -171,18 +207,21 @@ describe('attachSpeciesPhoto', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  /** A photo for every download, so each candidate gets as far as the check. */
-  async function commons(downloads: number) {
+  /** Commons with the fixture search, iNaturalist with nothing, and a photo for every download. */
+  async function commons() {
     const photo = await sharp({
       create: { width: 1200, height: 1600, channels: 3, background: '#3a7' },
     })
       .jpeg()
       .toBuffer();
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(json(search));
-    for (let i = 0; i < downloads; i++) {
-      fetchImpl.mockResolvedValueOnce(new Response(photo, { status: 200 }));
-    }
-    return fetchImpl;
+    return vi.fn<typeof fetch>((input) => {
+      const url = urlOf(input);
+      if (url.startsWith('https://commons.wikimedia.org/'))
+        return Promise.resolve(json(search));
+      if (url.startsWith('https://api.inaturalist.org/'))
+        return Promise.resolve(json({ total_results: 0, results: [] }));
+      return Promise.resolve(new Response(photo, { status: 200 }));
+    });
   }
 
   const attach = (fetchImpl: typeof fetch, check: CheckSpeciesPhoto) =>
@@ -199,13 +238,13 @@ describe('attachSpeciesPhoto', () => {
     prisma.plant.findUniqueOrThrow({ where: { id: plantId } });
 
   it('saves the first photo the check approves as an 800x800 WebP, with its credit', async () => {
-    await attach(await commons(1), () => Promise.resolve(true));
+    await attach(await commons(), () => Promise.resolve(true));
 
     expect(await stored()).toMatchObject({
       imageKey: `species/${plantId}.webp`,
-      imageLicense: 'Public domain',
+      imageLicense: 'CC BY-SA 3.0',
       imageSource:
-        'https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_DPR.png',
+        'https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_1.jpg',
     });
     expect((await stored()).imageAuthor).not.toContain('<');
     const saved = await createDiskStorage(dir).read(`species/${plantId}.webp`);
@@ -216,7 +255,7 @@ describe('attachSpeciesPhoto', () => {
 
   it('sends the check a JPEG no larger than 512 px', async () => {
     const check = vi.fn<CheckSpeciesPhoto>(() => Promise.resolve(true));
-    await attach(await commons(1), check);
+    await attach(await commons(), check);
 
     const sent = check.mock.calls[0]?.[0] ?? Buffer.alloc(0);
     const meta = await sharp(sent).metadata();
@@ -229,11 +268,11 @@ describe('attachSpeciesPhoto', () => {
       .fn<CheckSpeciesPhoto>()
       .mockResolvedValueOnce(false)
       .mockResolvedValueOnce(true);
-    await attach(await commons(2), check);
+    await attach(await commons(), check);
 
     expect(check).toHaveBeenCalledTimes(2);
     expect((await stored()).imageSource).toBe(
-      'https://commons.wikimedia.org/wiki/File:%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg',
+      'https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_in_China_(4).jpg',
     );
   });
 
@@ -242,25 +281,28 @@ describe('attachSpeciesPhoto', () => {
       .fn<CheckSpeciesPhoto>()
       .mockRejectedValueOnce(new Error('AI down'))
       .mockResolvedValueOnce(true);
-    await attach(await commons(2), check);
+    await attach(await commons(), check);
 
-    expect((await stored()).imageSource).toContain('communis_plant');
+    expect((await stored()).imageSource).toContain('in_China');
   });
 
-  it('keeps no photo when the check rejects all 3 candidates', async () => {
+  it('keeps no photo when the check rejects every candidate', async () => {
     const check = vi.fn<CheckSpeciesPhoto>(() => Promise.resolve(false));
-    await attach(await commons(3), check);
+    await attach(await commons(), check);
 
-    expect(check).toHaveBeenCalledTimes(3);
+    expect(check).toHaveBeenCalledTimes(2);
     expect((await stored()).imageKey).toBeNull();
   });
 
   it('leaves the species alone when the download fails or times out', async () => {
     for (const fetchImpl of [
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValueOnce(json(search))
-        .mockResolvedValue(new Response('', { status: 500 })),
+      vi.fn<typeof fetch>((input) =>
+        Promise.resolve(
+          urlOf(input).startsWith('https://commons.wikimedia.org/')
+            ? json(search)
+            : new Response('', { status: 500 }),
+        ),
+      ),
       vi.fn<typeof fetch>(() =>
         Promise.reject(new DOMException('timed out', 'TimeoutError')),
       ),

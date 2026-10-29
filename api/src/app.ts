@@ -16,7 +16,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { createAnthropicPlantAi } from './ai/anthropic-plant-ai';
 import { checkupRoutes } from './ai/checkup-routes';
-import { attachSpeciesPhoto } from './ai/commons';
+import { attachSpeciesPhoto } from './ai/reference-photo';
 import { speciesPhotoCheck } from './ai/species-photo-check';
 import { identifyRoutes } from './ai/identify-routes';
 import type { PlantAi } from './ai/plant-ai';
