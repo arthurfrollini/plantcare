@@ -4,7 +4,7 @@ A mobile app that reminds you to water your plants, with a schedule that fits ea
 
 ## Tech stack
 
-- [React Native](https://reactnative.dev/) 0.86 with [Expo](https://expo.dev/) SDK 57
+- [React Native](https://reactnative.dev/) 0.88 with [Expo](https://expo.dev/) SDK 58
 - [TypeScript](https://www.typescriptlang.org/)
 - [React Navigation](https://reactnavigation.org/) 7
 - [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications/) for the watering reminders
@@ -16,7 +16,7 @@ Requires Node.js 22+.
 1. Install dependencies from the repo root: `npm install`
 2. Start the API first, see [`../api/README.md`](../api/README.md). The app needs it for sign-in, the plant catalog and your plants.
 3. From `app/`, start the app: `npx expo start`
-4. Open it on your phone with [Expo Go](https://expo.dev/go) (SDK 57) by scanning the QR code, or press `i` for the iOS simulator or `a` for the Android emulator.
+4. Open it on your phone with [Expo Go](https://expo.dev/go) (SDK 58) by scanning the QR code, or press `i` for the iOS simulator or `a` for the Android emulator.
 
 The app finds the API on its own: it uses the address of the machine running Metro, on port 3333, so the phone and the computer only need to be on the same network. If they are not (on different networks, or through a tunnel), set `EXPO_PUBLIC_API_URL`.:
 

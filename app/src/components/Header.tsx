@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
+import { Image, type ImageStyle } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useAuth } from '../auth/AuthProvider';
@@ -95,10 +95,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.green_light,
     overflow: 'hidden',
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
+  // expo-image's style type still wants a percentage literal, not RN 0.88's plain string.
+  avatarImage: { width: '100%', height: '100%' } satisfies ImageStyle,
   avatarText: {
     fontSize: 28,
     fontFamily: fonts.heading,

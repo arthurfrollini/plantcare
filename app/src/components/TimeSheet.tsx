@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +32,7 @@ interface TimeSheetProps {
 /** The reminder time, picked from a list of every half hour. */
 export function TimeSheet({ visible, value, onSelect, onClose }: TimeSheetProps) {
   const { t } = useTranslation();
-  const list = useRef<ScrollView>(null);
+  const list = useRef<ComponentRef<typeof ScrollView>>(null);
   // Keeps the current row in the middle of the list when the sheet opens.
   const offset = Math.max(0, (nearestRow(value) - Math.floor(VISIBLE_ROWS / 2) + 1) * ROW_HEIGHT);
 

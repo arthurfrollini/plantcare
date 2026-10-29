@@ -96,7 +96,7 @@ export function UserIdentification() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: '100%',
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'space-around',
   },
