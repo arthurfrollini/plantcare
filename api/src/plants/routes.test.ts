@@ -273,6 +273,53 @@ describe('catalog images', () => {
     expect(image.rawPayload).toEqual(Buffer.from('webp-bytes'));
   });
 
+  it('lists the credit of every species photo, by name in the asked language', async () => {
+    const plant = await created.prisma.plant.findFirstOrThrow({
+      where: { slug: 'yucca' },
+    });
+    const updated = await created.prisma.plant.update({
+      where: { id: plant.id },
+      data: {
+        imageKey: `species/${plant.id}.webp`,
+        imageSource: 'https://www.inaturalist.org/photos/1',
+        imageAuthor: 'Jane Doe',
+        imageLicense: 'CC BY-SA',
+      },
+    });
+
+    const res = await created.app.inject({
+      method: 'GET',
+      url: '/plants/credits',
+      headers: { 'accept-language': 'pt-BR' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const credits =
+      res.json<
+        { id: string; name: string; imageUrl: string; credit: unknown }[]
+      >();
+    expect(credits.find((c) => c.id === plant.id)).toEqual({
+      id: plant.id,
+      name: 'Yucca',
+      scientificName: plant.scientificName,
+      imageUrl: `/plants/${plant.id}/image?v=${updated.updatedAt.getTime()}`,
+      credit: {
+        author: 'Jane Doe',
+        license: 'CC BY-SA',
+        source: 'https://www.inaturalist.org/photos/1',
+      },
+    });
+    // An illustration has no credit, so it is not listed.
+    const aningapara = await created.prisma.plant.findFirstOrThrow({
+      where: { slug: 'aningapara' },
+    });
+    expect(credits.some((c) => c.id === aningapara.id)).toBe(false);
+    const names = credits.map((c) => c.name);
+    expect(names).toEqual(
+      [...names].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    );
+  });
+
   it('keeps the static image and no credit for a species without a stored photo', async () => {
     const plant = await created.prisma.plant.findFirstOrThrow({
       where: { slug: 'aningapara' },

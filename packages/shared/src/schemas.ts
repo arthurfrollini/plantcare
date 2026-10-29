@@ -76,6 +76,16 @@ export const imageCreditSchema = z.object({
 });
 export type ImageCredit = z.infer<typeof imageCreditSchema>;
 
+/** A catalog species whose photo needs a credit, for the photo credits list. */
+export const photoCreditSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  scientificName: z.string(),
+  imageUrl: z.string(),
+  credit: imageCreditSchema,
+});
+export type PhotoCredit = z.infer<typeof photoCreditSchema>;
+
 export const catalogPlantSchema = z.object({
   id: z.string(),
   slug: z.string(),
