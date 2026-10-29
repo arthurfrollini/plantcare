@@ -3,6 +3,7 @@
  *
  *   npm run eval:ai -w @plantcare/api                     # print the results
  *   npm run eval:ai -w @plantcare/api -- --update-baseline  # and save them to baseline.json
+ *   npm run eval:ai -w @plantcare/api -- --only species-photo  # one section, e.g. while editing its prompt
  *
  * Needs ANTHROPIC_API_KEY in api/.env. One run costs about US$0.01.
  * - Identification passes when the genus and species match one of the accepted names.
@@ -83,6 +84,17 @@ async function main(): Promise<void> {
   const cases = casesSchema.parse(
     JSON.parse(await readFile(path.join(DIR, 'cases.json'), 'utf8')),
   );
+  const onlyAt = process.argv.indexOf('--only');
+  const only = onlyAt === -1 ? null : process.argv[onlyAt + 1];
+  if (only !== null) {
+    if (!['identify', 'checkup', 'species-photo'].includes(only ?? ''))
+      throw new Error('--only takes identify, checkup or species-photo');
+    if (process.argv.includes('--update-baseline'))
+      throw new Error('--update-baseline needs every section');
+    if (only !== 'identify') cases.identify = [];
+    if (only !== 'checkup') cases.checkup = [];
+    if (only !== 'species-photo') cases.speciesPhoto = [];
+  }
 
   const usage: AiUsageTokens = { inputTokens: 0, outputTokens: 0 };
   const add = (u: AiUsageTokens) => {

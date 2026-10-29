@@ -234,6 +234,17 @@
         "license": "CC0",
         "source": "https://commons.wikimedia.org/wiki/File:Dieffenbachia_seguine_-_Comigo_Ninguem_Pode.jpg"
       }
+    },
+    {
+      "id": "calathea-with-tag",
+      "photo": "photos/calathea-with-tag.jpg",
+      "species": "Goeppertia orbifolia",
+      "suitable": true,
+      "credit": {
+        "author": "Daderot",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Calathea_orbiculata_-_Begonia_House_-_Wellington_Botanic_Garden_-_Wellington,_NZ_-_DSC09392.jpg"
+      }
     }
   ]
 }

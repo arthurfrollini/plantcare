@@ -112,10 +112,28 @@ async function run<T, F>(
 
 /** Gives up before the app's 60 s timeout, so a retry from the app never races a late answer. */
 export const ANTHROPIC_CLIENT_OPTIONS = { timeout: 45_000, maxRetries: 1 };
+/**
+ * The whole call, retry and body included. The SDK's timeout stops once the headers arrive, so a
+ * body that stalls after them would otherwise hold the request forever.
+ */
+export const ANTHROPIC_DEADLINE_MS = 50_000;
 
-function sdkCreate(apiKey: string | undefined): CreateFn {
-  const client = new Anthropic({ apiKey, ...ANTHROPIC_CLIENT_OPTIONS });
-  return (params) => client.messages.create(params);
+export function sdkCreate(options: {
+  apiKey?: string;
+  /** Tests pass a stub. */
+  fetch?: typeof fetch;
+  deadlineMs?: number;
+}): CreateFn {
+  const client = new Anthropic({
+    apiKey: options.apiKey,
+    ...ANTHROPIC_CLIENT_OPTIONS,
+    ...(options.fetch ? { fetch: options.fetch } : {}),
+  });
+  const deadlineMs = options.deadlineMs ?? ANTHROPIC_DEADLINE_MS;
+  return (params) =>
+    client.messages.create(params, {
+      signal: AbortSignal.timeout(deadlineMs),
+    });
 }
 
 export function createAnthropicPlantAi(options: {
@@ -123,7 +141,7 @@ export function createAnthropicPlantAi(options: {
   apiKey?: string;
   create?: CreateFn;
 }): PlantAi {
-  const create = options.create ?? sdkCreate(options.apiKey);
+  const create = options.create ?? sdkCreate({ apiKey: options.apiKey });
 
   return {
     identify({ photo, name, locale }) {

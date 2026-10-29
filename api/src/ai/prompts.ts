@@ -57,6 +57,8 @@ It is not suitable when it shows:
 - labels, arrows, captions or other text drawn over the image;
 - only a part most people would not recognize, such as a fruit, seeds, roots or a cut section.
 
+Things that are really there in the scene are fine: a name tag stuck in the soil, a pot, a hand, a garden or a greenhouse around the plant. Only text and marks added on top of the photograph count against it.
+
 Return suitable, and reason: one short sentence saying why.`;
 
 export function speciesPhotoPrompt(scientificName: string): string {

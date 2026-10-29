@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppError } from '../errors';
 import {
   ANTHROPIC_CLIENT_OPTIONS,
+  ANTHROPIC_DEADLINE_MS,
   createAnthropicPlantAi,
+  sdkCreate,
   type CreateFn,
   type CreateParams,
 } from './anthropic-plant-ai';
@@ -253,10 +255,50 @@ describe('createAnthropicPlantAi', () => {
     });
   });
 
+  it('gives up on an answer whose body stalls after the headers arrive', async () => {
+    // The SDK's own timeout stops once the headers are in; a stalled body once hung a request for
+    // over 15 minutes.
+    const stalled: typeof fetch = (_url, init) =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(body) {
+              body.enqueue(new TextEncoder().encode('{"id":'));
+              init?.signal?.addEventListener('abort', () =>
+                body.error(new DOMException('aborted', 'AbortError')),
+              );
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      );
+    const create = sdkCreate({
+      apiKey: 'test',
+      fetch: stalled,
+      deadlineMs: 100,
+    });
+
+    await expect(
+      create({
+        model: 'claude-haiku-5-5',
+        max_tokens: 10,
+        system: 'Test.',
+        thinking: { type: 'disabled' },
+        output_config: {
+          effort: 'low',
+          format: { type: 'json_schema', schema: {} },
+        },
+        messages: [{ role: 'user', content: 'Hi' }],
+      }),
+    ).rejects.toThrow();
+  }, 5000);
+
   it('gives up on the API before the app does, and retries once', () => {
     expect(ANTHROPIC_CLIENT_OPTIONS).toEqual({
       timeout: 45_000,
       maxRetries: 1,
     });
+    // The app waits 60 s.
+    expect(ANTHROPIC_DEADLINE_MS).toBeLessThan(60_000);
   });
 });
