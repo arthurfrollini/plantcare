@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,7 +8,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../routes/stack.routes';
 
 import { Button } from '../components/Button';
-import { Toast } from '../components/Toast';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
@@ -18,11 +18,11 @@ export interface ConfirmationParams {
   buttonTitle: string;
   icon: 'smile' | 'hug';
   nextScreen: 'PlantSelect' | 'MyPlants';
-  /** A short note shown for a moment on arrival, e.g. that a species joined the catalog. */
-  toast?: string;
+  /** The plant's photo, shown in a circle in place of the emoji. */
+  photo?: { uri: string; headers?: Record<string, string> };
+  /** A short note that stays on screen, e.g. that a species joined the catalog. */
+  badge?: string;
 }
-
-const TOAST_MS = 3000;
 
 const emojis = {
   hug: '🤗',
@@ -40,15 +40,9 @@ export function Confirmation() {
     buttonTitle,
     icon,
     nextScreen,
-    toast,
+    photo,
+    badge,
   } = routes.params;
-  const [toastVisible, setToastVisible] = useState(toast !== undefined);
-
-  useEffect(() => {
-    if (!toastVisible) return;
-    const timer = setTimeout(() => setToastVisible(false), TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [toastVisible]);
 
   function handleMoveOn() {
     if (nextScreen === 'MyPlants') {
@@ -63,33 +57,39 @@ export function Confirmation() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.emoji}>{emojis[icon]}</Text>
+        {photo ? (
+          <View style={styles.ring}>
+            <Image
+              testID="confirmation-photo"
+              source={photo}
+              style={styles.photo}
+              contentFit="cover"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
+        ) : (
+          <Text style={styles.emoji}>{emojis[icon]}</Text>
+        )}
 
         <Text style={styles.title}>{title}</Text>
 
         <Text style={styles.subtitle}>{subtitle}</Text>
 
+        {badge && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
+
         <View style={styles.footer}>
           <Button title={buttonTitle} onPress={handleMoveOn} />
         </View>
       </View>
-      {toast && (
-        <View style={styles.toastArea} pointerEvents="none">
-          <Toast visible={toastVisible} text={toast} />
-        </View>
-      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  toastArea: {
-    position: 'absolute',
-    top: 24,
-    left: 30,
-    right: 30,
-    alignItems: 'center',
-  },
   container: {
     flex: 1,
     alignItems: 'center',
@@ -120,6 +120,36 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 104,
+  },
+  ring: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    overflow: 'hidden',
+    borderWidth: 4,
+    borderColor: colors.white,
+    backgroundColor: colors.shape,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+  badge: {
+    marginTop: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: colors.green_light,
+  },
+  badgeText: {
+    fontSize: 14,
+    color: colors.green_dark,
+    fontFamily: fonts.heading,
   },
   footer: {
     width: '100%',

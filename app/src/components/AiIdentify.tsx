@@ -1,31 +1,36 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
-import type { AiStatus, IdentifyResponse } from '@plantcare/shared';
+import type { AiStatus, IdentifyResponse, ImageCredit, UserPlant } from '@plantcare/shared';
 
 import { toApiError } from '../api/client';
+import { assetUrl } from '../api/config';
 import {
   addProposal,
   createMyPlant,
+  findReferencePhoto,
   getAiStatus,
   identifyByName,
   identifyByPhoto,
+  referencePhotoSource,
   uploadPlantPhoto,
 } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
+import { loadTokens } from '../auth/session';
 import { currentLanguage } from '../i18n';
 import { pickPhoto, type PhotoSource, type PickMessage, type PlantPhoto } from '../plants/pickPhoto';
-import {
-  addedConfirmationParams,
-  createBody,
-  defaultSchedule,
-  syncAfterSave,
-} from '../plants/savePlant';
+import { createBody, defaultSchedule, syncAfterSave } from '../plants/savePlant';
 import { shrinkPhoto } from '../plants/shrinkPhoto';
 import { Button } from './Button';
-import { previewFromResult, SpeciesPreviewSheet } from './SpeciesPreviewSheet';
+import { IdentifyProgress, type ProgressStep } from './IdentifyProgress';
+import { isIllustration } from './SpeciesImage';
+import {
+  previewFromResult,
+  SpeciesPreviewSheet,
+  type ReferenceImage,
+} from './SpeciesPreviewSheet';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -39,6 +44,7 @@ type Message =
   | 'retry'
   | 'network'
   | 'unknown'
+  | 'notThis'
   | PickMessage;
 
 type Found = Exclude<IdentifyResponse, { kind: 'none' }>;
@@ -47,6 +53,23 @@ interface AiIdentifyProps {
   bottomInset: number;
   /** Tests pass a fake; the app shrinks with expo-image-manipulator. */
   shrink?: (photo: PlantPhoto) => Promise<PlantPhoto>;
+}
+
+/** A catalog species' picture for the preview: its drawing, its photo with the credit, or none. */
+function catalogReference(plant: {
+  imageUrl: string | null;
+  imageCredit: ImageCredit | null;
+}): ReferenceImage {
+  if (!plant.imageUrl) return null;
+  if (isIllustration(plant.imageUrl)) return { kind: 'illustration', url: plant.imageUrl };
+  return { kind: 'photo', source: { uri: assetUrl(plant.imageUrl) }, credit: plant.imageCredit };
+}
+
+/** The end screen's picture: the user's own photo, else the species photo; never a drawing. */
+function confirmationPhoto(own: PlantPhoto | null, plant: UserPlant): { uri: string } | undefined {
+  if (own) return { uri: own.uri };
+  if (plant.imageUrl && !isIllustration(plant.imageUrl)) return { uri: assetUrl(plant.imageUrl) };
+  return undefined;
 }
 
 function messageFor(error: unknown): Message {
@@ -81,6 +104,11 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
   const [found, setFound] = useState<Found | null>(null);
   // The photo behind the current result, so a catalog hit keeps it like a new species does.
   const [foundPhoto, setFoundPhoto] = useState<PlantPhoto | null>(null);
+  const [reference, setReference] = useState<ReferenceImage>(null);
+  // The search under way, shown in place of the input; null when nothing is searching.
+  const [progress, setProgress] = useState<{ photo: PlantPhoto | null; steps: ProgressStep[] } | null>(
+    null,
+  );
   const [adding, setAdding] = useState(false);
   // Read synchronously, so two taps in the same frame cannot both send.
   const busyRef = useRef(false);
@@ -105,22 +133,61 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
   const blocked = off || limitReached;
   const shownMessage: Message | null = off ? 'off' : limitReached ? 'limit' : message;
 
+  /** The checked photo of a new species, or null when the search found none or failed. */
+  async function proposalReference(proposalId: string): Promise<ReferenceImage> {
+    try {
+      const { photo } = await findReferencePhoto(proposalId);
+      // Read after the call, which refreshes an expired token first.
+      const tokens = await loadTokens();
+      if (!photo || !tokens) return null;
+      return {
+        kind: 'photo',
+        source: referencePhotoSource(photo.url, tokens.accessToken),
+        credit: photo.credit,
+      };
+    } catch {
+      // The preview still opens; the add can still give the species a photo.
+      return null;
+    }
+  }
+
   async function identify(run: () => Promise<IdentifyResponse>, photo: PlantPhoto | null = null) {
     if (busyRef.current || blocked) return;
     busyRef.current = true;
     setBusy(true);
     setMessage(null);
+    const looking: ProgressStep = {
+      label: t(photo ? 'aiIdentify.lookingAtPhoto' : 'aiIdentify.lookingUpName'),
+      done: false,
+    };
+    setProgress({ photo, steps: [looking] });
     try {
       const result = await run();
       if (result.kind === 'none') {
         setMessage(result.reason === 'not_a_plant' ? 'notAPlant' : 'notFound');
-      } else {
-        setFound(result);
-        setFoundPhoto(photo);
+        return;
       }
+      const name =
+        result.kind === 'catalog' ? result.plant.name : result.proposal.names[currentLanguage()];
+      const found: ProgressStep[] = [
+        { ...looking, done: true },
+        { label: t('aiIdentify.foundName', { name }), done: true },
+      ];
+      let picture: ReferenceImage;
+      if (result.kind === 'catalog') {
+        picture = catalogReference(result.plant);
+      } else {
+        const finding = { label: t('aiIdentify.findingReference'), done: false };
+        setProgress({ photo, steps: [...found, finding] });
+        picture = await proposalReference(result.proposalId);
+      }
+      setReference(picture);
+      setFound(result);
+      setFoundPhoto(photo);
     } catch (e) {
       setMessage(messageFor(e));
     } finally {
+      setProgress(null);
       busyRef.current = false;
       setBusy(false);
     }
@@ -148,21 +215,30 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
     if (!found || adding) return;
     setAdding(true);
     try {
+      let plant: UserPlant;
       if (found.kind === 'catalog') {
-        const plant = await createMyPlant(createBody({ catalogPlantId: found.plant.id }));
+        plant = await createMyPlant(createBody({ catalogPlantId: found.plant.id }));
         // The plant exists either way; a failed upload only leaves it without the photo.
         if (foundPhoto) await uploadPlantPhoto(plant.id, foundPhoto).catch(() => undefined);
       } else {
-        await addProposal(found.proposalId, defaultSchedule());
+        plant = await addProposal(found.proposalId, defaultSchedule());
       }
       await syncAfterSave();
-      const params = addedConfirmationParams(t, 1, 0);
-      // A proposal is a species new to the catalog; say so on the way out.
-      const toast =
-        found.kind === 'proposal'
-          ? t('aiIdentify.joinedCatalog', { name: found.proposal.names[currentLanguage()] })
-          : undefined;
-      navigation.dispatch(StackActions.replace('Confirmation', { ...params, toast }));
+      const name =
+        found.kind === 'catalog' ? found.plant.name : found.proposal.names[currentLanguage()];
+      const photo = confirmationPhoto(foundPhoto, plant);
+      navigation.dispatch(
+        StackActions.replace('Confirmation', {
+          title: t('aiIdentify.inGarden', { name }),
+          subtitle: t('aiIdentify.inGardenText'),
+          buttonTitle: t('plantForm.doneButton'),
+          icon: 'hug',
+          nextScreen: 'MyPlants',
+          ...(photo ? { photo } : {}),
+          // A proposal is a species new to the catalog; say so on the way out.
+          ...(found.kind === 'proposal' ? { badge: t('aiIdentify.joinedCatalog') } : {}),
+        }),
+      );
     } catch (e) {
       setFound(null);
       setMessage(messageFor(e));
@@ -197,6 +273,14 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
       : shownMessage === 'denied' || shownMessage === 'unsupported' || shownMessage === 'failed'
         ? t(`plantForm.photoMessages.${shownMessage}`)
         : t(`aiIdentify.messages.${shownMessage}`);
+
+  if (progress) {
+    return (
+      <View style={[styles.progress, { paddingBottom: bottomInset + 24 }]}>
+        <IdentifyProgress photoUri={progress.photo?.uri ?? null} steps={progress.steps} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingBottom: bottomInset + 24 }]}>
@@ -256,12 +340,6 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
         ))}
       </View>
 
-      {busy && (
-        <View style={styles.status}>
-          <ActivityIndicator color={colors.green} />
-          <Text style={styles.statusText}>{t('aiIdentify.looking')}</Text>
-        </View>
-      )}
       {!busy && messageText && (
         <Text style={[styles.message, shownMessage === 'off' && styles.messageOff]}>
           {messageText}
@@ -272,14 +350,17 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
         species={
           found
             ? previewFromResult(found, currentLanguage(), {
-                reference: null,
+                reference,
                 ownPhoto: foundPhoto?.uri ?? null,
               })
             : null
         }
         adding={adding}
         onAdd={() => void add()}
-        onNotThis={() => setFound(null)}
+        onNotThis={() => {
+          setFound(null);
+          setMessage('notThis');
+        }}
         onClose={() => setFound(null)}
       />
     </View>
@@ -291,6 +372,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     paddingTop: 24,
+  },
+  progress: {
+    flex: 1,
   },
   center: {
     flex: 1,
@@ -375,18 +459,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.green_dark,
     fontFamily: fonts.heading,
-  },
-  status: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: 24,
-  },
-  statusText: {
-    fontSize: 15,
-    color: colors.body_dark,
-    fontFamily: fonts.text,
   },
   message: {
     marginTop: 24,

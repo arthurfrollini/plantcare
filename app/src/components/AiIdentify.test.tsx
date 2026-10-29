@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { Identification } from '@plantcare/shared';
 
 import { api } from '../api/client';
+import { assetUrl } from '../api/config';
 import { AuthProvider } from '../auth/AuthProvider';
 import { clearTokens, saveTokens } from '../auth/session';
 import { changeLanguage, initI18n } from '../i18n';
@@ -14,6 +15,11 @@ import type { PlantPhoto } from '../plants/pickPhoto';
 import { deviceTimeZone } from '../plants/savePlant';
 import { accountFixture, catalogFixture, userPlantFixture } from '../plants/testFixtures';
 import { AiIdentify } from './AiIdentify';
+
+jest.mock('react-native-svg', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  return { SvgFromUri: (props: object) => createElement('SvgFromUri', props) };
+});
 
 const mockNavigate = jest.fn();
 const mockDispatch = jest.fn();
@@ -34,6 +40,20 @@ const proposal: Identification = {
   difficulty: 'easy',
   frequency: { times: 1, per: 'twoWeeks' },
 };
+
+const referencePhoto = {
+  url: '/ai/proposals/pr1/reference-photo/image',
+  credit: { author: 'Jane Doe', license: 'CC BY-SA 4.0', source: 'https://x' },
+};
+
+/** A reply the test lets through when it is ready. */
+function held<T>() {
+  let release: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
 
 const shrunk: PlantPhoto = { uri: 'file:///tmp/small.jpg', mimeType: 'image/jpeg' };
 const shrink = jest.fn<Promise<PlantPhoto>, [PlantPhoto]>(() => Promise.resolve(shrunk));
@@ -125,7 +145,10 @@ describe('AiIdentify', () => {
   it('adds a proposal to the garden with the default schedule, then confirms', async () => {
     await signIn();
     mock.onPost('/ai/identify/name').reply(200, { kind: 'proposal', proposalId: 'pr1', proposal });
-    mock.onPost('/ai/proposals/pr1/add').reply(201, userPlantFixture);
+    mock.onPost('/ai/proposals/pr1/reference-photo').reply(200, { photo: referencePhoto });
+    mock
+      .onPost('/ai/proposals/pr1/add')
+      .reply(201, { ...userPlantFixture, imageUrl: '/plants/zz/image?v=1' });
     renderAi();
 
     await findByName('zz plant');
@@ -137,13 +160,87 @@ describe('AiIdentify', () => {
       reminderTime: '08:00',
       timeZone: deviceTimeZone(),
     });
-    expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
+    const action = mockDispatch.mock.calls[0]?.[0];
+    expect(action).toMatchObject({
       type: 'REPLACE',
       payload: {
         name: 'Confirmation',
-        params: { nextScreen: 'MyPlants', toast: 'ZZ plant joined the catalog' },
+        params: {
+          nextScreen: 'MyPlants',
+          title: 'ZZ plant is in your garden',
+          badge: '✨ Also joined the catalog',
+          // The reference file moved into the catalog with the add; its new home is the plant's.
+          photo: { uri: assetUrl('/plants/zz/image?v=1') },
+        },
       },
     });
+    expect(action.payload.params).not.toHaveProperty('toast');
+  });
+
+  it('shows the search steps, then the reference photo in the preview', async () => {
+    await signIn();
+    const reference = held<[number, unknown]>();
+    mock.onPost('/ai/identify/name').reply(200, { kind: 'proposal', proposalId: 'pr1', proposal });
+    mock.onPost('/ai/proposals/pr1/reference-photo').reply(() => reference.promise);
+    renderAi();
+
+    await findByName('zz plant');
+
+    expect(await screen.findByText('Found: ZZ plant')).toBeOnTheScreen();
+    expect(screen.getByText('Identifying your plant…')).toBeOnTheScreen();
+    expect(screen.getByText('Looking up the name')).toBeOnTheScreen();
+    expect(screen.getByText('Finding a reference photo')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Plant name')).not.toBeOnTheScreen();
+
+    reference.release([200, { photo: referencePhoto }]);
+
+    expect(await screen.findByTestId('reference-photo')).toBeOnTheScreen();
+    expect(screen.getByTestId('reference-photo').props.source).toMatchObject({
+      uri: assetUrl('/ai/proposals/pr1/reference-photo/image'),
+      headers: { Authorization: 'Bearer acc' },
+    });
+    expect(screen.getByText('Photo: Jane Doe · CC BY-SA 4.0 (cropped)')).toBeOnTheScreen();
+  });
+
+  it('opens the preview without a reference photo when the search fails', async () => {
+    await signIn();
+    mock.onPost('/ai/identify/name').reply(200, { kind: 'proposal', proposalId: 'pr1', proposal });
+    mock.onPost('/ai/proposals/pr1/reference-photo').networkError();
+    mock.onPost('/ai/proposals/pr1/add').reply(201, userPlantFixture);
+    renderAi();
+
+    await findByName('zz plant');
+
+    expect(await screen.findByText('No reference photo')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: "That's it! Add to my garden" }));
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+    expect(mock.history.post.some((r) => r.url === '/ai/proposals/pr1/add')).toBe(true);
+  });
+
+  it('goes back to the search with a hint on "That\'s not it", keeping the name', async () => {
+    await signIn();
+    mock.onPost('/ai/identify/name').reply(200, { kind: 'proposal', proposalId: 'pr1', proposal });
+    mock.onPost('/ai/proposals/pr1/reference-photo').reply(200, { photo: null });
+    renderAi();
+
+    await findByName('zz plant');
+    fireEvent.press(await screen.findByRole('button', { name: "That's not it" }));
+
+    expect(await screen.findByText(/No problem! Try a closer photo/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Plant name').props.value).toBe('zz plant');
+  });
+
+  it('closes with the X and no hint', async () => {
+    await signIn();
+    mock.onPost('/ai/identify/name').reply(200, { kind: 'proposal', proposalId: 'pr1', proposal });
+    mock.onPost('/ai/proposals/pr1/reference-photo').reply(200, { photo: null });
+    renderAi();
+
+    await findByName('zz plant');
+    fireEvent.press(await screen.findByRole('button', { name: 'Close' }));
+
+    await waitFor(() => expect(screen.queryByText('ZZ plant')).not.toBeOnTheScreen());
+    expect(screen.queryByText(/No problem!/)).not.toBeOnTheScreen();
   });
 
   it.each(["That's not it", 'Close'])('closes the preview without adding from %s', async (label) => {
@@ -176,6 +273,10 @@ describe('AiIdentify', () => {
       reminderTime: '08:00',
       timeZone: deviceTimeZone(),
     });
+    expect(mock.history.post.some((r) => r.url?.includes('reference-photo'))).toBe(false);
+    const params = mockDispatch.mock.calls[0]?.[0].payload.params;
+    expect(params).toMatchObject({ title: 'Monstera is in your garden' });
+    expect(params).not.toHaveProperty('badge');
   });
 
   it('says so when no plant was found', async () => {
@@ -281,13 +382,21 @@ describe('AiIdentify', () => {
       canceled: false,
       assets: [{ uri: 'file:///tmp/leaf.jpg', mimeType: 'image/jpeg', width: 4000, height: 3000 }],
     });
-    mock.onPost('/ai/identify/photo').reply(200, { kind: 'catalog', plant: catalogFixture });
+    mock.onPost('/ai/identify/photo').reply(200, {
+      kind: 'catalog',
+      plant: { ...catalogFixture, imageUrl: '/static/plants/monstera.svg' },
+    });
     mock.onPost('/me/plants').reply(201, userPlantFixture);
     mock.onPost('/me/plants/p1/photo').reply(200, { ...userPlantFixture, hasPhoto: true });
     renderAi();
 
     fireEvent.press(await screen.findByRole('button', { name: 'Choose from gallery' }));
-    fireEvent.press(await screen.findByRole('button', { name: "That's it! Add to my garden" }));
+    // The user's photo beside the catalog's drawing; no search for a reference.
+    expect((await screen.findByTestId('own-photo')).props.source).toMatchObject({
+      uri: shrunk.uri,
+    });
+    expect(screen.getByTestId('plant-illustration')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: "That's it! Add to my garden" }));
 
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
     expect(mock.history.post.map((r) => r.url)).toEqual([
@@ -295,5 +404,8 @@ describe('AiIdentify', () => {
       '/me/plants',
       '/me/plants/p1/photo',
     ]);
+    expect(mockDispatch.mock.calls[0]?.[0].payload.params).toMatchObject({
+      photo: { uri: shrunk.uri },
+    });
   });
 });

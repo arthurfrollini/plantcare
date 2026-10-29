@@ -112,6 +112,7 @@ describe('navigation', () => {
     mock
       .onPost('/ai/identify/name')
       .reply(200, { kind: 'proposal', proposalId: 'pr1', proposal: zz });
+    mock.onPost('/ai/proposals/pr1/reference-photo').reply(200, { photo: null });
     mock.onPost('/ai/proposals/pr1/add').reply(201, { ...userPlantFixture, id: 'p2' });
     renderApp();
     fireEvent.press(await screen.findByLabelText('Get started'));
@@ -123,10 +124,11 @@ describe('navigation', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Find plant' }));
     fireEvent.press(await screen.findByRole('button', { name: "That's it! Add to my garden" }));
 
-    expect(await screen.findByText('ZZ plant joined the catalog')).toBeOnTheScreen();
+    expect(await screen.findByText('ZZ plant is in your garden')).toBeOnTheScreen();
+    expect(screen.getByText('✨ Also joined the catalog')).toBeOnTheScreen();
     fireEvent.press(screen.getByText('See my plants'));
     await waitFor(() =>
-      expect(screen.queryByText('ZZ plant joined the catalog')).not.toBeOnTheScreen(),
+      expect(screen.queryByText('ZZ plant is in your garden')).not.toBeOnTheScreen(),
     );
     expect(await screen.findByText('Monstera deliciosa')).toBeOnTheScreen();
   }, 20000);
