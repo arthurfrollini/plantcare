@@ -269,9 +269,17 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
       )}
 
       <SpeciesPreviewSheet
-        species={found ? previewFromResult(found, currentLanguage()) : null}
+        species={
+          found
+            ? previewFromResult(found, currentLanguage(), {
+                reference: null,
+                ownPhoto: foundPhoto?.uri ?? null,
+              })
+            : null
+        }
         adding={adding}
         onAdd={() => void add()}
+        onNotThis={() => setFound(null)}
         onClose={() => setFound(null)}
       />
     </View>

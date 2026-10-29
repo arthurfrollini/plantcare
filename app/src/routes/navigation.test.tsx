@@ -121,7 +121,7 @@ describe('navigation', () => {
     fireEvent.press(await screen.findByRole('tab', { name: 'Add with AI' }));
     fireEvent.changeText(await screen.findByLabelText('Plant name'), 'zz');
     fireEvent.press(screen.getByRole('button', { name: 'Find plant' }));
-    fireEvent.press(await screen.findByRole('button', { name: 'Add to my garden' }));
+    fireEvent.press(await screen.findByRole('button', { name: "That's it! Add to my garden" }));
 
     expect(await screen.findByText('ZZ plant joined the catalog')).toBeOnTheScreen();
     fireEvent.press(screen.getByText('See my plants'));

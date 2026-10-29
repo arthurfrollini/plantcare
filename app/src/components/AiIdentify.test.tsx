@@ -118,7 +118,7 @@ describe('AiIdentify', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Buscar planta' }));
 
     expect(await screen.findByText('Zamioculca')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Adicionar ao meu jardim' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'É essa! Adicionar ao jardim' })).toBeOnTheScreen();
     expect(screen.getByText('Folhas brilhantes.')).toBeOnTheScreen();
   });
 
@@ -129,7 +129,7 @@ describe('AiIdentify', () => {
     renderAi();
 
     await findByName('zz plant');
-    fireEvent.press(await screen.findByRole('button', { name: 'Add to my garden' }));
+    fireEvent.press(await screen.findByRole('button', { name: "That's it! Add to my garden" }));
 
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
     const add = mock.history.post.find((r) => r.url === '/ai/proposals/pr1/add');
@@ -146,7 +146,7 @@ describe('AiIdentify', () => {
     });
   });
 
-  it.each(['Not now', 'Close'])('closes the preview without adding from %s', async (label) => {
+  it.each(["That's not it", 'Close'])('closes the preview without adding from %s', async (label) => {
     await signIn();
     mock.onPost('/ai/identify/name').reply(200, { kind: 'proposal', proposalId: 'pr1', proposal });
     renderAi();
@@ -167,7 +167,7 @@ describe('AiIdentify', () => {
 
     await findByName('monstera');
     expect(await screen.findByText('Monstera deliciosa')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Add to my garden' }));
+    fireEvent.press(screen.getByRole('button', { name: "That's it! Add to my garden" }));
 
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
     const add = mock.history.post.find((r) => r.url === '/me/plants');
@@ -186,7 +186,7 @@ describe('AiIdentify', () => {
     await findByName('asdf');
 
     expect(await screen.findByText(/Couldn't identify a plant/)).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: 'Add to my garden' })).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: "That's it! Add to my garden" })).not.toBeOnTheScreen();
   });
 
   it('says the daily limit was reached', async () => {
@@ -287,7 +287,7 @@ describe('AiIdentify', () => {
     renderAi();
 
     fireEvent.press(await screen.findByRole('button', { name: 'Choose from gallery' }));
-    fireEvent.press(await screen.findByRole('button', { name: 'Add to my garden' }));
+    fireEvent.press(await screen.findByRole('button', { name: "That's it! Add to my garden" }));
 
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
     expect(mock.history.post.map((r) => r.url)).toEqual([
