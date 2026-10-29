@@ -76,6 +76,10 @@ const ptBR: typeof en = {
       unknown: 'Algo deu errado. Tente de novo.',
     },
   },
+  credit: {
+    photo: 'Foto: {{author}} · {{license}}',
+    cropped: '{{credit}} (recortada)',
+  },
   aiIdentify: {
     title: 'Adicionar com IA',
     text: 'Digite o nome de uma planta ou tire uma foto. A gente encontra a espécie e como cuidar dela.',

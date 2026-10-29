@@ -3,6 +3,8 @@ import {
   authResponseSchema,
   checkupSchema,
   identifyResponseSchema,
+  photoCreditSchema,
+  referencePhotoResponseSchema,
   catalogPageSchema,
   catalogPlantSchema,
   userPlantSchema,
@@ -17,6 +19,8 @@ import {
   type Difficulty,
   type Light,
   type Locale,
+  type PhotoCredit,
+  type ReferencePhotoResponse,
   type UpdateUserPlant,
   type User,
   type UserPlant,
@@ -192,6 +196,30 @@ export function identifyByPhoto(photo: PlantPhoto): Promise<IdentifyResponse> {
   return api
     .post('/ai/identify/photo', form, { timeout: 60000 })
     .then((r) => identifyResponseSchema.parse(r.data));
+}
+
+/** A checked photo of the proposal's species; the server may search for up to 15 s. */
+export function findReferencePhoto(proposalId: string): Promise<ReferencePhotoResponse> {
+  return api
+    .post(`/ai/proposals/${encodeURIComponent(proposalId)}/reference-photo`, undefined, {
+      timeout: 20000,
+    })
+    .then((r) => referencePhotoResponseSchema.parse(r.data));
+}
+
+export function referencePhotoSource(
+  url: string,
+  accessToken: string,
+): { uri: string; headers: Record<string, string>; cacheKey: string } {
+  return {
+    uri: assetUrl(url),
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cacheKey: url,
+  };
+}
+
+export function listPhotoCredits(): Promise<PhotoCredit[]> {
+  return api.get('/plants/credits').then((r) => z.array(photoCreditSchema).parse(r.data));
 }
 
 /** Adds an identified species to the garden with the same schedule a catalog add sends. */

@@ -74,6 +74,10 @@ const en = {
       unknown: 'Something went wrong. Try again.',
     },
   },
+  credit: {
+    photo: 'Photo: {{author}} · {{license}}',
+    cropped: '{{credit}} (cropped)',
+  },
   aiIdentify: {
     title: 'Add with AI',
     text: "Type a plant's name or take a photo. We'll find the species and how to care for it.",
