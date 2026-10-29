@@ -244,4 +244,40 @@ describe('AiIdentify', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Auth', { mode: 'signUp' });
     expect(mock.history.get.filter((r) => r.url === '/ai/status')).toHaveLength(0);
   });
+
+  it('lets the user try again when the AI could not answer', async () => {
+    await signIn();
+    mock
+      .onPost('/ai/identify/name')
+      .reply(502, { error: { code: 'ai_unavailable', message: 'x' } });
+    renderAi();
+
+    await findByName('zz plant');
+
+    expect(await screen.findByText("The AI couldn't answer this time. Try again.")).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Find plant', disabled: false })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Take a photo', disabled: false })).toBeOnTheScreen();
+  });
+
+  it('keeps the photo when a photo turns out to be a catalog species', async () => {
+    await signIn();
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///tmp/leaf.jpg', mimeType: 'image/jpeg', width: 4000, height: 3000 }],
+    });
+    mock.onPost('/ai/identify/photo').reply(200, { kind: 'catalog', plant: catalogFixture });
+    mock.onPost('/me/plants').reply(201, userPlantFixture);
+    mock.onPost('/me/plants/p1/photo').reply(200, { ...userPlantFixture, hasPhoto: true });
+    renderAi();
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Choose from gallery' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Add to my garden' }));
+
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledTimes(1));
+    expect(mock.history.post.map((r) => r.url)).toEqual([
+      '/ai/identify/photo',
+      '/me/plants',
+      '/me/plants/p1/photo',
+    ]);
+  });
 });

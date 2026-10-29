@@ -12,6 +12,7 @@ import {
   getAiStatus,
   identifyByName,
   identifyByPhoto,
+  uploadPlantPhoto,
 } from '../api/endpoints';
 import { useAuth } from '../auth/AuthProvider';
 import { currentLanguage } from '../i18n';
@@ -35,6 +36,7 @@ type Message =
   | 'limit'
   | 'off'
   | 'expired'
+  | 'retry'
   | 'network'
   | 'unknown'
   | PickMessage;
@@ -53,8 +55,10 @@ function messageFor(error: unknown): Message {
     case 'ai_daily_limit':
       return 'limit';
     case 'ai_off':
-    case 'ai_unavailable':
       return 'off';
+    // One answer failed; the next may not, so nothing gets switched off.
+    case 'ai_unavailable':
+      return 'retry';
     case 'proposal_expired':
     case 'proposal_used':
       return 'expired';
@@ -75,6 +79,8 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
   const [found, setFound] = useState<Found | null>(null);
+  // The photo behind the current result, so a catalog hit keeps it like a new species does.
+  const [foundPhoto, setFoundPhoto] = useState<PlantPhoto | null>(null);
   const [adding, setAdding] = useState(false);
   // Read synchronously, so two taps in the same frame cannot both send.
   const busyRef = useRef(false);
@@ -99,7 +105,7 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
   const blocked = off || limitReached;
   const shownMessage: Message | null = off ? 'off' : limitReached ? 'limit' : message;
 
-  async function identify(run: () => Promise<IdentifyResponse>) {
+  async function identify(run: () => Promise<IdentifyResponse>, photo: PlantPhoto | null = null) {
     if (busyRef.current || blocked) return;
     busyRef.current = true;
     setBusy(true);
@@ -110,6 +116,7 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
         setMessage(result.reason === 'not_a_plant' ? 'notAPlant' : 'notFound');
       } else {
         setFound(result);
+        setFoundPhoto(photo);
       }
     } catch (e) {
       setMessage(messageFor(e));
@@ -132,8 +139,8 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
       return;
     }
     if ('photo' in picked) {
-      const { photo } = picked;
-      await identify(async () => identifyByPhoto(await shrink(photo)));
+      const small = await shrink(picked.photo);
+      await identify(() => identifyByPhoto(small), small);
     }
   }
 
@@ -142,7 +149,9 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
     setAdding(true);
     try {
       if (found.kind === 'catalog') {
-        await createMyPlant(createBody({ catalogPlantId: found.plant.id }));
+        const plant = await createMyPlant(createBody({ catalogPlantId: found.plant.id }));
+        // The plant exists either way; a failed upload only leaves it without the photo.
+        if (foundPhoto) await uploadPlantPhoto(plant.id, foundPhoto).catch(() => undefined);
       } else {
         await addProposal(found.proposalId, defaultSchedule());
       }

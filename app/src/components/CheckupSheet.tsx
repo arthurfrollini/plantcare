@@ -16,7 +16,15 @@ import fonts from '../styles/fonts';
 
 const MAX_DESCRIPTION = 500;
 
-type Message = 'notAPlant' | 'mismatch' | 'limit' | 'off' | 'network' | 'unknown' | PickMessage;
+type Message =
+  | 'notAPlant'
+  | 'mismatch'
+  | 'limit'
+  | 'off'
+  | 'retry'
+  | 'network'
+  | 'unknown'
+  | PickMessage;
 
 function messageFor(error: unknown): Message {
   switch (toApiError(error).code) {
@@ -27,8 +35,9 @@ function messageFor(error: unknown): Message {
     case 'ai_daily_limit':
       return 'limit';
     case 'ai_off':
-    case 'ai_unavailable':
       return 'off';
+    case 'ai_unavailable':
+      return 'retry';
     case 'network':
       return 'network';
     default:
