@@ -92,7 +92,7 @@ export function accountRoutes(
               checkups: { select: { photoKey: true } },
             },
           },
-          aiProposals: { select: { photoKey: true } },
+          aiProposals: { select: { photoKey: true, referenceKey: true } },
         },
       });
       if (!user) throw unauthorized();
@@ -105,6 +105,7 @@ export function accountRoutes(
       }
       for (const proposal of user.aiProposals) {
         if (proposal.photoKey !== null) keys.push(proposal.photoKey);
+        if (proposal.referenceKey !== null) keys.push(proposal.referenceKey);
       }
       if (user.avatarPath !== null) keys.push(user.avatarPath);
 

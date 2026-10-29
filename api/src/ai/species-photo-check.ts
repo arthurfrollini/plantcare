@@ -26,7 +26,7 @@ export function speciesPhotoCheck(options: {
     );
     await recordAiUsage(prisma, userId, 'speciesPhoto', usage);
     if (!result.suitable) {
-      log(`Rejected a Commons photo of ${scientificName}: ${result.reason}`);
+      log(`Rejected a photo of ${scientificName}: ${result.reason}`);
     }
     return result.suitable;
   };

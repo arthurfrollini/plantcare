@@ -9,6 +9,7 @@ import {
   type ImageCredit,
   type Light,
   type Locale,
+  type PhotoCredit,
 } from '@plantcare/shared';
 import type { PrismaClient } from '../generated/prisma/client';
 import { toSearchName } from './search-name';
@@ -133,6 +134,29 @@ export async function getCatalogPlant(
 ): Promise<CatalogPlant | null> {
   const row = await prisma.plant.findUnique({ where: { id }, include });
   return row ? toCatalogPlant(row, locale) : null;
+}
+
+/** Every species photo that carries a credit, by name in the locale. */
+export async function listPhotoCredits(
+  prisma: PrismaClient,
+  locale: Locale,
+): Promise<PhotoCredit[]> {
+  const rows = await findRows(prisma, { imageAuthor: { not: null } });
+  const credits: PhotoCredit[] = [];
+  for (const row of rows) {
+    const text = pickTranslation(row.translations, locale);
+    const imageUrl = speciesImageUrl(row);
+    const credit = speciesImageCredit(row);
+    if (!text || !imageUrl || !credit) continue;
+    credits.push({
+      id: row.id,
+      name: text.name,
+      scientificName: row.scientificName,
+      imageUrl,
+      credit,
+    });
+  }
+  return credits.sort((a, b) => a.name.localeCompare(b.name, locale));
 }
 
 /** The stored photo's credit, or null when the species has no photo from Commons. */

@@ -20,6 +20,7 @@ import { assetUrl } from '../api/config';
 import type { plantPhotoSource } from '../api/endpoints';
 import { Button } from '../components/Button';
 import { CareTiles } from '../components/CareTiles';
+import { CreditLine } from '../components/CreditLine';
 import { HeroHeader } from '../components/HeroHeader';
 import { DaysSheet } from '../components/DaysSheet';
 import { LeadInfoSheet } from '../components/LeadInfoSheet';
@@ -82,6 +83,11 @@ export function PlantDetailView(props: PlantDetailViewProps) {
   const [photoOpen, setPhotoOpen] = useState(false);
   const [illustrationGone, setIllustrationGone] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
+  // Credited only while the species photo is the one on screen.
+  const credit =
+    !props.photoSource && !illustrationGone && plant.imageUrl && !isIllustration(plant.imageUrl)
+      ? plant.imageCredit
+      : null;
   // What the full-screen viewer shows: the user's photo, else the species photo; never a drawing.
   const viewerSource =
     props.photoSource ??
@@ -186,6 +192,7 @@ export function PlantDetailView(props: PlantDetailViewProps) {
         )}
         <Text style={styles.name}>{plant.speciesName}</Text>
         <Text style={styles.scientific}>{plant.scientificName}</Text>
+        {credit && <CreditLine credit={credit} style={styles.credit} />}
         {plant.about ? <Text style={styles.about}>{plant.about}</Text> : null}
 
         <View style={styles.tiles}>
@@ -495,6 +502,9 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: colors.heading,
     fontFamily: fonts.heading,
+  },
+  credit: {
+    marginTop: 4,
   },
   scientific: {
     textAlign: 'center',

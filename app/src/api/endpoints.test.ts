@@ -13,10 +13,13 @@ import {
   getAiStatus,
   identifyByName,
   identifyByPhoto,
+  findReferencePhoto,
   listCatalog,
   listCheckups,
+  listPhotoCredits,
   markHealed,
   plantPhotoSource,
+  referencePhotoSource,
 } from './endpoints';
 
 let mock: MockAdapter;
@@ -174,6 +177,40 @@ describe('AI endpoints', () => {
     const schedule = { reminderTime: '08:00', timeZone: 'America/Sao_Paulo', wateringDays: [1] };
     mock.onPost('/ai/proposals/p9/add', schedule).reply(201, plant({ id: 'up9' }));
     await expect(addProposal('p9', schedule)).resolves.toMatchObject({ id: 'up9' });
+  });
+
+  it('findReferencePhoto posts to the proposal, waits up to 20 s, and parses the photo', async () => {
+    const photo = {
+      url: '/ai/proposals/p9/reference-photo/image',
+      credit: { author: 'Jo', license: 'CC BY-SA 4.0', source: 'https://x' },
+    };
+    mock.onPost('/ai/proposals/p9/reference-photo').reply((config) => {
+      expect(config.timeout).toBe(20000);
+      return [200, { photo }];
+    });
+    await expect(findReferencePhoto('p9')).resolves.toEqual({ photo });
+    mock.onPost('/ai/proposals/p8/reference-photo').reply(200, { photo: null });
+    await expect(findReferencePhoto('p8')).resolves.toEqual({ photo: null });
+  });
+
+  it('referencePhotoSource builds an authorized source', () => {
+    expect(referencePhotoSource('/ai/proposals/p9/reference-photo/image', 'tok')).toEqual({
+      uri: assetUrl('/ai/proposals/p9/reference-photo/image'),
+      headers: { Authorization: 'Bearer tok' },
+      cacheKey: '/ai/proposals/p9/reference-photo/image',
+    });
+  });
+
+  it('listPhotoCredits parses the credits', async () => {
+    const credit = {
+      id: 'p1',
+      name: 'Yucca',
+      scientificName: 'Yucca',
+      imageUrl: '/plants/p1/image?v=1',
+      credit: { author: 'Jo', license: 'CC0', source: 'https://x' },
+    };
+    mock.onGet('/plants/credits').reply(200, [credit]);
+    await expect(listPhotoCredits()).resolves.toEqual([credit]);
   });
 
   it('createCheckup sends the description before the photo', async () => {

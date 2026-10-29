@@ -5,56 +5,71 @@ import type { PhotoStorage } from '../storage';
 
 const API = 'https://commons.wikimedia.org/w/api.php';
 // Commons asks API clients to say who they are.
-const USER_AGENT = 'PlantCare/0.1 (arthur.frollini@gmail.com)';
-const MIN_SHORT_SIDE = 800;
+export const USER_AGENT = 'PlantCare/0.1 (arthur.frollini@gmail.com)';
+export const MIN_SHORT_SIDE = 700;
 const SIZE = 800;
-const TIMEOUT_MS = 5000;
+export const TIMEOUT_MS = 5000;
+/** Candidates each source offers, at most: each check is a paid model call. */
+export const CANDIDATES_PER_SOURCE = 2;
 
-export type CommonsPhoto = {
+/** A photo from Commons or iNaturalist that may illustrate a species, with its credit. */
+export type SourcePhoto = {
   /** Where to download the image (a 1600 px thumbnail when Commons offers one). */
   url: string;
   author: string;
   license: string;
-  /** The file's page on Commons. */
+  /** The photo's page at its source. */
   source: string;
 };
 
 const searchSchema = z.object({
-  query: z.object({
-    pages: z.record(
-      z.string(),
-      z.object({
-        // Absent when the query names titles instead of searching.
-        index: z.number().default(0),
-        imageinfo: z
-          .array(
-            z.object({
-              width: z.number(),
-              height: z.number(),
-              url: z.string(),
-              thumburl: z.string().optional(),
-              descriptionurl: z.string(),
-              extmetadata: z
-                .object({
-                  LicenseShortName: z.object({ value: z.string() }).optional(),
-                  Artist: z.object({ value: z.string() }).optional(),
-                })
-                .optional(),
-            }),
-          )
-          .min(1),
-      }),
-    ),
-  }),
+  // Absent when the search matched nothing.
+  query: z
+    .object({
+      pages: z.record(
+        z.string(),
+        z.object({
+          // Absent when the query names titles instead of searching.
+          index: z.number().default(0),
+          imageinfo: z
+            .array(
+              z.object({
+                width: z.number(),
+                height: z.number(),
+                url: z.string(),
+                thumburl: z.string().optional(),
+                descriptionurl: z.string(),
+                extmetadata: z
+                  .object({
+                    LicenseShortName: z
+                      .object({ value: z.string() })
+                      .optional(),
+                    Artist: z.object({ value: z.string() }).optional(),
+                  })
+                  .optional(),
+              }),
+            )
+            .min(1),
+        }),
+      ),
+    })
+    .optional(),
+  // Set when Commons refused, e.g. a search too busy to answer.
+  error: z.unknown().optional(),
 });
 
-function isPublicDomain(license: string): boolean {
-  const normalized = license.trim().toLowerCase();
+/**
+ * Whether a licence lets the app show the photo: CC0, public domain, or CC BY / CC BY-SA in any
+ * version, which need a credit. Non-commercial, no-derivatives and GFDL-only files are out.
+ */
+export function isFreeLicense(license: string): boolean {
+  const normalized = license.trim().toLowerCase().replace(/-/g, ' ');
   return (
     normalized === 'cc0' ||
     normalized.startsWith('cc0 ') ||
     normalized.startsWith('public domain') ||
-    normalized.startsWith('pd')
+    normalized.startsWith('pd') ||
+    /^cc by( sa)?( \d+(\.\d+)?)?( [a-z]{2,3})?$/.test(normalized)
   );
 }
 
@@ -67,8 +82,6 @@ function plainText(html: string): string {
     .trim();
 }
 
-/** Candidates the check sees per species, at most: each check is a paid model call. */
-export const MAX_CANDIDATES = 3;
 /** The longest side of the copy sent to the check; enough to tell a plant from a coin. */
 const CHECK_SIZE = 512;
 
@@ -76,14 +89,14 @@ const CHECK_SIZE = 512;
 export type CheckSpeciesPhoto = (photo: Buffer) => Promise<boolean>;
 
 /**
- * Up to 3 CC0 or public-domain photos in a species' Wikimedia Commons category, in search order,
- * whose short side is at least 800 px. Empty when there is none or Commons can't answer.
+ * Up to 2 freely licensed photos in a species' Wikimedia Commons category, in search order, whose
+ * short side is at least 700 px. Empty when there is none; null when Commons can't answer.
  */
-export function findPublicDomainPhotos(
+export async function findCommonsPhotos(
   scientificName: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<CommonsPhoto[]> {
-  return publicDomainPhotos(
+): Promise<SourcePhoto[] | null> {
+  const photos = await freePhotos(
     {
       generator: 'search',
       gsrnamespace: '6',
@@ -92,22 +105,23 @@ export function findPublicDomainPhotos(
       gsrlimit: '50',
     },
     fetchImpl,
-  ).then((photos) => photos.slice(0, MAX_CANDIDATES));
+  );
+  return photos?.slice(0, CANDIDATES_PER_SOURCE) ?? null;
 }
 
-/** One file picked by hand, e.g. "File:Monstera1.JPG", if it is CC0 or public domain and large enough. */
-export async function findPublicDomainPhotoByTitle(
+/** One file picked by hand, e.g. "File:Monstera1.JPG", if its licence is free and it is large enough. */
+export async function findCommonsPhotoByTitle(
   title: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<CommonsPhoto | null> {
-  const [photo] = await publicDomainPhotos({ titles: title }, fetchImpl);
-  return photo ?? null;
+): Promise<SourcePhoto | null> {
+  const photos = await freePhotos({ titles: title }, fetchImpl);
+  return photos?.[0] ?? null;
 }
 
-async function publicDomainPhotos(
+async function freePhotos(
   query: Record<string, string>,
   fetchImpl: typeof fetch,
-): Promise<CommonsPhoto[]> {
+): Promise<SourcePhoto[] | null> {
   const params = new URLSearchParams({
     action: 'query',
     format: 'json',
@@ -117,22 +131,29 @@ async function publicDomainPhotos(
     iiextmetadatafilter: 'LicenseShortName|Artist',
     iiurlwidth: '1600',
   });
-  const response = await fetchImpl(`${API}?${params.toString()}`, {
-    headers: { 'user-agent': USER_AGENT },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (!response.ok) return [];
-  const parsed = searchSchema.safeParse(await response.json());
-  if (!parsed.success) return [];
+  let body: unknown;
+  try {
+    const response = await fetchImpl(`${API}?${params.toString()}`, {
+      headers: { 'user-agent': USER_AGENT },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    body = await response.json();
+  } catch {
+    return null;
+  }
+  const parsed = searchSchema.safeParse(body);
+  if (!parsed.success || parsed.data.error !== undefined) return null;
+  if (!parsed.data.query) return [];
 
   const pages = Object.values(parsed.data.query.pages).sort(
     (a, b) => a.index - b.index,
   );
-  const photos: CommonsPhoto[] = [];
+  const photos: SourcePhoto[] = [];
   for (const page of pages) {
     const [info] = page.imageinfo;
     const license = info?.extmetadata?.LicenseShortName?.value;
-    if (!info || !license || !isPublicDomain(license)) continue;
+    if (!info || !license || !isFreeLicense(license)) continue;
     if (Math.min(info.width, info.height) < MIN_SHORT_SIDE) continue;
     photos.push({
       url: info.thumburl ?? info.url,
@@ -153,85 +174,79 @@ export function photoForCheck(original: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-/**
- * Gives a new species a public-domain photo that the check approves, cropped square to 800 px as
- * WebP, with its credit. Tries up to 3 candidates in search order. Never throws: on any failure,
- * or when every candidate is rejected, the species keeps the placeholder.
- */
-export async function attachSpeciesPhoto(options: {
-  prisma: PrismaClient;
-  storage: PhotoStorage;
-  plantId: string;
-  scientificName: string;
-  check: CheckSpeciesPhoto;
-  fetchImpl?: typeof fetch;
-  log?: (message: string, error?: unknown) => void;
-}): Promise<void> {
-  const { scientificName, check, fetchImpl = fetch, log = () => {} } = options;
+/** The full-size photo, or null when the download fails. */
+export async function downloadPhoto(
+  photo: SourcePhoto,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Buffer | null> {
   try {
-    for (const photo of await findPublicDomainPhotos(
-      scientificName,
-      fetchImpl,
-    )) {
-      const original = await downloadPhoto(photo, fetchImpl);
-      if (!original) continue;
-      const approved = await check(await photoForCheck(original)).catch(
-        (error: unknown) => {
-          log(`Could not check a Commons photo of ${scientificName}`, error);
-          return false;
-        },
-      );
-      if (!approved) continue;
-      await storeSpeciesPhoto(
-        options.prisma,
-        options.storage,
-        options.plantId,
-        photo,
-        original,
-      );
-      return;
-    }
-    log(`No suitable Commons photo for ${scientificName}`);
-  } catch (error) {
-    log(`Could not attach a Commons photo to ${scientificName}`, error);
+    const response = await fetchImpl(photo.url, {
+      headers: { 'user-agent': USER_AGENT },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return Buffer.from(await response.arrayBuffer());
+  } catch {
+    return null;
   }
 }
 
-/** The full-size photo from Commons, or null when the download fails. */
-export async function downloadPhoto(
-  photo: CommonsPhoto,
-  fetchImpl: typeof fetch = fetch,
-): Promise<Buffer | null> {
-  const response = await fetchImpl(photo.url, {
-    headers: { 'user-agent': USER_AGENT },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (!response.ok) return null;
-  return Buffer.from(await response.arrayBuffer());
-}
-
-/** Crops a downloaded photo square to 800 px as WebP, and stores it with its credit. */
-export async function storeSpeciesPhoto(
-  prisma: PrismaClient,
-  storage: PhotoStorage,
-  plantId: string,
-  photo: CommonsPhoto,
-  original: Buffer,
-): Promise<void> {
-  const webp = await sharp(original)
+/** The photo cropped square to 800 px as WebP, the copy the catalog serves. */
+export function toSpeciesWebp(original: Buffer): Promise<Buffer> {
+  return sharp(original)
     .rotate()
     .resize(SIZE, SIZE, { fit: 'cover' })
     .webp({ quality: 80 })
     .toBuffer();
+}
+
+/**
+ * Stores a species photo, already cropped by toSpeciesWebp, with its credit. Only a species with
+ * no photo gets one, claimed in the same write that checks, so two adds at once can't mix one's
+ * file with the other's credit; `replace` swaps an existing photo on purpose. Says whether it
+ * stored the photo.
+ */
+export async function storeSpeciesPhoto(
+  prisma: PrismaClient,
+  storage: PhotoStorage,
+  plantId: string,
+  photo: SourcePhoto,
+  webp: Buffer,
+  options: { replace?: boolean } = {},
+): Promise<boolean> {
   const key = `species/${plantId}.webp`;
-  await storage.save(key, webp);
-  await prisma.plant.update({
-    where: { id: plantId },
-    data: {
-      imageKey: key,
-      imageAuthor: photo.author,
-      imageLicense: photo.license,
-      imageSource: photo.source,
-    },
+  const credit = {
+    imageAuthor: photo.author,
+    imageLicense: photo.license,
+    imageSource: photo.source,
+  };
+  if (options.replace) {
+    await storage.save(key, webp);
+    await prisma.plant.update({
+      where: { id: plantId },
+      data: { imageKey: key, ...credit },
+    });
+    return true;
+  }
+  const claimed = await prisma.plant.updateMany({
+    where: { id: plantId, imageKey: null },
+    data: { imageKey: key, ...credit },
   });
+  if (claimed.count === 0) return false;
+  try {
+    await storage.save(key, webp);
+  } catch (error) {
+    // Give the claim back, so the species doesn't point at a file that isn't there.
+    await prisma.plant.updateMany({
+      where: { id: plantId, imageKey: key, imageSource: photo.source },
+      data: {
+        imageKey: null,
+        imageAuthor: null,
+        imageLicense: null,
+        imageSource: null,
+      },
+    });
+    throw error;
+  }
+  return true;
 }

@@ -16,7 +16,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { createAnthropicPlantAi } from './ai/anthropic-plant-ai';
 import { checkupRoutes } from './ai/checkup-routes';
-import { attachSpeciesPhoto } from './ai/commons';
+import { attachSpeciesPhoto, findReferencePhoto } from './ai/reference-photo';
 import { speciesPhotoCheck } from './ai/species-photo-check';
 import { identifyRoutes } from './ai/identify-routes';
 import type { PlantAi } from './ai/plant-ai';
@@ -53,10 +53,12 @@ export type BuildAppOptions = {
   plantAi?: PlantAi;
   /** AI switch and spend ceiling; defaults to the environment. */
   aiConfig?: AiConfig;
-  /** fetch for Wikimedia Commons species photos; tests pass a stub. */
+  /** fetch for species photos from Wikimedia Commons and iNaturalist; tests pass a stub. */
   commonsFetch?: typeof fetch;
-  /** How long adding a new species waits for its Commons photo; defaults to 10 s. */
+  /** How long adding a new species waits for its photo; defaults to 10 s. */
   speciesPhotoWaitMs?: number;
+  /** How long a reference photo search may take; defaults to 15 s. */
+  referenceDeadlineMs?: number;
   /** Test hook: register extra routes before the app is ready. */
   extraRoutes?: (app: FastifyInstance) => void;
 };
@@ -206,27 +208,40 @@ export async function buildApp(
     options.photoStorage ?? createDiskStorage(env.UPLOADS_DIR);
   plantRoutes(app, photoStorage);
   const commonsFetch = options.commonsFetch ?? fetch;
+  const log = (message: string, error?: unknown) =>
+    app.log.warn({ err: error }, message);
+  const check = (scientificName: string, userId: string) =>
+    speciesPhotoCheck({
+      prisma: app.prisma,
+      ai: app.plantAi,
+      userId,
+      scientificName,
+      log,
+    });
   identifyRoutes(
     app,
     photoStorage,
-    (plantId, scientificName, userId) => {
-      const log = (message: string, error?: unknown) =>
-        app.log.warn({ err: error }, message);
-      return attachSpeciesPhoto({
-        prisma: app.prisma,
-        storage: photoStorage,
-        plantId,
-        scientificName,
-        check: speciesPhotoCheck({
+    {
+      attach: (plantId, scientificName, userId) =>
+        attachSpeciesPhoto({
           prisma: app.prisma,
-          ai: app.plantAi,
-          userId,
+          storage: photoStorage,
+          plantId,
           scientificName,
+          check: check(scientificName, userId),
+          fetchImpl: commonsFetch,
           log,
         }),
-        fetchImpl: commonsFetch,
-        log,
-      });
+      findReference: (scientificName, userId) =>
+        findReferencePhoto({
+          scientificName,
+          check: check(scientificName, userId),
+          fetchImpl: commonsFetch,
+          log,
+          ...(options.referenceDeadlineMs === undefined
+            ? {}
+            : { deadlineMs: options.referenceDeadlineMs }),
+        }),
     },
     options.speciesPhotoWaitMs,
   );

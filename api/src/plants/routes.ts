@@ -5,13 +5,14 @@ import {
   catalogPlantSchema,
   difficultySchema,
   lightSchema,
+  photoCreditSchema,
 } from '@plantcare/shared';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { AppError } from '../errors';
 import { resolveLocale } from '../i18n';
-import { getCatalogPlant, listCatalog } from './service';
+import { getCatalogPlant, listCatalog, listPhotoCredits } from './service';
 
 export function plantRoutes(app: FastifyInstance, storage: PhotoStorage): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
@@ -38,6 +39,24 @@ export function plantRoutes(app: FastifyInstance, storage: PhotoStorage): void {
         app.prisma,
         resolveLocale(request.headers['accept-language']),
         request.query,
+      ),
+  );
+
+  typed.get(
+    '/plants/credits',
+    {
+      schema: {
+        tags: ['plants'],
+        summary: 'Credits of the catalog photos',
+        description:
+          'Every species photo that needs a credit, with its author, licence and source page, sorted by name in the Accept-Language locale.',
+        response: { 200: z.array(photoCreditSchema) },
+      },
+    },
+    (request) =>
+      listPhotoCredits(
+        app.prisma,
+        resolveLocale(request.headers['accept-language']),
       ),
   );
 
