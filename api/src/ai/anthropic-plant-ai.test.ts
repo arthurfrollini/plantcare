@@ -119,6 +119,35 @@ describe('createAnthropicPlantAi', () => {
     expect(text).toContain('Brazilian Portuguese');
   });
 
+  it('checks a catalog photo with the photo first, the species named, thinking off and a JSON schema', async () => {
+    const parse = stub({ suitable: false, reason: 'A coin, not a plant.' });
+    const ai = createAnthropicPlantAi({
+      model: 'claude-haiku-5-5',
+      create: parse,
+    });
+
+    const { result, usage } = await ai.checkSpeciesPhoto({
+      photo: jpeg,
+      scientificName: 'Zantedeschia aethiopica',
+    });
+
+    expect(result).toEqual({ suitable: false, reason: 'A coin, not a plant.' });
+    expect(usage).toEqual({ inputTokens: 1500, outputTokens: 300 });
+    const params = firstParams(parse);
+    expect(params.thinking).toEqual({ type: 'disabled' });
+    expect(params.output_config.format.schema.required).toEqual([
+      'suitable',
+      'reason',
+    ]);
+    // Drawings, diagrams and objects such as coins are what the check exists to catch.
+    expect(params.system).toMatch(/coin/);
+    expect(params.system).toMatch(/diagram/);
+    expect(params.system).toMatch(/drawing/);
+    const content = firstContent(parse);
+    expect(content.map((block) => block.type)).toEqual(['image', 'text']);
+    expect(JSON.stringify(content[1])).toContain('Zantedeschia aethiopica');
+  });
+
   it('reports the AI as unavailable on a refusal or an answer that fails the schema', async () => {
     for (const parse of [
       stub(identification, 'refusal'),

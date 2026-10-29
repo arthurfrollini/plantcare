@@ -117,7 +117,7 @@ describe('user plants routes', () => {
   it('carries the species photo credit, or null without one', async () => {
     expect((await create(tokenA)).imageCredit).toBeNull();
 
-    await prisma.plant.update({
+    const updated = await prisma.plant.update({
       where: { id: catalogId },
       data: {
         imageKey: `species/${catalogId}.webp`,
@@ -128,7 +128,7 @@ describe('user plants routes', () => {
     });
     const list = await call('GET', '/me/plants', tokenA);
     expect(list.json<UserPlant[]>()[0]).toMatchObject({
-      imageUrl: `/plants/${catalogId}/image`,
+      imageUrl: `/plants/${catalogId}/image?v=${updated.updatedAt.getTime()}`,
       imageCredit: {
         author: 'Jane Doe',
         license: 'CC0',

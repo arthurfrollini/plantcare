@@ -13,7 +13,7 @@ import {
 import type { PrismaClient } from '../generated/prisma/client';
 import { toSearchName } from './search-name';
 
-export const PAGE_SIZE = 20;
+export const PAGE_SIZE = 10;
 
 export type CatalogQuery = {
   search?: string | undefined;
@@ -64,13 +64,18 @@ function toCatalogPlant(row: PlantRow, locale: Locale): CatalogPlant | null {
   };
 }
 
-/** A stored species photo wins over the bundled illustration. */
+/**
+ * A stored species photo wins over the bundled illustration. Its URL carries the row's last
+ * update, so a replaced photo gets past the day-long cache.
+ */
 export function speciesImageUrl(row: {
   id: string;
   imageKey: string | null;
   imageFile: string | null;
+  updatedAt: Date;
 }): string | null {
-  if (row.imageKey) return `/plants/${row.id}/image`;
+  if (row.imageKey)
+    return `/plants/${row.id}/image?v=${row.updatedAt.getTime()}`;
   return row.imageFile ? `/static/plants/${row.imageFile}` : null;
 }
 
@@ -117,6 +122,7 @@ export async function listCatalog(
   return {
     items: plants.slice(start, start + PAGE_SIZE),
     nextPage: start + PAGE_SIZE < plants.length ? query.page + 1 : null,
+    total: plants.length,
   };
 }
 

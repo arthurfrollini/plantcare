@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { Identification } from '@plantcare/shared';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import sharp from 'sharp';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { seed } from '../../prisma/seed';
 import { createTestApp, resetDb } from '../../test/helpers';
 import { JPEG, multipart } from '../../test/multipart';
@@ -38,6 +40,12 @@ const schedule = {
   wateringDays: [1],
 };
 const on: AiConfig = { enabled: true, dailySpendLimitUsd: 0.5 };
+const commonsSearch: unknown = JSON.parse(
+  readFileSync(
+    path.join(import.meta.dirname, 'fixtures/commons-zamioculcas.json'),
+    'utf8',
+  ),
+);
 
 type Fake = ReturnType<typeof createFakePlantAi>;
 
@@ -59,6 +67,7 @@ describe('AI identification', () => {
       plantAi: ai,
       aiConfig: config,
       photoStorage: createDiskStorage(dir),
+      speciesPhotoWaitMs: 500,
       ...(commonsFetch ? { commonsFetch } : {}),
     }));
     await resetDb(prisma);
@@ -192,9 +201,99 @@ describe('AI identification', () => {
     ]);
   });
 
-  it('answers the add before the species photo arrives from Commons', async () => {
+  /** Commons with the fixture search and a real photo for every download. */
+  async function commonsWithPhotos() {
+    const photo = await sharp({
+      create: { width: 1000, height: 1000, channels: 3, background: '#3a7' },
+    })
+      .jpeg()
+      .toBuffer();
+    return vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(commonsSearch), { status: 200 }),
+      )
+      .mockImplementation(() =>
+        Promise.resolve(new Response(photo, { status: 200 })),
+      );
+  }
+  const approved = { suitable: true, reason: 'A clear photo of the plant.' };
+  const rejected = { suitable: false, reason: 'A coin, not a plant.' };
+
+  it('waits for the species photo, so the new plant comes back with it', async () => {
+    await start(
+      { identify: [monstera], speciesPhoto: [approved] },
+      on,
+      await commonsWithPhotos(),
+    );
+    const { proposalId } = (await byName('costela')).json<{
+      proposalId: string;
+    }>();
+
+    const res = await add(proposalId);
+
+    expect(res.statusCode).toBe(201);
+    const species = await prisma.plant.findUniqueOrThrow({
+      where: { scientificName: 'Monstera deliciosa' },
+    });
+    expect(res.json()).toMatchObject({
+      imageUrl: `/plants/${species.id}/image?v=${species.updatedAt.getTime()}`,
+    });
+  });
+
+  it('has the AI check the photo, and counts its cost but not against the daily limits', async () => {
+    await start(
+      { identify: [monstera], speciesPhoto: [approved] },
+      on,
+      await commonsWithPhotos(),
+    );
+    const { proposalId } = (await byName('costela')).json<{
+      proposalId: string;
+    }>();
+
+    await add(proposalId);
+
+    expect(ai.calls.at(-1)).toMatchObject({
+      scientificName: 'Monstera deliciosa',
+    });
+    const usage = await prisma.aiUsage.findMany({
+      orderBy: { kind: 'asc' },
+    });
+    expect(usage.map((row) => [row.kind, row.count])).toEqual([
+      ['identify', 1],
+      ['speciesPhoto', 1],
+    ]);
+    const status = await app.inject({
+      method: 'GET',
+      url: '/ai/status',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(status.json()).toMatchObject({ identifyLeft: 9, checkupLeft: 5 });
+  });
+
+  it('keeps the placeholder when the AI rejects every candidate photo', async () => {
+    await start(
+      { identify: [monstera], speciesPhoto: [rejected, rejected, rejected] },
+      on,
+      await commonsWithPhotos(),
+    );
+    const { proposalId } = (await byName('costela')).json<{
+      proposalId: string;
+    }>();
+
+    const res = await add(proposalId);
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ imageUrl: null });
+    const species = await prisma.plant.findUniqueOrThrow({
+      where: { scientificName: 'Monstera deliciosa' },
+    });
+    expect(species.imageKey).toBeNull();
+  });
+
+  it('answers the add without the species photo when Commons is slow', async () => {
     let commonsCalled = false;
-    // Commons never answers here; the add must not wait for it.
+    // Commons never answers here; the add waits only briefly for it.
     const hanging = () => {
       commonsCalled = true;
       return new Promise<Response>(() => {});

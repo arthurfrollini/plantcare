@@ -45,3 +45,20 @@ export function checkupPrompt(species: string, description?: string): string {
     : '';
   return `This is a ${species}.${said} What is wrong with it, and what should they do?`;
 }
+
+export const SPECIES_PHOTO_SYSTEM = `You check photos picked automatically from Wikimedia Commons to illustrate a species in a plant-care app's catalog.
+
+A photo is suitable only when it is a real photograph whose subject is clearly the named species: its leaves, its flowers or the whole plant, the way someone would recognize it at home or in a garden.
+
+It is not suitable when it shows:
+- a different plant, or the named one too small or too far away to recognize;
+- something that is not a living plant: a coin, a stamp, a banknote, a product, a building, a map;
+- a drawing, a painting, a botanical illustration, a herbarium sheet, a diagram, a chart or a scanned page;
+- labels, arrows, captions or other text drawn over the image;
+- only a part most people would not recognize, such as a fruit, seeds, roots or a cut section.
+
+Return suitable, and reason: one short sentence saying why.`;
+
+export function speciesPhotoPrompt(scientificName: string): string {
+  return `Is this a suitable catalog photo of ${scientificName}?`;
+}

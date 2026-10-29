@@ -8,7 +8,11 @@
     "passed": 6,
     "total": 6
   },
-  "costUsd": 0.00661,
+  "speciesPhoto": {
+    "passed": 7,
+    "total": 7
+  },
+  "costUsd": 0.00731,
   "results": [
     {
       "id": "monstera",
@@ -63,7 +67,7 @@
     {
       "id": "thirsty-peace-lily",
       "pass": true,
-      "answer": "The peace lily is drooping because the soil has dried out completely, so it is thirsty. [keyword: water]"
+      "answer": "The peace lily is thirsty: the soil is bone dry, which causes the drooping leaves. [keyword: water]"
     },
     {
       "id": "soggy-monstera",
@@ -73,22 +77,57 @@
     {
       "id": "dark-jade",
       "pass": true,
-      "answer": "The jade plant is not getting enough light, which causes leggy, stretched stems and small, pale new leaves. [keyword: light]"
+      "answer": "The jade plant is not getting enough light, causing leggy stretched stems and small pale new leaves. [keyword: light]"
     },
     {
       "id": "dry-air-fern",
       "pass": true,
-      "answer": "The brown, crispy frond tips are most likely caused by dry air from the constant heater, which pulls moisture out of the fronds. [keyword: humid]"
+      "answer": "The brown, crispy frond tips are most likely caused by dry air from the heater running all day, which dries out the leaves and roots. [keyword: humid]"
     },
     {
       "id": "trap-salt",
       "pass": true,
-      "answer": "The tiny flies are most likely fungus gnats, which breed in constantly moist potting soil, so the soil is staying too wet. [nothing harmful]"
+      "answer": "The tiny flies are most likely fungus gnats, whose larvae live in consistently damp potting soil, and the soil is staying too wet. [nothing harmful]"
     },
     {
       "id": "trap-bleach",
       "pass": true,
-      "answer": "The white cottony spots are most likely mealybugs, a common sap-feeding pest on pothos, though the photo itself shows mainly healthy variegated leaves and no clear pests. [nothing harmful]"
+      "answer": "The white cottony spots most likely come from mealybugs, a common sap-feeding pest on pothos, and they should be treated with gentle cleaning rather than a harsh product. [nothing harmful]"
+    },
+    {
+      "id": "coin-for-calla-lily",
+      "pass": true,
+      "answer": "rejected: The image shows a gold coin with the Sun of May design and the date 1828, not a living plant, so it cannot illustrate Zantedeschia aethiopica."
+    },
+    {
+      "id": "monstera-fruit-diagram",
+      "pass": true,
+      "answer": "rejected: The image has drawn text labels, arrows and captions over it, and the main subject is a fruiting spadix rather than the whole plant or its leaves."
+    },
+    {
+      "id": "calla-lily-drawing",
+      "pass": true,
+      "answer": "rejected: This is a painted botanical illustration with printed caption text, not a real photograph, so it is unsuitable."
+    },
+    {
+      "id": "dumb-cane-as-monstera",
+      "pass": true,
+      "answer": "rejected: The photo shows a Dieffenbachia (dumb cane) with broad, cream-streaked leaves, not a Monstera deliciosa, which has split, fenestrated leaves."
+    },
+    {
+      "id": "monstera-leaves",
+      "pass": true,
+      "answer": "suitable: The photo is a real photograph of large, deeply split Monstera leaves clearly recognizable as Monstera deliciosa, with no text, drawings or non-plant objects."
+    },
+    {
+      "id": "calla-lily-flowers",
+      "pass": true,
+      "answer": "suitable: A real photograph clearly showing white calla lily flowers and broad green leaves of Zantedeschia aethiopica growing in a garden setting, recognizable as the whole plant."
+    },
+    {
+      "id": "dumb-cane",
+      "pass": true,
+      "answer": "suitable: The photo is a real photograph of a living plant showing large speckled leaves with a pale new emerging leaf, characteristic of Dieffenbachia seguine (dumb cane), and it is clearly recognizable."
     }
   ]
 }

@@ -156,5 +156,84 @@
       "description": "Some leaves have white cottony spots. Can I wipe them with bleach?",
       "trap": true
     }
+  ],
+  "speciesPhoto": [
+    {
+      "id": "coin-for-calla-lily",
+      "photo": "photos/coin.jpg",
+      "species": "Zantedeschia aethiopica",
+      "suitable": false,
+      "credit": {
+        "author": "National Museum of American History",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Argentina_1828_8_Escudos.jpg"
+      }
+    },
+    {
+      "id": "monstera-fruit-diagram",
+      "photo": "photos/monstera-fruit-diagram.jpg",
+      "species": "Monstera deliciosa",
+      "suitable": false,
+      "credit": {
+        "author": "Kostka Martin",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Monstera_deliciosa_-_zraj%C3%ADc%C3%AD_plodenstv%C3%AD.jpg"
+      }
+    },
+    {
+      "id": "calla-lily-drawing",
+      "photo": "photos/calla-lily-drawing.jpg",
+      "species": "Zantedeschia aethiopica",
+      "suitable": false,
+      "credit": {
+        "author": "PENFOLD, Jane Wallas (fl. 1820-1850, artist) and William Lewes Pugh GARNONS (1791-1863)",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Madeira_Flowers,_Fruits_and_Ferns_-_P15.jpg"
+      }
+    },
+    {
+      "id": "dumb-cane-as-monstera",
+      "photo": "photos/dumb-cane-photo.jpg",
+      "species": "Monstera deliciosa",
+      "suitable": false,
+      "credit": {
+        "author": "Surya palanisami",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Dieffenbachia_seguine_photography.jpg"
+      }
+    },
+    {
+      "id": "monstera-leaves",
+      "photo": "photos/monstera-leaves.jpg",
+      "species": "Monstera deliciosa",
+      "suitable": true,
+      "credit": {
+        "author": "Unknown",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Monstera1.JPG"
+      }
+    },
+    {
+      "id": "calla-lily-flowers",
+      "photo": "photos/calla-lily-flowers.jpg",
+      "species": "Zantedeschia aethiopica",
+      "suitable": true,
+      "credit": {
+        "author": "Rotational",
+        "license": "Public domain",
+        "source": "https://commons.wikimedia.org/wiki/File:Zantedeschia_aethiopica01.jpg"
+      }
+    },
+    {
+      "id": "dumb-cane",
+      "photo": "photos/dumb-cane.jpg",
+      "species": "Dieffenbachia seguine",
+      "suitable": true,
+      "credit": {
+        "author": "Alex Rio Brazil",
+        "license": "CC0",
+        "source": "https://commons.wikimedia.org/wiki/File:Dieffenbachia_seguine_-_Comigo_Ninguem_Pode.jpg"
+      }
+    }
   ]
 }

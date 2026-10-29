@@ -97,6 +97,8 @@ export type CatalogPlant = z.infer<typeof catalogPlantSchema>;
 export const catalogPageSchema = z.object({
   items: z.array(catalogPlantSchema),
   nextPage: z.number().nullable(),
+  /** Every plant matching the filters, across pages. */
+  total: z.number().int(),
 });
 export type CatalogPage = z.infer<typeof catalogPageSchema>;
 

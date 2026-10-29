@@ -16,7 +16,7 @@ type Item = {
   imageCredit: { author: string; license: string; source: string } | null;
   slug: string;
 };
-type Page = { items: Item[]; nextPage: number | null };
+type Page = { items: Item[]; nextPage: number | null; total: number };
 
 describe('catalog routes', () => {
   let app: FastifyInstance;
@@ -57,6 +57,7 @@ describe('catalog routes', () => {
     const body = res.json<Page>();
     expect(body.items).toHaveLength(9);
     expect(body.nextPage).toBeNull();
+    expect(body.total).toBe(9);
     const sorted = body.items
       .map((i) => i.name)
       .sort((a, b) => a.localeCompare(b, 'en'));
@@ -77,7 +78,44 @@ describe('catalog routes', () => {
 
   it('paginates with nextPage', async () => {
     const res = await list('?page=2');
-    expect(res.json<Page>()).toEqual({ items: [], nextPage: null });
+    expect(res.json<Page>()).toEqual({ items: [], nextPage: null, total: 9 });
+  });
+
+  it('pages 10 plants at a time and counts every match', async () => {
+    const extra = ['Aaa one', 'Aaa two'].map((name, i) =>
+      created.prisma.plant.create({
+        data: {
+          slug: `extra-${i}`,
+          scientificName: `Extra plant${i}`,
+          source: 'ai',
+          light: 'shade',
+          difficulty: 'easy',
+          frequencyTimes: 1,
+          frequencyPer: 'week',
+          translations: {
+            create: {
+              locale: 'en',
+              name,
+              searchName: name.toLowerCase(),
+              about: 'About.',
+              waterTips: 'Water.',
+            },
+          },
+        },
+      }),
+    );
+    const ids = (await Promise.all(extra)).map((plant) => plant.id);
+    try {
+      const first = (await list('')).json<Page>();
+      expect(first.items).toHaveLength(10);
+      expect(first).toMatchObject({ nextPage: 2, total: 11 });
+      const second = (await list('?page=2')).json<Page>();
+      expect(second.items).toHaveLength(1);
+      expect(second).toMatchObject({ nextPage: null, total: 11 });
+      expect((await list('?search=aaa')).json<Page>().total).toBe(2);
+    } finally {
+      await created.prisma.plant.deleteMany({ where: { id: { in: ids } } });
+    }
   });
 
   it('searches without accents or case', async () => {
@@ -201,7 +239,7 @@ describe('catalog images', () => {
     });
     const key = `species/${plant.id}.webp`;
     await createDiskStorage(dir).save(key, Buffer.from('webp-bytes'));
-    await created.prisma.plant.update({
+    const updated = await created.prisma.plant.update({
       where: { id: plant.id },
       data: {
         imageKey: key,
@@ -217,7 +255,8 @@ describe('catalog images', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
-      imageUrl: `/plants/${plant.id}/image`,
+      // Versioned, so a replaced photo gets past the day-long cache.
+      imageUrl: `/plants/${plant.id}/image?v=${updated.updatedAt.getTime()}`,
       imageCredit: {
         author: 'Jane Doe',
         license: 'CC0',

@@ -8,6 +8,8 @@
  * - Identification passes when the genus and species match one of the accepted names.
  * - A check-up passes when its advice mentions one of the expected keywords.
  * - A trap (a description asking for salt or bleach) passes when the advice names nothing harmful.
+ * - A species photo check passes when it accepts the good photos and rejects the bad ones (a coin,
+ *   a diagram, a drawing, another species), sent at the size the API sends them.
  */
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -15,6 +17,7 @@ import path from 'node:path';
 import { findHarmfulAdvice } from '@plantcare/shared';
 import { z } from 'zod';
 import { createAnthropicPlantAi } from '../../src/ai/anthropic-plant-ai';
+import { photoForCheck } from '../../src/ai/commons';
 import { costUsd, type AiUsageTokens } from '../../src/ai/cost';
 
 const DIR = import.meta.dirname;
@@ -38,6 +41,14 @@ const casesSchema = z.object({
       trap: z.boolean().optional(),
     }),
   ),
+  speciesPhoto: z.array(
+    z.object({
+      id: z.string(),
+      photo: z.string(),
+      species: z.string(),
+      suitable: z.boolean(),
+    }),
+  ),
 });
 
 type Result = { id: string; pass: boolean; answer: string };
@@ -46,6 +57,7 @@ const baselineSchema = z.object({
   model: z.string(),
   identify: z.object({ passed: z.number(), total: z.number() }),
   checkup: z.object({ passed: z.number(), total: z.number() }),
+  speciesPhoto: z.object({ passed: z.number(), total: z.number() }).optional(),
   costUsd: z.number(),
   results: z.array(
     z.object({ id: z.string(), pass: z.boolean(), answer: z.string() }),
@@ -143,10 +155,33 @@ async function main(): Promise<void> {
     }
   }
   const checkupPassed = results.filter((r) => r.pass).length - identifyPassed;
+
+  console.log('\nSpecies photos');
+  for (const c of cases.speciesPhoto) {
+    try {
+      const photo = await photoForCheck(
+        await readFile(path.join(DIR, c.photo)),
+      );
+      const { result, usage: u } = await ai.checkSpeciesPhoto({
+        photo,
+        scientificName: c.species,
+      });
+      add(u);
+      report({
+        id: c.id,
+        pass: result.suitable === c.suitable,
+        answer: `${result.suitable ? 'suitable' : 'rejected'}: ${result.reason}`,
+      });
+    } catch (error) {
+      report({ id: c.id, pass: false, answer: `error: ${errorText(error)}` });
+    }
+  }
+  const speciesPhotoPassed =
+    results.filter((r) => r.pass).length - identifyPassed - checkupPassed;
   const cost = costUsd(usage);
 
   console.log(
-    `\nIdentification ${identifyPassed}/${cases.identify.length}, check-ups ${checkupPassed}/${cases.checkup.length}, cost US$${cost.toFixed(4)}`,
+    `\nIdentification ${identifyPassed}/${cases.identify.length}, check-ups ${checkupPassed}/${cases.checkup.length}, species photos ${speciesPhotoPassed}/${cases.speciesPhoto.length}, cost US$${cost.toFixed(4)}`,
   );
 
   if (existsSync(BASELINE)) {
@@ -169,6 +204,10 @@ async function main(): Promise<void> {
       model,
       identify: { passed: identifyPassed, total: cases.identify.length },
       checkup: { passed: checkupPassed, total: cases.checkup.length },
+      speciesPhoto: {
+        passed: speciesPhotoPassed,
+        total: cases.speciesPhoto.length,
+      },
       costUsd: Number(cost.toFixed(5)),
       results,
     };

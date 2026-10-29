@@ -5,12 +5,14 @@ import { AppError } from '../errors';
 import { detectPhotoType, type PhotoType } from '../user-plants/photo';
 import type { AiUsageTokens } from './cost';
 import { toOutputSchema } from './output-schema';
-import type { PlantAi } from './plant-ai';
+import { speciesPhotoCheckSchema, type PlantAi } from './plant-ai';
 import {
   IDENTIFY_SYSTEM,
+  SPECIES_PHOTO_SYSTEM,
   checkupPrompt,
   checkupSystem,
   identifyPrompt,
+  speciesPhotoPrompt,
 } from './prompts';
 
 export type CreateParams = {
@@ -175,6 +177,35 @@ export function createAnthropicPlantAi(options: {
         },
         checkupAdviceSchema,
         z.union([notAPlantSchema, otherSpeciesSchema]),
+      );
+    },
+    checkSpeciesPhoto({ photo, scientificName }) {
+      return run(
+        create,
+        {
+          model: options.model,
+          max_tokens: 300,
+          system: SPECIES_PHOTO_SYSTEM,
+          thinking: { type: 'disabled' },
+          output_config: {
+            effort: 'low',
+            format: {
+              type: 'json_schema',
+              schema: toOutputSchema(speciesPhotoCheckSchema),
+            },
+          },
+          messages: [
+            {
+              role: 'user',
+              content: [
+                imageBlock(photo),
+                { type: 'text', text: speciesPhotoPrompt(scientificName) },
+              ],
+            },
+          ],
+        },
+        speciesPhotoCheckSchema,
+        z.never(),
       );
     },
   };

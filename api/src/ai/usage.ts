@@ -6,6 +6,8 @@ import { AiAnswerError } from './anthropic-plant-ai';
 import { costUsd, type AiUsageTokens } from './cost';
 
 export type AiKind = 'identify' | 'checkup';
+/** Every paid call: the user's own requests, plus the check of a new species' catalog photo. */
+export type AiUsageKind = AiKind | 'speciesPhoto';
 
 /** Model calls each user may make per UTC day. A catalog hit doesn't count. */
 export const DAILY_LIMITS: Record<AiKind, number> = {
@@ -95,7 +97,7 @@ export async function assertAiAllowed(
 export async function recordAiUsage(
   prisma: PrismaClient,
   userId: string,
-  kind: AiKind,
+  kind: AiUsageKind,
   usage: AiUsageTokens,
   now: Date = new Date(),
 ): Promise<void> {
@@ -112,7 +114,7 @@ export async function recordAiUsage(
 export async function countFailedAnswer<T>(
   prisma: PrismaClient,
   userId: string,
-  kind: AiKind,
+  kind: AiUsageKind,
   call: Promise<T>,
 ): Promise<T> {
   try {

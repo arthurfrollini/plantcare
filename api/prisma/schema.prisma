@@ -157,7 +157,7 @@ model AiUsage {
   userId  String
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   day     DateTime @db.Date
-  kind    String // "identify" | "checkup"
+  kind    String // "identify" | "checkup" | "speciesPhoto"
   count   Int      @default(0)
   costUsd Decimal  @default(0) @db.Decimal(10, 6)
 

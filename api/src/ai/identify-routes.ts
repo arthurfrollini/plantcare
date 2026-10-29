@@ -9,6 +9,7 @@ import {
   type IdentifyResponse,
   type Locale,
 } from '@plantcare/shared';
+import { setTimeout } from 'node:timers/promises';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -34,16 +35,19 @@ import {
 
 const PROPOSAL_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** Hook for work that follows an add, such as fetching a species photo (plan Task 7). */
-export type AfterSpeciesCreated = (
+/** Gives a new species its photo, checked at the cost of the user whose add created it; never rejects. */
+export type AttachSpeciesPhoto = (
   plantId: string,
   scientificName: string,
-) => void;
+  userId: string,
+) => Promise<void>;
 
 export function identifyRoutes(
   app: FastifyInstance,
   storage: PhotoStorage,
-  afterSpeciesCreated: AfterSpeciesCreated = () => {},
+  attachSpeciesPhoto: AttachSpeciesPhoto = () => Promise.resolve(),
+  /** How long an add waits for the species photo before answering without it. */
+  speciesPhotoWaitMs = 10_000,
 ): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
   const security = [{ bearerAuth: [] }];
@@ -251,6 +255,20 @@ export function identifyRoutes(
           proposal.payload,
         );
         const speciesId = await createAiSpecies(app.prisma, identification);
+        const species = await app.prisma.plant.findUniqueOrThrow({
+          where: { id: speciesId },
+        });
+        if (species.source === 'ai' && !species.imageKey) {
+          // Waits briefly, so the garden shows the photo at once; a slow Commons still finishes later.
+          await Promise.race([
+            attachSpeciesPhoto(
+              speciesId,
+              species.scientificName,
+              request.userId,
+            ),
+            setTimeout(speciesPhotoWaitMs, undefined, { ref: false }),
+          ]);
+        }
         let plant = await createUserPlant(app.prisma, request.userId, locale, {
           ...request.body,
           catalogPlantId: speciesId,
@@ -270,12 +288,6 @@ export function identifyRoutes(
             );
             await storage.remove(proposal.photoKey);
           }
-        }
-        const species = await app.prisma.plant.findUniqueOrThrow({
-          where: { id: speciesId },
-        });
-        if (species.source === 'ai' && !species.imageKey) {
-          afterSpeciesCreated(speciesId, species.scientificName);
         }
         return reply.code(201).send(plant);
       } catch (error) {
