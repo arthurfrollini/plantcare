@@ -31,6 +31,7 @@ import fonts from '../styles/fonts';
 export function MyPlants() {
   const { t } = useTranslation();
   const navigation = useNavigation();
+  const openProfile = () => navigation.navigate('PlantSelect', { screen: 'Profile' });
   const { status } = useAuth();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const { plants, offline, loading, error, refresh, remove, markWatered, undoWatered } =
@@ -146,7 +147,7 @@ export function MyPlants() {
   if (status === 'signedOut') {
     return (
       <View style={styles.container}>
-        <Header />
+        <Header onAvatarPress={openProfile} />
         <View style={styles.message}>
           <Text style={styles.messageText}>{t('myPlants.signedOut')}</Text>
           <Button
@@ -161,7 +162,7 @@ export function MyPlants() {
   if (error) {
     return (
       <View style={styles.container}>
-        <Header />
+        <Header onAvatarPress={openProfile} />
         <View style={styles.message}>
           <Text style={styles.messageText}>{t('myPlants.loadError')}</Text>
           <Button title={t('myPlants.retry')} onPress={() => void refresh()} />
@@ -183,7 +184,7 @@ export function MyPlants() {
         keyExtractor={(item) => item.plant.id}
         ListHeaderComponent={
           <>
-            <Header />
+            <Header onAvatarPress={openProfile} />
             {offline && <Text style={styles.offline}>{t('myPlants.offlineNotice')}</Text>}
             <View style={styles.today}>
               <TodayCard
@@ -204,6 +205,8 @@ export function MyPlants() {
         renderItem={({ item }) => (
           <PlantCardSecondary
             plant={item.plant}
+            next={item.next}
+            now={now}
             accessToken={accessToken}
             readOnly={offline}
             onPress={() => handleEdit(item.plant)}

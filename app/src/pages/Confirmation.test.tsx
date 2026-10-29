@@ -16,6 +16,7 @@ jest.mock('@react-navigation/native', () => ({
       buttonTitle: 'See my plants',
       icon: 'hug',
       nextScreen: 'MyPlants',
+      toast: 'ZZ plant joined the catalog',
     },
   }),
 }));
@@ -32,5 +33,11 @@ describe('Confirmation', () => {
 
     expect(mockPopTo).toHaveBeenCalledWith('PlantSelect', { screen: 'MyPlantsList' });
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('shows the toast it was given', () => {
+    render(<Confirmation />);
+
+    expect(screen.getByText('ZZ plant joined the catalog')).toBeOnTheScreen();
   });
 });

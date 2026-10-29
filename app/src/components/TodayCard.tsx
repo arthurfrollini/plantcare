@@ -7,6 +7,7 @@ import type { UserPlant } from '@plantcare/shared';
 import { PlantPicture } from './PlantPicture';
 import { Tappable } from './Tappable';
 import { dateLocale } from '../i18n';
+import { wateringAt } from '../plants/describeWatering';
 import type { TodayRow } from '../plants/today';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
@@ -47,7 +48,7 @@ export function TodayCard({
 
   // Built on render so the words follow the language and the day.
   function describeNext(when: Date) {
-    const at = atTime(when);
+    const at = wateringAt(t, when);
     const days = differenceInCalendarDays(when, now);
     if (days === 1) return t('today.tomorrowAt', { at });
     const locale = dateLocale();
@@ -58,11 +59,6 @@ export function TodayCard({
     return t('today.dateAt', { date: format(when, t('today.dateFormat'), { locale }), at });
   }
 
-  // "at 01:30" / "à 01:30": Portuguese takes the singular for one o'clock.
-  function atTime(when: Date) {
-    const time = format(when, 'HH:mm');
-    return when.getHours() === 1 ? t('today.atOne', { time }) : t('today.at', { time });
-  }
 
   return (
     <View testID="today-card" style={styles.card}>

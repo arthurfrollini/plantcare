@@ -1,10 +1,16 @@
 import {
+  aiStatusSchema,
   authResponseSchema,
+  checkupSchema,
+  identifyResponseSchema,
   catalogPageSchema,
   catalogPlantSchema,
   userPlantSchema,
   userSchema,
+  type AiStatus,
   type AuthResponse,
+  type Checkup,
+  type IdentifyResponse,
   type CatalogPage,
   type CatalogPlant,
   type CreateUserPlant,
@@ -168,4 +174,72 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 export async function deleteAccount(): Promise<void> {
   await api.delete('/me');
+}
+
+export function getAiStatus(): Promise<AiStatus> {
+  return api.get('/ai/status').then((r) => aiStatusSchema.parse(r.data));
+}
+
+export function identifyByName(name: string): Promise<IdentifyResponse> {
+  return api
+    .post('/ai/identify/name', { name }, { timeout: 60000 })
+    .then((r) => identifyResponseSchema.parse(r.data));
+}
+
+export function identifyByPhoto(photo: PlantPhoto): Promise<IdentifyResponse> {
+  const form = new FormData();
+  form.append('photo', { uri: photo.uri, name: 'photo', type: photo.mimeType });
+  return api
+    .post('/ai/identify/photo', form, { timeout: 60000 })
+    .then((r) => identifyResponseSchema.parse(r.data));
+}
+
+/** Adds an identified species to the garden with the same schedule a catalog add sends. */
+export function addProposal(
+  proposalId: string,
+  schedule: Omit<CreateUserPlant, 'catalogPlantId'>,
+): Promise<UserPlant> {
+  return api
+    .post(`/ai/proposals/${encodeURIComponent(proposalId)}/add`, schedule)
+    .then((r) => userPlantSchema.parse(r.data));
+}
+
+export function listCheckups(plantId: string): Promise<Checkup[]> {
+  return api
+    .get(`/me/plants/${encodeURIComponent(plantId)}/checkups`)
+    .then((r) => z.array(checkupSchema).parse(r.data));
+}
+
+export function createCheckup(
+  plantId: string,
+  photo: PlantPhoto,
+  description?: string,
+): Promise<Checkup> {
+  const form = new FormData();
+  // The API reads text fields sent before the file, so the description goes first.
+  if (description?.trim()) form.append('description', description.trim());
+  form.append('photo', { uri: photo.uri, name: 'photo', type: photo.mimeType });
+  return api
+    .post(`/me/plants/${encodeURIComponent(plantId)}/checkups`, form, { timeout: 60000 })
+    .then((r) => checkupSchema.parse(r.data));
+}
+
+export function markHealed(plantId: string, checkupId: string): Promise<Checkup> {
+  return api
+    .patch(
+      `/me/plants/${encodeURIComponent(plantId)}/checkups/${encodeURIComponent(checkupId)}`,
+      { status: 'healed' },
+    )
+    .then((r) => checkupSchema.parse(r.data));
+}
+
+export function checkupPhotoSource(
+  photoUrl: string,
+  accessToken: string,
+): { uri: string; headers: Record<string, string>; cacheKey: string } {
+  return {
+    uri: assetUrl(photoUrl),
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cacheKey: photoUrl,
+  };
 }

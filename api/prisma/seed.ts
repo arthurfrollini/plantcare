@@ -16,6 +16,9 @@ export async function seed(prisma: PrismaClient): Promise<void> {
       frequencyTimes: plant.frequency.times,
       frequencyPer: plant.frequency.per,
       imageFile: plant.imageFile,
+      imageAuthor: plant.imageCredit?.author ?? null,
+      imageLicense: plant.imageCredit?.license ?? null,
+      imageSource: plant.imageCredit?.source ?? null,
     };
     const { id } = await prisma.plant.upsert({
       where: { slug: plant.slug },

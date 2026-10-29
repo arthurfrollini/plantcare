@@ -7,7 +7,13 @@ export async function createTestApp(
   options: BuildAppOptions = {},
 ): Promise<{ app: FastifyInstance; prisma: PrismaClient }> {
   const prisma = options.prisma ?? testPrisma;
-  const app = await buildApp({ authRateLimitMax: 1000, ...options, prisma });
+  const app = await buildApp({
+    authRateLimitMax: 1000,
+    // Tests never reach Wikimedia Commons; a test that needs it passes its own stub.
+    commonsFetch: () => Promise.reject(new Error('No network in tests')),
+    ...options,
+    prisma,
+  });
   return { app, prisma };
 }
 

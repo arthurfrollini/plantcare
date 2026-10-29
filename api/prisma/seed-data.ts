@@ -10,7 +10,10 @@ export type PlantSeed = {
   light: 'full_sun' | 'partial_shade' | 'shade';
   difficulty: 'easy' | 'medium' | 'hard';
   frequency: { times: number; per: 'day' | 'week' };
+  /** A file in public/plants: a Commons photo (WebP) or the original illustration (SVG). */
   imageFile: string;
+  /** Required for a photo; see scripts/catalog-photo-candidates.ts. */
+  imageCredit?: { author: string; license: string; source: string };
   en: PlantSeedText;
   'pt-BR': PlantSeedText;
   aliases: string[];
@@ -23,7 +26,8 @@ export const plantSeeds: PlantSeed[] = [
     light: 'partial_shade',
     difficulty: 'easy',
     frequency: { times: 2, per: 'week' },
-    imageFile: 'aningapara.svg',
+    // Arthur's own photo; Commons has no photo of this species, only a botanical plate.
+    imageFile: 'aningapara.webp',
     en: {
       name: 'Aninga',
       about: 'A tropical species that grows fast and is easy to handle.',
@@ -43,7 +47,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'shade',
     difficulty: 'easy',
     frequency: { times: 1, per: 'week' },
-    imageFile: 'zamioculca.svg',
+    imageFile: 'zamioculca.webp',
+    imageCredit: {
+      author: 'O fungo azul',
+      license: 'CC0',
+      source:
+        'https://commons.wikimedia.org/wiki/File:%22Zamio_Mater%22_Zamioculcas_zamiifolia_communis_plant.jpg',
+    },
     en: {
       name: 'ZZ plant',
       about:
@@ -66,7 +76,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'partial_shade',
     difficulty: 'easy',
     frequency: { times: 3, per: 'week' },
-    imageFile: 'peperomia.svg',
+    imageFile: 'peperomia.webp',
+    imageCredit: {
+      author: 'Obsidian Soul',
+      license: 'CC0',
+      source:
+        'https://commons.wikimedia.org/wiki/File:Peperomia_obtusifolia_1.jpg',
+    },
     en: {
       name: 'Baby rubber plant',
       about:
@@ -87,7 +103,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'partial_shade',
     difficulty: 'easy',
     frequency: { times: 2, per: 'week' },
-    imageFile: 'imbe.svg',
+    imageFile: 'imbe.webp',
+    imageCredit: {
+      author: 'Obsidian Soul',
+      license: 'CC0',
+      source:
+        'https://commons.wikimedia.org/wiki/File:Thaumatophyllum_bipinnatifidum_(Philippines)_01.jpg',
+    },
     en: {
       name: 'Lacy tree philodendron',
       about:
@@ -108,7 +130,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'partial_shade',
     difficulty: 'easy',
     frequency: { times: 1, per: 'week' },
-    imageFile: 'espada-sao-jorge.svg',
+    imageFile: 'espada-sao-jorge.webp',
+    imageCredit: {
+      author: 'Muhammedsafwan77',
+      license: 'CC0',
+      source:
+        'https://commons.wikimedia.org/wiki/File:Dracaena_trifasciata_in_aloysius.jpg',
+    },
     en: {
       name: 'Snake plant',
       about:
@@ -130,7 +158,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'full_sun',
     difficulty: 'easy',
     frequency: { times: 1, per: 'week' },
-    imageFile: 'yucca.svg',
+    imageFile: 'yucca.webp',
+    imageCredit: {
+      author: 'Dinkum',
+      license: 'CC0',
+      source:
+        'https://commons.wikimedia.org/wiki/File:Yucca_elephantipes_2.JPG',
+    },
     en: {
       name: 'Spineless yucca',
       about:
@@ -153,7 +187,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'partial_shade',
     difficulty: 'hard',
     frequency: { times: 4, per: 'week' },
-    imageFile: 'orquidea.svg',
+    imageFile: 'orquidea.webp',
+    imageCredit: {
+      author: 'Joejoe at Slovak Wikipedia',
+      license: 'Public domain',
+      source:
+        'https://commons.wikimedia.org/wiki/File:Phalaenopsis_26_01_2006_J_Cservenka.JPG',
+    },
     en: {
       name: 'Moth orchid',
       about:
@@ -174,7 +214,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'partial_shade',
     difficulty: 'medium',
     frequency: { times: 2, per: 'week' },
-    imageFile: 'violeta.svg',
+    imageFile: 'violeta.webp',
+    imageCredit: {
+      author: 'Sluglife6826',
+      license: 'CC0',
+      source:
+        'https://commons.wikimedia.org/wiki/File:African_Violet_Blooms.jpg',
+    },
     en: {
       name: 'African violet',
       about:
@@ -195,7 +241,13 @@ export const plantSeeds: PlantSeed[] = [
     light: 'full_sun',
     difficulty: 'medium',
     frequency: { times: 1, per: 'day' },
-    imageFile: 'hortensia.svg',
+    imageFile: 'hortensia.webp',
+    imageCredit: {
+      author: 'Bernard Spragg. NZ from Christchurch, New Zealand',
+      license: 'CC0',
+      source:
+        'https://commons.wikimedia.org/wiki/File:Hydrangea_(9559122347).jpg',
+    },
     en: {
       name: 'Hydrangea',
       about:

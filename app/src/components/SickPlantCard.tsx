@@ -1,61 +1,89 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
+import { Tappable } from './Tappable';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-/**
- * Asks the AI what is wrong with a sick plant. Shown as a button that is not wired yet: disabled,
- * with the "Soon" badge on it.
- */
-export function SickPlantCard() {
+interface SickPlantCardProps {
+  onPress: () => void;
+}
+
+/** Opens the symptom guide, which leads to an AI check-up when the guide isn't enough. */
+export function SickPlantCard({ onPress }: SickPlantCardProps) {
   const { t } = useTranslation();
   const label = t('plantDetail.sick');
-  const soon = t('plantSelect.soon');
 
   return (
-    <View
-      accessible
+    <Tappable
       accessibilityRole="button"
-      accessibilityLabel={`${label}, ${soon}`}
-      accessibilityState={{ disabled: true }}
+      accessibilityLabel={label}
+      accessibilityHint={t('plantDetail.sickHint')}
       style={styles.button}
+      feedback="highlight"
+      pressedStyle={styles.pressed}
+      onPress={onPress}
     >
-      <Text style={styles.text} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-        {label}
-      </Text>
-      <Text style={styles.soon}>{soon}</Text>
-    </View>
+      <View style={styles.icon}>
+        <MaterialCommunityIcons name="stethoscope" size={22} color={colors.white} />
+      </View>
+      <View style={styles.texts}>
+        <Text style={styles.title} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.hint} numberOfLines={2}>
+          {t('plantDetail.sickHint')}
+        </Text>
+      </View>
+      <Feather name="chevron-right" size={22} color={colors.yellow_dark} />
+    </Tappable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    height: 56,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    gap: 14,
+    paddingVertical: 14,
+    paddingLeft: 14,
+    paddingRight: 12,
+    borderRadius: 18,
     backgroundColor: colors.yellow_light,
+    borderWidth: 1.5,
+    borderColor: colors.yellow,
+    shadowColor: colors.yellow_dark,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  text: {
-    fontSize: 15,
+  pressed: {
+    backgroundColor: colors.yellow_pressed,
+  },
+  icon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.yellow_dark,
+  },
+  texts: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 16,
+    color: colors.heading,
+    fontFamily: fonts.heading,
+  },
+  hint: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 18,
     color: colors.yellow_dark,
-    fontFamily: fonts.heading,
-  },
-  // Sits on the button's top edge, so the label keeps the whole width for one line.
-  soon: {
-    position: 'absolute',
-    top: -10,
-    right: 12,
-    fontSize: 12,
-    color: colors.green_dark,
-    fontFamily: fonts.heading,
-    backgroundColor: colors.green_light,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-    overflow: 'hidden',
+    fontFamily: fonts.text,
   },
 });

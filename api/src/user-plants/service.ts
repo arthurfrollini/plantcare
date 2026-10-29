@@ -1,3 +1,5 @@
+import { toCheckupDto, type CheckupRow } from '../ai/checkup-dto';
+import { speciesImageCredit, speciesImageUrl } from '../plants/service';
 import {
   DEFAULT_REMINDER_LEAD,
   difficultySchema,
@@ -33,6 +35,11 @@ const include = {
     take: 1,
     select: { wateredOn: true },
   },
+  checkups: {
+    where: { status: 'open' },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+  },
 } as const;
 
 function isDateBased(frequency: { per: string }): boolean {
@@ -43,6 +50,7 @@ export function toUserPlantDto(
   row: UserPlantRow & {
     catalogPlant: Plant;
     waterings: { wateredOn: Date }[];
+    checkups?: CheckupRow[];
   },
   translation: PlantTranslation | null,
 ): UserPlant {
@@ -78,12 +86,12 @@ export function toUserPlantDto(
       row.waterings[0]?.wateredOn.toISOString().slice(0, 10) ?? null,
     timeZone: row.timeZone,
     notes: row.notes,
-    imageUrl: row.catalogPlant.imageFile
-      ? `/static/plants/${row.catalogPlant.imageFile}`
-      : null,
+    imageUrl: speciesImageUrl(row.catalogPlant),
+    imageCredit: speciesImageCredit(row.catalogPlant),
     hasPhoto: row.photoPath !== null,
     photoVersion: row.photoUpdatedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
+    openCheckup: row.checkups?.[0] ? toCheckupDto(row.checkups[0]) : null,
   };
 }
 
@@ -316,11 +324,19 @@ export async function deleteUserPlant(
   id: string,
 ): Promise<void> {
   const photoKey = await getPhotoKey(prisma, userId, id);
+  // Check-ups cascade with the plant; their photos have to go by hand.
+  const checkups = await prisma.checkup.findMany({
+    where: { userPlantId: id },
+    select: { photoKey: true },
+  });
   const { count } = await prisma.userPlant.deleteMany({
     where: { id, userId },
   });
   if (count === 0) throw notFound();
   if (photoKey !== null) await storage.remove(photoKey);
+  for (const checkup of checkups) {
+    if (checkup.photoKey) await storage.remove(checkup.photoKey);
+  }
 }
 
 const MAX_DAYS_OFF = 1;

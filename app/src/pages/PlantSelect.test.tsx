@@ -65,7 +65,7 @@ function renderScreen() {
 
 describe('PlantSelect', () => {
   it('selects a species on tap and unselects it on a second tap', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
@@ -79,8 +79,18 @@ describe('PlantSelect', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('opens on the catalog, with Add with AI as a tab that is coming soon', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+  it('shows how many plants the catalog has', async () => {
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: 2, total: 13 });
+    renderScreen();
+
+    expect(await screen.findByText('13 plants')).toBeTruthy();
+  });
+
+  it('opens on the catalog, with Add with AI as the other tab', async () => {
+    await saveTokens({ accessToken: 'acc', refreshToken: 'ref' });
+    mock.onGet('/me').reply(200, accountFixture);
+    mock.onGet('/ai/status').reply(200, { enabled: true, identifyLeft: 10, checkupLeft: 5 });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
 
     expect(await screen.findByText('Monstera')).toBeTruthy();
@@ -88,13 +98,14 @@ describe('PlantSelect', () => {
 
     fireEvent.press(screen.getByRole('tab', { name: 'Add with AI' }));
 
-    expect(screen.getByText('Soon')).toBeTruthy();
+    expect(screen.getByLabelText('Plant name')).toBeTruthy();
+    expect(screen.queryByText('Soon')).toBeNull();
     expect(screen.queryByText('Monstera')).toBeNull();
     expect(screen.queryByText('Add plant(s)')).toBeNull();
   });
 
   it('goes back from either tab', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
     await screen.findByText('Monstera');
 
@@ -105,7 +116,7 @@ describe('PlantSelect', () => {
   });
 
   it('keeps the add button in place but off until a plant is picked', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
     await screen.findByText('Monstera');
 
@@ -119,7 +130,7 @@ describe('PlantSelect', () => {
   });
 
   it('counts the selection in the button and Clear empties it', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture, cactusFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture, cactusFixture], nextPage: null, total: 1 });
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
@@ -137,7 +148,7 @@ describe('PlantSelect', () => {
     mock.onGet('/plants').reply((config) => {
       const light = (config.params as { light?: string } | undefined)?.light;
       const items = light ? [cactusFixture] : [catalogFixture, cactusFixture];
-      return [200, { items, nextPage: null }];
+      return [200, { items, nextPage: null, total: 1 }];
     });
     renderScreen();
 
@@ -159,7 +170,7 @@ describe('PlantSelect', () => {
     mock.onGet('/me').reply(200, accountFixture);
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);
     mock.onPost('/me/plants').reply(201, userPlantFixture);
-    mock.onGet('/plants').reply(200, { items: [catalogFixture, cactusFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture, cactusFixture], nextPage: null, total: 1 });
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
@@ -178,7 +189,7 @@ describe('PlantSelect', () => {
   });
 
   it('asks for an account first when signed out, keeping the selection for after', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
 
     fireEvent.press(await screen.findByText('Monstera'));
@@ -205,7 +216,7 @@ describe('PlantSelect', () => {
       .replyOnce(201, userPlantFixture)
       .onPost('/me/plants')
       .replyOnce(500, { error: { code: 'internal', message: 'boom' } });
-    mock.onGet('/plants').reply(200, { items: [catalogFixture, cactusFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture, cactusFixture], nextPage: null, total: 1 });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     renderScreen();
 
@@ -224,7 +235,7 @@ describe('PlantSelect', () => {
   });
 
   it('sends both filters together, from page 1, with translated labels', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
     await screen.findByText('Monstera');
 
@@ -240,7 +251,7 @@ describe('PlantSelect', () => {
   });
 
   it('shows how many filters are on, and Clear turns both off', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
     await screen.findByText('Monstera');
 
@@ -270,7 +281,7 @@ describe('PlantSelect', () => {
   });
 
   it('says so when nothing matches', async () => {
-    mock.onGet('/plants').reply(200, { items: [], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [], nextPage: null, total: 1 });
     renderScreen();
 
     expect(await screen.findByText('No plants found.')).toBeTruthy();
@@ -278,7 +289,7 @@ describe('PlantSelect', () => {
 
   it('shows the network message with Retry, and Retry refetches', async () => {
     mock.onGet('/plants').networkErrorOnce();
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
 
     expect(
@@ -292,7 +303,7 @@ describe('PlantSelect', () => {
   });
 
   it('uses the new language for labels and the next fetch', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogFixture], nextPage: null, total: 1 });
     renderScreen();
     await screen.findByText('Monstera');
 

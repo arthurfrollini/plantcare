@@ -14,6 +14,13 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import { fileURLToPath } from 'node:url';
+import { createAnthropicPlantAi } from './ai/anthropic-plant-ai';
+import { checkupRoutes } from './ai/checkup-routes';
+import { attachSpeciesPhoto } from './ai/commons';
+import { speciesPhotoCheck } from './ai/species-photo-check';
+import { identifyRoutes } from './ai/identify-routes';
+import type { PlantAi } from './ai/plant-ai';
+import { aiConfigFromEnv, type AiConfig } from './ai/usage';
 import { authenticateDecorator } from './auth/authenticate';
 import { createGoogleVerifier, type GoogleVerifier } from './auth/google';
 import { accessJwtConfig } from './auth/jwt-config';
@@ -42,6 +49,14 @@ export type BuildAppOptions = {
   authRateLimitMax?: number;
   /** Where plant photos are kept; defaults to disk under UPLOADS_DIR. */
   photoStorage?: PhotoStorage;
+  /** The model client; defaults to Claude when ANTHROPIC_API_KEY is set, otherwise AI is off. */
+  plantAi?: PlantAi;
+  /** AI switch and spend ceiling; defaults to the environment. */
+  aiConfig?: AiConfig;
+  /** fetch for Wikimedia Commons species photos; tests pass a stub. */
+  commonsFetch?: typeof fetch;
+  /** How long adding a new species waits for its Commons photo; defaults to 10 s. */
+  speciesPhotoWaitMs?: number;
   /** Test hook: register extra routes before the app is ready. */
   extraRoutes?: (app: FastifyInstance) => void;
 };
@@ -51,6 +66,8 @@ declare module 'fastify' {
     prisma: PrismaClient;
     googleVerifier: GoogleVerifier | undefined;
     authRateLimitMax: number;
+    plantAi: PlantAi | undefined;
+    aiConfig: AiConfig;
   }
 }
 
@@ -77,6 +94,17 @@ export async function buildApp(
       : (options.googleVerifier ?? createGoogleVerifier(googleClientIds)),
   );
   app.decorate('authRateLimitMax', options.authRateLimitMax ?? 10);
+  app.decorate('aiConfig', options.aiConfig ?? aiConfigFromEnv());
+  app.decorate(
+    'plantAi',
+    options.plantAi ??
+      (env.ANTHROPIC_API_KEY
+        ? createAnthropicPlantAi({
+            model: env.AI_MODEL,
+            apiKey: env.ANTHROPIC_API_KEY,
+          })
+        : undefined),
+  );
 
   await app.register(cors, {
     origin: env.CORS_ORIGIN,
@@ -117,6 +145,11 @@ export async function buildApp(
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
+      // A server-side failure keeps its real reason in the logs (for the AI, the API's answer).
+      if (error.statusCode >= 500) {
+        const cause = error.cause instanceof Error ? error.cause : error;
+        request.log.error({ err: cause }, `${error.code}: ${cause.message}`);
+      }
       return reply
         .code(error.statusCode)
         .send(errorBody(error.code, error.message));
@@ -167,16 +200,42 @@ export async function buildApp(
   });
 
   healthRoutes(app);
-  plantRoutes(app);
   authRoutes(app);
   meRoutes(app);
   const photoStorage =
     options.photoStorage ?? createDiskStorage(env.UPLOADS_DIR);
+  plantRoutes(app, photoStorage);
+  const commonsFetch = options.commonsFetch ?? fetch;
+  identifyRoutes(
+    app,
+    photoStorage,
+    (plantId, scientificName, userId) => {
+      const log = (message: string, error?: unknown) =>
+        app.log.warn({ err: error }, message);
+      return attachSpeciesPhoto({
+        prisma: app.prisma,
+        storage: photoStorage,
+        plantId,
+        scientificName,
+        check: speciesPhotoCheck({
+          prisma: app.prisma,
+          ai: app.plantAi,
+          userId,
+          scientificName,
+          log,
+        }),
+        fetchImpl: commonsFetch,
+        log,
+      });
+    },
+    options.speciesPhotoWaitMs,
+  );
   avatarRoutes(app, photoStorage);
   accountRoutes(app, photoStorage);
   userPlantRoutes(app, photoStorage);
   wateringRoutes(app);
   photoRoutes(app, photoStorage);
+  checkupRoutes(app, photoStorage);
   options.extraRoutes?.(app);
 
   await app.ready();

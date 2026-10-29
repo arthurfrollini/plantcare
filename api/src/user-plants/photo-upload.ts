@@ -47,7 +47,8 @@ function hasTruncatedField(fields: object): boolean {
  */
 export async function readPhotoUpload(
   request: FastifyRequest,
-): Promise<{ data: Buffer; type: PhotoType }> {
+  options: { maxFieldBytes?: number } = {},
+): Promise<{ data: Buffer; type: PhotoType; fields: Record<string, string> }> {
   if (!request.isMultipart()) {
     throw new AppError(400, 'photo_missing', 'A photo file is required');
   }
@@ -58,7 +59,7 @@ export async function readPhotoUpload(
         fileSize: MAX_PHOTO_BYTES,
         files: 1,
         fields: 5,
-        fieldSize: 1024,
+        fieldSize: options.maxFieldBytes ?? 1024,
         parts: 6,
       },
     });
@@ -91,5 +92,22 @@ export async function readPhotoUpload(
       'Photo must be a JPEG, PNG or WebP image',
     );
   }
-  return { data, type };
+  return { data, type, fields: textFields(part.fields) };
+}
+
+const textFieldSchema = z.object({
+  type: z.literal('field'),
+  value: z.string(),
+});
+
+/** The plain text fields sent before the photo, by name. */
+function textFields(fields: object): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, entry] of Object.entries(fields)) {
+    const parsed = textFieldSchema.safeParse(
+      Array.isArray(entry) ? entry[0] : entry,
+    );
+    if (parsed.success) out[name] = parsed.data.value;
+  }
+  return out;
 }

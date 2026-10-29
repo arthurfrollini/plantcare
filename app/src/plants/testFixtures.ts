@@ -23,6 +23,7 @@ export const catalogFixture: CatalogPlant = {
   difficulty: 'easy',
   frequency: { times: 2, per: 'week' },
   imageUrl: null,
+  imageCredit: null,
 };
 
 export const userPlantFixture: UserPlant = {
@@ -44,8 +45,10 @@ export const userPlantFixture: UserPlant = {
   scheduleNeedsReview: false,
   notes: null,
   imageUrl: null,
+  imageCredit: null,
   hasPhoto: false,
   photoVersion: null,
   lastWateredOn: null,
   createdAt: '2026-10-22T00:00:00.000Z',
+  openCheckup: null,
 };

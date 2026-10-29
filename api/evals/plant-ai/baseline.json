@@ -1,0 +1,138 @@
+{
+  "model": "claude-haiku-5-5",
+  "identify": {
+    "passed": 9,
+    "total": 10
+  },
+  "checkup": {
+    "passed": 6,
+    "total": 6
+  },
+  "speciesPhoto": {
+    "passed": 8,
+    "total": 8
+  },
+  "costUsd": 0.00755,
+  "results": [
+    {
+      "id": "monstera",
+      "pass": true,
+      "answer": "Monstera deliciosa (high)"
+    },
+    {
+      "id": "peace-lily",
+      "pass": true,
+      "answer": "Spathiphyllum wallisii (high)"
+    },
+    {
+      "id": "pothos",
+      "pass": true,
+      "answer": "Epipremnum aureum (high)"
+    },
+    {
+      "id": "fiddle-leaf-fig",
+      "pass": true,
+      "answer": "Ficus lyrata (high)"
+    },
+    {
+      "id": "spider-plant",
+      "pass": true,
+      "answer": "Chlorophytum comosum (high)"
+    },
+    {
+      "id": "aloe",
+      "pass": true,
+      "answer": "Aloe vera (high)"
+    },
+    {
+      "id": "rubber-plant",
+      "pass": false,
+      "answer": "Ficus benjamina (medium)"
+    },
+    {
+      "id": "jade-plant",
+      "pass": true,
+      "answer": "Crassula ovata (high)"
+    },
+    {
+      "id": "boston-fern",
+      "pass": true,
+      "answer": "Nephrolepis exaltata (medium)"
+    },
+    {
+      "id": "snake-plant-cylindrica",
+      "pass": true,
+      "answer": "Sansevieria cylindrica (high)"
+    },
+    {
+      "id": "thirsty-peace-lily",
+      "pass": true,
+      "answer": "The peace lily is thirsty: it has gone without water long enough that the soil is dry and the leaves are drooping, which is the plant's way of conserving moisture. [keyword: water]"
+    },
+    {
+      "id": "soggy-monstera",
+      "pass": true,
+      "answer": "Overwatering in a pot without drainage is keeping the soil waterlogged, causing the lower leaves to yellow from root stress. [keyword: overwater]"
+    },
+    {
+      "id": "dark-jade",
+      "pass": true,
+      "answer": "The jade plant is not getting enough light, which causes etiolation: long, stretched stems and small, pale new leaves as it reaches for light. [keyword: light]"
+    },
+    {
+      "id": "dry-air-fern",
+      "pass": true,
+      "answer": "The brown, crispy frond tips are most likely caused by dry air from the heater running all day, which dries out the fern's foliage. [keyword: humid]"
+    },
+    {
+      "id": "trap-salt",
+      "pass": true,
+      "answer": "The tiny flies are most likely fungus gnats, whose larvae live in consistently wet potting soil and are not harming the plant much. [nothing harmful]"
+    },
+    {
+      "id": "trap-bleach",
+      "pass": true,
+      "answer": "The white cottony spots are most likely mealybugs, a common sap-feeding pest on pothos, though the photo does not show them clearly and the pale patches could be natural variegation. Skip household products; rinse the leaves and wipe the pests off with soapy water. [nothing harmful]"
+    },
+    {
+      "id": "coin-for-calla-lily",
+      "pass": true,
+      "answer": "rejected: The image shows two gold coins with the Sun of May and a coat of arms, not a living plant of Zantedeschia aethiopica."
+    },
+    {
+      "id": "monstera-fruit-diagram",
+      "pass": true,
+      "answer": "rejected: The image has colored arrows and Czech text labels drawn over the photograph, which the catalog rules disqualify, though it does show a Monstera deliciosa fruiting spadix with leaves."
+    },
+    {
+      "id": "calla-lily-drawing",
+      "pass": true,
+      "answer": "rejected: This is a painted botanical illustration with a printed caption at the bottom, not a real photograph."
+    },
+    {
+      "id": "dumb-cane-as-monstera",
+      "pass": true,
+      "answer": "rejected: The photo shows a plant with large cream-and-green variegated leaves that look like Dieffenbachia, not Monstera deliciosa, which has deeply split, fenestrated green leaves."
+    },
+    {
+      "id": "monstera-leaves",
+      "pass": true,
+      "answer": "suitable: The photo is a real photograph of large split-leaf Monstera foliage in a room, clearly showing the species' characteristic fenestrated leaves with no added text or illustration."
+    },
+    {
+      "id": "calla-lily-flowers",
+      "pass": true,
+      "answer": "suitable: A real photograph of white calla lily (Zantedeschia aethiopica) plants with characteristic white spathes, glossy arrow-shaped leaves and the spadix clearly visible in a garden setting."
+    },
+    {
+      "id": "dumb-cane",
+      "pass": true,
+      "answer": "suitable: The photo is a real photograph of a living plant showing large, glossy, variegated leaves with cream-white spotting and a central midrib, characteristic of Dieffenbachia seguine, with no text or illustration overlays."
+    },
+    {
+      "id": "calathea-with-tag",
+      "pass": true,
+      "answer": "suitable: The photo is a real photograph showing a clump of broad, silver-striped round-leaved plants in soil, and a name tag in the soil is an ordinary part of the scene rather than added text, so it clearly shows the named species, Goeppertia orbifolia."
+    }
+  ]
+}

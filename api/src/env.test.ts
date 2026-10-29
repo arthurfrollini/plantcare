@@ -21,6 +21,21 @@ describe('parseEnv', () => {
     expect(env.GOOGLE_CLIENT_IDS).toEqual(['a', 'b']);
   });
 
+  it('applies the AI defaults', () => {
+    const base = {
+      DATABASE_URL: 'postgresql://u:p@localhost:5433/db',
+      JWT_SECRET: 'x'.repeat(32),
+    };
+    const env = parseEnv(base);
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.AI_MODEL).toBe('claude-haiku-5-5');
+    expect(env.AI_DAILY_SPEND_LIMIT_USD).toBe(0.5);
+    expect(
+      parseEnv({ ...base, AI_DAILY_SPEND_LIMIT_USD: '0' })
+        .AI_DAILY_SPEND_LIMIT_USD,
+    ).toBe(0);
+  });
+
   it('resolves a relative UPLOADS_DIR against the api folder, not the cwd', () => {
     const apiRoot = fileURLToPath(new URL('..', import.meta.url));
     const base = {

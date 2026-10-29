@@ -68,6 +68,14 @@ export const timeZoneSchema = z
 export const plantSourceSchema = z.enum(['curated', 'ai']);
 export type PlantSource = z.infer<typeof plantSourceSchema>;
 
+/** Who took a species photo from Wikimedia Commons, under which license, and its page there. */
+export const imageCreditSchema = z.object({
+  author: z.string(),
+  license: z.string(),
+  source: z.string(),
+});
+export type ImageCredit = z.infer<typeof imageCreditSchema>;
+
 export const catalogPlantSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -80,12 +88,17 @@ export const catalogPlantSchema = z.object({
   difficulty: difficultySchema,
   frequency: frequencySchema,
   imageUrl: z.string().nullable(),
+  // Who took the species photo and under which license, when it came from Wikimedia Commons.
+  // Defaults to null so a catalog cached or served before credits existed still reads.
+  imageCredit: imageCreditSchema.nullable().default(null),
 });
 export type CatalogPlant = z.infer<typeof catalogPlantSchema>;
 
 export const catalogPageSchema = z.object({
   items: z.array(catalogPlantSchema),
   nextPage: z.number().nullable(),
+  /** Every plant matching the filters, across pages. */
+  total: z.number().int(),
 });
 export type CatalogPage = z.infer<typeof catalogPageSchema>;
 
@@ -141,6 +154,20 @@ export const localDateSchema = z
     );
   }, 'Not a real calendar date');
 
+/** One AI check-up of a sick plant, as the API returns it. */
+export const checkupSchema = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+  description: z.string().nullable(),
+  problem: z.string(),
+  steps: z.array(z.string()),
+  whenToWorry: z.string(),
+  status: z.enum(['open', 'healed']),
+  healedAt: z.string().nullable(),
+  photoUrl: z.string(),
+});
+export type Checkup = z.infer<typeof checkupSchema>;
+
 export const userPlantSchema = z.object({
   id: z.string(),
   catalogPlantId: z.string(),
@@ -162,6 +189,8 @@ export const userPlantSchema = z.object({
   notes: z.string().nullable(),
   // Species illustration; the user's own photo is fetched separately.
   imageUrl: z.string().nullable(),
+  // The species photo's credit; null for an illustration. Defaults to null for older caches.
+  imageCredit: imageCreditSchema.nullable().default(null),
   hasPhoto: z.boolean(),
   // ISO time of the last photo save; use it to bust image caches.
   photoVersion: z.string().nullable(),
@@ -169,6 +198,8 @@ export const userPlantSchema = z.object({
   // or served before waterings existed still reads.
   lastWateredOn: localDateSchema.nullable().default(null),
   createdAt: z.string(),
+  // The newest check-up not yet marked healed. Defaults to null so older caches still read.
+  openCheckup: checkupSchema.nullable().default(null),
 });
 export type UserPlant = z.infer<typeof userPlantSchema>;
 

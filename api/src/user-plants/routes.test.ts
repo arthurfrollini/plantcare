@@ -114,6 +114,29 @@ describe('user plants routes', () => {
     expect(pt.json<UserPlant[]>()[0]?.speciesName).toBe(catalogPt);
   });
 
+  it('carries the species photo credit, or null without one', async () => {
+    expect((await create(tokenA)).imageCredit).toBeNull();
+
+    const updated = await prisma.plant.update({
+      where: { id: catalogId },
+      data: {
+        imageKey: `species/${catalogId}.webp`,
+        imageSource: 'https://commons.wikimedia.org/wiki/File:X.jpg',
+        imageAuthor: 'Jane Doe',
+        imageLicense: 'CC0',
+      },
+    });
+    const list = await call('GET', '/me/plants', tokenA);
+    expect(list.json<UserPlant[]>()[0]).toMatchObject({
+      imageUrl: `/plants/${catalogId}/image?v=${updated.updatedAt.getTime()}`,
+      imageCredit: {
+        author: 'Jane Doe',
+        license: 'CC0',
+        source: 'https://commons.wikimedia.org/wiki/File:X.jpg',
+      },
+    });
+  });
+
   it('rejects wateringDays of the wrong length', async () => {
     await prisma.plant.update({
       where: { id: catalogId },

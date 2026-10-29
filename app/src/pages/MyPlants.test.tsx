@@ -116,6 +116,16 @@ describe('MyPlants', () => {
     expect(mockNavigate).toHaveBeenCalledWith('PlantDetail', { userPlantId: 'p1' });
   });
 
+  it('opens Profile from the avatar', async () => {
+    await signIn();
+    mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+    renderScreen();
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Open profile' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('PlantSelect', { screen: 'Profile' });
+  });
+
   it('removes a plant after the confirm dialog', async () => {
     await signIn();
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);
@@ -382,7 +392,7 @@ describe('MyPlants Today card', () => {
     renderScreen();
 
     expect(await screen.findByText('My garden')).toBeOnTheScreen();
-    expect(screen.getAllByText('Water at')).toHaveLength(3);
+    expect(screen.getAllByTestId('next-watering')).toHaveLength(3);
     expect(screen.getAllByLabelText('Remove')).toHaveLength(3);
   });
 

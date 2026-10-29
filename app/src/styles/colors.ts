@@ -16,8 +16,11 @@ export default {
   blue: '#3D7199',
   blue_light: '#EBF6FF',
 
-  red: '#E83F5B',
+  // 5.5:1 against white, so white text on it and red text on white both pass WCAG AA.
+  red: '#C8283F',
 
+  yellow: '#F2D266',
   yellow_dark: '#8A6D00',
   yellow_light: '#FFF6D6',
+  yellow_pressed: '#FCECB5',
 };

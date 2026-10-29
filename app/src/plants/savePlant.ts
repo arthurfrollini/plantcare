@@ -25,13 +25,14 @@ export function deviceTimeZone(): string {
   }
 }
 
+/** The reminder every new plant starts with, from the catalog or from the AI. */
+export function defaultSchedule(): Omit<CreateUserPlant, 'catalogPlantId'> {
+  return { reminderTime: DEFAULT_REMINDER_TIME, timeZone: deviceTimeZone() };
+}
+
 /** A new plant: the species' own care plan; weekdays and photo come later, by editing. */
 export function createBody(pick: SpeciesPick): CreateUserPlant {
-  return {
-    catalogPlantId: pick.catalogPlantId,
-    reminderTime: DEFAULT_REMINDER_TIME,
-    timeZone: deviceTimeZone(),
-  };
+  return { catalogPlantId: pick.catalogPlantId, ...defaultSchedule() };
 }
 
 export type ScheduleValues = {
