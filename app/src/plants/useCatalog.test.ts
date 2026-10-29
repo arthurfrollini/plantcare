@@ -22,10 +22,11 @@ function paramsOf(config: { params?: unknown }) {
 
 const none: CatalogFilters = { search: '', light: null, difficulty: null };
 
-function page(names: string[], nextPage: number | null) {
+function page(names: string[], nextPage: number | null, total = names.length) {
   return {
     items: names.map((name) => ({ ...catalogFixture, id: name, name })),
     nextPage,
+    total,
   };
 }
 
@@ -114,6 +115,19 @@ describe('useCatalog', () => {
 
     act(() => result.current.loadMore());
     expect(mock.history.get).toHaveLength(2);
+  });
+
+  it('reports the total from the first page, also after loading more', async () => {
+    mock.onGet('/plants').reply((config) =>
+      paramsOf(config).page === 2 ? [200, page(['B'], null, 2)] : [200, page(['A'], 2, 2)],
+    );
+    const { result } = renderHook(() => useCatalog(none));
+    expect(result.current.total).toBeNull();
+    await waitFor(() => expect(result.current.total).toBe(2));
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.plants).toHaveLength(2));
+    expect(result.current.total).toBe(2);
   });
 
   it('keeps the old results visible while a new query loads', async () => {

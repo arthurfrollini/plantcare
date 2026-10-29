@@ -116,6 +116,16 @@ describe('MyPlants', () => {
     expect(mockNavigate).toHaveBeenCalledWith('PlantDetail', { userPlantId: 'p1' });
   });
 
+  it('opens Profile from the avatar', async () => {
+    await signIn();
+    mock.onGet('/me/plants').reply(200, [userPlantFixture]);
+    renderScreen();
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Open profile' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('PlantSelect', { screen: 'Profile' });
+  });
+
   it('removes a plant after the confirm dialog', async () => {
     await signIn();
     mock.onGet('/me/plants').reply(200, [userPlantFixture]);

@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthProvider';
 import { LOCAL_NAME_KEY, onLocalNameChange } from '../auth/localName';
 import { useAvatarSource } from '../auth/useAvatarSource';
+import { Tappable } from './Tappable';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -26,7 +27,12 @@ export function firstName(name: string) {
   return name.trim().split(/\s+/)[0] ?? '';
 }
 
-export function Header() {
+interface HeaderProps {
+  /** Makes the avatar a button, e.g. to open Profile. */
+  onAvatarPress?: () => void;
+}
+
+export function Header({ onAvatarPress }: HeaderProps = {}) {
   const [localName, setLocalName] = useState<string>();
   const { status, user } = useAuth();
   const { top } = useSafeAreaInsets();
@@ -56,7 +62,14 @@ export function Header() {
         </Text>
       </View>
 
-      <View style={styles.avatar}>
+      <Tappable
+        style={styles.avatar}
+        disabled={!onAvatarPress}
+        onPress={onAvatarPress}
+        accessible={onAvatarPress !== undefined}
+        accessibilityRole={onAvatarPress ? 'button' : undefined}
+        accessibilityLabel={onAvatarPress ? t('header.openProfile') : undefined}
+      >
         {avatar.source ? (
           <Image
             testID="header-avatar"
@@ -68,7 +81,7 @@ export function Header() {
         ) : (
           <Text style={styles.avatarText}>{initials(username ?? '')}</Text>
         )}
-      </View>
+      </Tappable>
     </View>
   );
 }

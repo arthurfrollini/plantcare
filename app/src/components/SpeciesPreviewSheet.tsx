@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { Difficulty, Frequency, IdentifyResponse, Light } from '@plantcare/shared';
 
@@ -8,6 +8,7 @@ import type { Language } from '../i18n';
 import { BottomSheet } from './BottomSheet';
 import { Button } from './Button';
 import { CareTiles } from './CareTiles';
+import { Tappable } from './Tappable';
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
@@ -53,7 +54,7 @@ interface SpeciesPreviewSheetProps {
   onClose: () => void;
 }
 
-/** The species the AI found, with its care, and one button that adds it to the garden. */
+/** The species the AI found, with its care, a button that adds it to the garden and two ways out. */
 export function SpeciesPreviewSheet({ species, adding, onAdd, onClose }: SpeciesPreviewSheetProps) {
   const { t } = useTranslation();
 
@@ -61,15 +62,28 @@ export function SpeciesPreviewSheet({ species, adding, onAdd, onClose }: Species
     <BottomSheet visible={species !== null} onClose={adding ? () => undefined : onClose}>
       {species && (
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          <View style={styles.badge}>
-            <MaterialCommunityIcons
-              name={species.fromCatalog ? 'book-open-variant' : 'creation'}
-              size={14}
-              color={colors.green_dark}
-            />
-            <Text style={styles.badgeText}>
-              {t(species.fromCatalog ? 'aiIdentify.fromCatalog' : 'aiIdentify.foundByAi')}
-            </Text>
+          <View style={styles.top}>
+            <View style={styles.badge}>
+              <MaterialCommunityIcons
+                name={species.fromCatalog ? 'book-open-variant' : 'creation'}
+                size={14}
+                color={colors.green_dark}
+              />
+              <Text style={styles.badgeText}>
+                {t(species.fromCatalog ? 'aiIdentify.fromCatalog' : 'aiIdentify.foundByAi')}
+              </Text>
+            </View>
+            <Tappable
+              style={styles.close}
+              onPress={onClose}
+              disabled={adding}
+              accessibilityRole="button"
+              accessibilityLabel={t('aiIdentify.close')}
+              hitSlop={8}
+              borderlessRipple
+            >
+              <Feather name="x" size={20} color={colors.heading} />
+            </Tappable>
           </View>
           <Text style={styles.name}>{species.name}</Text>
           <Text style={styles.scientific}>{species.scientificName}</Text>
@@ -91,6 +105,15 @@ export function SpeciesPreviewSheet({ species, adding, onAdd, onClose }: Species
         ) : (
           <Button title={t('aiIdentify.add')} onPress={onAdd} />
         )}
+        <Tappable
+          style={styles.notNow}
+          onPress={onClose}
+          disabled={adding}
+          accessibilityRole="button"
+          hitSlop={4}
+        >
+          <Text style={styles.notNowText}>{t('aiIdentify.notNow')}</Text>
+        </Tappable>
       </View>
     </BottomSheet>
   );
@@ -99,6 +122,19 @@ export function SpeciesPreviewSheet({ species, adding, onAdd, onClose }: Species
 const styles = StyleSheet.create({
   scroll: {
     maxHeight: 460,
+  },
+  top: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  close: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shape,
   },
   badge: {
     flexDirection: 'row',
@@ -143,6 +179,17 @@ const styles = StyleSheet.create({
   },
   action: {
     marginTop: 8,
+  },
+  notNow: {
+    alignSelf: 'center',
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  notNowText: {
+    fontSize: 15,
+    color: colors.heading,
+    fontFamily: fonts.heading,
   },
   adding: {
     height: 56,

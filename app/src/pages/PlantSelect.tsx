@@ -50,7 +50,7 @@ export function PlantSelect() {
   const { status } = useAuth();
   const { top, bottom } = useSafeAreaInsets();
   const { t } = useTranslation();
-  const { plants, loading, refreshing, loadingMore, error, loadMore, retry } = useCatalog({
+  const { plants, total, loading, refreshing, loadingMore, error, loadMore, retry } = useCatalog({
     search,
     light,
     difficulty,
@@ -246,6 +246,9 @@ export function PlantSelect() {
               autoCorrect={false}
               returnKeyType="search"
             />
+            {total !== null && (
+              <Text style={styles.count}>{t('plantSelect.count', { count: total })}</Text>
+            )}
           </>
         )}
       </View>
@@ -324,6 +327,12 @@ const styles = StyleSheet.create({
     color: colors.heading,
     fontFamily: fonts.heading,
     lineHeight: 20,
+  },
+  count: {
+    marginTop: 10,
+    fontSize: 13,
+    color: colors.body_dark,
+    fontFamily: fonts.text,
   },
   subtitle: {
     fontSize: 17,

@@ -139,8 +139,24 @@ describe('AiIdentify', () => {
     });
     expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
       type: 'REPLACE',
-      payload: { name: 'Confirmation', params: { nextScreen: 'MyPlants' } },
+      payload: {
+        name: 'Confirmation',
+        params: { nextScreen: 'MyPlants', toast: 'ZZ plant joined the catalog' },
+      },
     });
+  });
+
+  it.each(['Not now', 'Close'])('closes the preview without adding from %s', async (label) => {
+    await signIn();
+    mock.onPost('/ai/identify/name').reply(200, { kind: 'proposal', proposalId: 'pr1', proposal });
+    renderAi();
+
+    await findByName('zz plant');
+    expect(await screen.findByText('ZZ plant')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: label }));
+
+    await waitFor(() => expect(screen.queryByText('ZZ plant')).not.toBeOnTheScreen());
+    expect(mock.history.post.filter((r) => r.url === '/ai/proposals/pr1/add')).toHaveLength(0);
   });
 
   it('adds a catalog hit through the regular add', async () => {

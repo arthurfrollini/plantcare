@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, StyleSheet } from 'react-native';
+import { Animated, Easing, Modal, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { Image, type ImageSource } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -13,10 +14,15 @@ interface PhotoViewerProps {
   onClose: () => void;
 }
 
-/** A plant photo full screen on black: it fades and grows in, and a tap anywhere closes it. */
+/**
+ * A photo enlarged in a circle over the sheets' blurred, darkened backdrop: it fades and grows in,
+ * and a tap anywhere closes it.
+ */
 export function PhotoViewer({ visible, source, onClose }: PhotoViewerProps) {
   const { t } = useTranslation();
   const { top } = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const diameter = Math.min(width - 2 * MARGIN, height * 0.6, MAX_DIAMETER);
   const [progress] = useState(() => new Animated.Value(0));
   // Stays mounted while it fades out, so the modal closes only after the animation.
   const [mounted, setMounted] = useState(visible);
@@ -47,15 +53,26 @@ export function PhotoViewer({ visible, source, onClose }: PhotoViewerProps) {
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <Animated.View style={[styles.backdrop, { opacity: progress }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessible={false} />
-        <Animated.View style={[styles.frame, { transform: [{ scale }] }]} pointerEvents="none">
+      <Animated.View style={[styles.screen, { opacity: progress }]}>
+        {/* The same backdrop as BottomSheet; Android, without a BlurTargetView, only dims. */}
+        <BlurView testID="viewer-blur" intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+        <Pressable
+          testID="viewer-backdrop"
+          style={styles.backdrop}
+          onPress={onClose}
+          accessible={false}
+        />
+        <Animated.View style={[styles.ring, { transform: [{ scale }] }]} pointerEvents="none">
           {source && (
             <Image
               testID="viewer-photo"
               source={source}
-              style={StyleSheet.absoluteFill}
-              contentFit="contain"
+              style={{
+                width: diameter,
+                height: diameter,
+                borderRadius: diameter / 2,
+              }}
+              contentFit="cover"
               accessibilityIgnoresInvertColors
             />
           )}
@@ -74,15 +91,32 @@ export function PhotoViewer({ visible, source, onClose }: PhotoViewerProps) {
   );
 }
 
+const MARGIN = 24;
+const MAX_DIAMETER = 420;
+
 const styles = StyleSheet.create({
-  backdrop: {
+  screen: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  frame: {
-    height: '75%',
-    marginHorizontal: 12,
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  ring: {
+    borderRadius: 999,
+    borderWidth: 4,
+    borderColor: colors.white,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
   close: {
     position: 'absolute',

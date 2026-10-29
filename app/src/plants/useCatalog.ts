@@ -18,6 +18,8 @@ interface CatalogState {
   key: string;
   plants: CatalogPlant[];
   nextPage: number | null;
+  /** Every species matching the filters, across pages. */
+  total: number;
   loadingMore: boolean;
   error: ApiError | null;
 }
@@ -64,12 +66,19 @@ export function useCatalog(filters: CatalogFilters) {
     )
       .then((page) => {
         if (id !== requestId.current) return;
-        setState({ key, plants: page.items, nextPage: page.nextPage, loadingMore: false, error: null });
+        setState({
+          key,
+          plants: page.items,
+          nextPage: page.nextPage,
+          total: page.total,
+          loadingMore: false,
+          error: null,
+        });
       })
       .catch((e: unknown) => {
         const error = toApiError(e);
         if (error.code === 'canceled' || id !== requestId.current) return;
-        setState({ key, plants: [], nextPage: null, loadingMore: false, error });
+        setState({ key, plants: [], nextPage: null, total: 0, loadingMore: false, error });
       });
 
     return () => {
@@ -108,6 +117,7 @@ export function useCatalog(filters: CatalogFilters) {
             key: from.key,
             plants: [...from.plants, ...result.items],
             nextPage: result.nextPage,
+            total: result.total,
             loadingMore: false,
             error: null,
           });
@@ -138,6 +148,8 @@ export function useCatalog(filters: CatalogFilters) {
     loading: current === null && !stale,
     refreshing: stale,
     loadingMore: current?.loadingMore ?? false,
+    /** Null until the first page arrives, or after an error. */
+    total: current && !current.error ? current.total : null,
     error: current?.error ?? null,
     loadMore,
     retry,

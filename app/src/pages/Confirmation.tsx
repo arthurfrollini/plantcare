@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../routes/stack.routes';
 
 import { Button } from '../components/Button';
+import { Toast } from '../components/Toast';
 
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
@@ -17,7 +18,11 @@ export interface ConfirmationParams {
   buttonTitle: string;
   icon: 'smile' | 'hug';
   nextScreen: 'PlantSelect' | 'MyPlants';
+  /** A short note shown for a moment on arrival, e.g. that a species joined the catalog. */
+  toast?: string;
 }
+
+const TOAST_MS = 3000;
 
 const emojis = {
   hug: '🤗',
@@ -35,7 +40,15 @@ export function Confirmation() {
     buttonTitle,
     icon,
     nextScreen,
+    toast,
   } = routes.params;
+  const [toastVisible, setToastVisible] = useState(toast !== undefined);
+
+  useEffect(() => {
+    if (!toastVisible) return;
+    const timer = setTimeout(() => setToastVisible(false), TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [toastVisible]);
 
   function handleMoveOn() {
     if (nextScreen === 'MyPlants') {
@@ -60,11 +73,23 @@ export function Confirmation() {
           <Button title={buttonTitle} onPress={handleMoveOn} />
         </View>
       </View>
+      {toast && (
+        <View style={styles.toastArea} pointerEvents="none">
+          <Toast visible={toastVisible} text={toast} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  toastArea: {
+    position: 'absolute',
+    top: 24,
+    left: 30,
+    right: 30,
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     alignItems: 'center',

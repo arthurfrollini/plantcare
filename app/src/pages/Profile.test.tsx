@@ -1,6 +1,7 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MockAdapter from 'axios-mock-adapter';
+import * as ImagePicker from 'expo-image-picker';
 import { CommonActions } from '@react-navigation/native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -389,6 +390,29 @@ describe('Profile signed in', () => {
       fireEvent.press(screen.getByRole('button', { name: 'Remove photo' }));
 
       await waitFor(() => expect(mock.history.delete).toHaveLength(1), { timeout: 10000 });
+      expect(await screen.findByText('Photo removed ✓')).toBeOnTheScreen();
     }, 20000);
+
+    it('says Photo updated after a new photo is saved', async () => {
+      jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+        canceled: false,
+        assets: [{ uri: 'file:///tmp/me.jpg', mimeType: 'image/jpeg', width: 800, height: 800 }],
+      });
+      mock.onPost('/me/avatar').reply(200, { ...user, hasAvatar: true, avatarVersion: 'v2' });
+      await renderSignedIn();
+
+      fireEvent.press(screen.getByRole('button', { name: 'Edit photo' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Choose from gallery' }));
+
+      expect(await screen.findByText('Photo updated ✓', undefined, { timeout: 5000 })).toBeOnTheScreen();
+    }, 20000);
+
+    it('enlarges the photo on tap', async () => {
+      await renderSignedIn({ ...user, hasAvatar: true, avatarVersion: 'v1' });
+
+      fireEvent.press(await screen.findByRole('imagebutton', { name: 'View photo' }));
+
+      expect(await screen.findByTestId('viewer-photo')).toBeOnTheScreen();
+    });
   });
 });

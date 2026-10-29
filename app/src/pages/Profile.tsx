@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +26,7 @@ import { Tappable } from '../components/Tappable';
 import { NameRow } from '../components/NameRow';
 import { PasswordSheet } from '../components/PasswordSheet';
 import { PhotoSheet, type PhotoChoice } from '../components/PhotoSheet';
+import { PhotoViewer } from '../components/PhotoViewer';
 import { Toast } from '../components/Toast';
 import { LANGUAGES, Language, currentLanguage } from '../i18n';
 import { pickPhoto, type PhotoMessage } from '../plants/pickPhoto';
@@ -32,7 +34,7 @@ import { SAVED_TOAST_MS, formError, type FormError } from '../plants/usePlantDet
 import colors from '../styles/colors';
 import fonts from '../styles/fonts';
 
-export type ProfileToast = 'saved' | 'passwordChanged';
+export type ProfileToast = 'saved' | 'passwordChanged' | 'photoUpdated' | 'photoRemoved';
 
 export interface ProfileViewProps {
   status: AuthStatus;
@@ -67,6 +69,7 @@ export function ProfileView(props: ProfileViewProps) {
   const { status, name, email } = props;
   const { t } = useTranslation();
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const signedIn = status === 'signedIn';
@@ -96,13 +99,20 @@ export function ProfileView(props: ProfileViewProps) {
         }
       >
         {props.photoSource ? (
-          <Image
-            testID="profile-avatar"
-            source={props.photoSource}
-            onError={props.onPhotoError}
-            style={styles.photo}
-            accessibilityIgnoresInvertColors
-          />
+          <Pressable
+            accessibilityRole="imagebutton"
+            accessibilityLabel={t('profile.viewPhoto')}
+            style={StyleSheet.absoluteFill}
+            onPress={() => setViewerOpen(true)}
+          >
+            <Image
+              testID="profile-avatar"
+              source={props.photoSource}
+              onError={props.onPhotoError}
+              style={styles.photo}
+              accessibilityIgnoresInvertColors
+            />
+          </Pressable>
         ) : (
           <View style={styles.initialsFill}>
             <Text style={styles.initials}>{initials(name)}</Text>
@@ -223,6 +233,11 @@ export function ProfileView(props: ProfileViewProps) {
       <View style={styles.toastArea} pointerEvents="none">
         <Toast visible={props.toastVisible} text={t(`profile.${props.toast}`)} />
       </View>
+      <PhotoViewer
+        visible={viewerOpen}
+        source={props.photoSource}
+        onClose={() => setViewerOpen(false)}
+      />
 
       {signedIn && (
         <>
@@ -327,6 +342,7 @@ export function Profile() {
       if (choice === 'remove') {
         try {
           await auth.removeAvatar();
+          showToast('photoRemoved');
         } catch {
           setPhotoMessage('removeFailed');
         }
@@ -336,6 +352,7 @@ export function Profile() {
       if ('photo' in result) {
         try {
           await auth.changeAvatar(result.photo);
+          showToast('photoUpdated');
         } catch {
           setPhotoMessage('uploadFailed');
         }

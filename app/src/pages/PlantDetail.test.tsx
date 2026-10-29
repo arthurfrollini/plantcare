@@ -278,7 +278,7 @@ describe('PlantDetail', () => {
     fireEvent.press(screen.getByRole('imagebutton', { name: 'View photo' }));
 
     const viewer = await screen.findByTestId('viewer-photo');
-    expect(viewer.props).toMatchObject({ contentFit: 'contain' });
+    expect(viewer.props).toMatchObject({ contentFit: 'cover' });
     expect(screen.queryByText(/Jane Doe/)).not.toBeOnTheScreen();
 
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));

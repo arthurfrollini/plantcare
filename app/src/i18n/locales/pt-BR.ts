@@ -41,6 +41,7 @@ const ptBR: typeof en = {
   },
   header: {
     greeting: 'Olá,',
+    openProfile: 'Abrir perfil',
   },
   plantSelect: {
     back: 'Voltar',
@@ -49,6 +50,8 @@ const ptBR: typeof en = {
     add_zero: 'Adicionar planta(s)',
     title: 'Encontre sua planta',
     subtitle: 'Busque, ou filtre por luz e dificuldade.',
+    count_one: '{{count}} planta',
+    count_other: '{{count}} plantas',
     searchPlaceholder: 'Buscar plantas',
     lightLabel: 'Luz',
     difficultyLabel: 'Dificuldade',
@@ -87,6 +90,9 @@ const ptBR: typeof en = {
     fromCatalog: 'Do catálogo',
     watering: 'Rega',
     add: 'Adicionar ao meu jardim',
+    notNow: 'Agora não',
+    close: 'Fechar',
+    joinedCatalog: '{{name}} entrou no catálogo',
     messages: {
       notFound: 'Não foi possível identificar uma planta. Tente outro nome ou uma foto mais nítida.',
       notAPlant: 'Não foi possível identificar uma planta nesta foto. Tente uma mais de perto e com mais luz.',
@@ -276,6 +282,9 @@ const ptBR: typeof en = {
     passwordMismatch: 'As novas senhas não são iguais.',
     wrongPassword: 'A senha atual está errada.',
     passwordChanged: 'Senha alterada ✓',
+    photoUpdated: 'Foto atualizada ✓',
+    photoRemoved: 'Foto removida ✓',
+    viewPhoto: 'Ver foto',
     deleteAccount: 'Excluir conta',
     deleteTitle: 'Excluir sua conta?',
     deleteText:

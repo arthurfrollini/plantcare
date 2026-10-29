@@ -156,7 +156,13 @@ export function AiIdentify({ bottomInset, shrink = shrinkPhoto }: AiIdentifyProp
         await addProposal(found.proposalId, defaultSchedule());
       }
       await syncAfterSave();
-      navigation.dispatch(StackActions.replace('Confirmation', addedConfirmationParams(t, 1, 0)));
+      const params = addedConfirmationParams(t, 1, 0);
+      // A proposal is a species new to the catalog; say so on the way out.
+      const toast =
+        found.kind === 'proposal'
+          ? t('aiIdentify.joinedCatalog', { name: found.proposal.names[currentLanguage()] })
+          : undefined;
+      navigation.dispatch(StackActions.replace('Confirmation', { ...params, toast }));
     } catch (e) {
       setFound(null);
       setMessage(messageFor(e));

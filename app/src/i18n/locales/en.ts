@@ -39,6 +39,7 @@ const en = {
   },
   header: {
     greeting: 'Hello,',
+    openProfile: 'Open profile',
   },
   plantSelect: {
     back: 'Back',
@@ -47,6 +48,8 @@ const en = {
     add_zero: 'Add plant(s)',
     title: 'Find your plant',
     subtitle: 'Search, or filter by light and difficulty.',
+    count_one: '{{count}} plant',
+    count_other: '{{count}} plants',
     searchPlaceholder: 'Search plants',
     lightLabel: 'Light',
     difficultyLabel: 'Difficulty',
@@ -85,6 +88,9 @@ const en = {
     fromCatalog: 'From the catalog',
     watering: 'Watering',
     add: 'Add to my garden',
+    notNow: 'Not now',
+    close: 'Close',
+    joinedCatalog: '{{name}} joined the catalog',
     messages: {
       notFound: "Couldn't identify a plant. Try another name or a clearer photo.",
       notAPlant: "Couldn't identify a plant in this photo. Try a closer, brighter one.",
@@ -277,6 +283,9 @@ const en = {
     passwordMismatch: "The new passwords don't match.",
     wrongPassword: 'The current password is wrong.',
     passwordChanged: 'Password changed ✓',
+    photoUpdated: 'Photo updated ✓',
+    photoRemoved: 'Photo removed ✓',
+    viewPhoto: 'View photo',
     deleteAccount: 'Delete account',
     deleteTitle: 'Delete your account?',
     deleteText:

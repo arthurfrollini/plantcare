@@ -72,14 +72,14 @@ function plant(overrides: Partial<UserPlant>): UserPlant {
 
 describe('endpoints', () => {
   it('listCatalog sends query params and parses the page', async () => {
-    mock.onGet('/plants').reply(200, { items: [catalogPlant], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [catalogPlant], nextPage: null, total: 1 });
     const page = await listCatalog({ light: 'shade', page: 2 });
     expect(mock.history.get[0]?.params).toEqual({ light: 'shade', page: 2 });
     expect(page.items[0]?.slug).toBe('yucca');
   });
 
   it('rejects a response that fails its schema', async () => {
-    mock.onGet('/plants').reply(200, { items: [{ id: 1 }], nextPage: null });
+    mock.onGet('/plants').reply(200, { items: [{ id: 1 }], nextPage: null, total: 1 });
     await expect(listCatalog({})).rejects.toThrow();
   });
 
