@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, Linking, type AlertButton } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import MockAdapter from 'axios-mock-adapter';
@@ -248,20 +248,22 @@ describe('PlantDetail', () => {
     await waitFor(() => expect(screen.queryByText('Reminders')).not.toBeOnTheScreen(), { timeout: 5000 });
   }, 15000);
 
-  it('shows a species photo without a credit line', async () => {
+  it('credits the species photo, linking to its source', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await renderScreen({
       ...userPlantFixture,
       imageUrl: '/plants/c1/image',
       imageCredit: {
         author: 'Jane Doe',
-        license: 'CC0',
+        license: 'CC BY-SA 4.0',
         source: 'https://commons.wikimedia.org/wiki/File:X.jpg',
       },
     });
 
     expect(screen.getByTestId('species-photo')).toBeOnTheScreen();
-    expect(screen.queryByText(/Jane Doe/)).not.toBeOnTheScreen();
-    expect(screen.queryByRole('link')).not.toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Photo: Jane Doe · CC BY-SA 4.0 (cropped)'));
+    expect(openURL).toHaveBeenCalledWith('https://commons.wikimedia.org/wiki/File:X.jpg');
+    openURL.mockRestore();
   });
 
   it('opens the photo full screen, without a credit, and closes it', async () => {
@@ -279,7 +281,8 @@ describe('PlantDetail', () => {
 
     const viewer = await screen.findByTestId('viewer-photo');
     expect(viewer.props).toMatchObject({ contentFit: 'cover' });
-    expect(screen.queryByText(/Jane Doe/)).not.toBeOnTheScreen();
+    // Only the plant screen's own credit line; the viewer adds none.
+    expect(screen.getAllByText(/Jane Doe/)).toHaveLength(1);
 
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));
 
@@ -292,6 +295,19 @@ describe('PlantDetail', () => {
     await renderScreen({ ...userPlantFixture, imageUrl: '/static/plants/monstera.svg' });
 
     expect(screen.queryByRole('imagebutton', { name: 'View photo' })).not.toBeOnTheScreen();
+  });
+
+  it("shows no credit over the user's own photo", async () => {
+    await renderScreen({
+      ...userPlantFixture,
+      hasPhoto: true,
+      photoVersion: '2026-10-29T12:00:00.000Z',
+      imageUrl: '/plants/c1/image',
+      imageCredit: { author: 'Jane Doe', license: 'CC BY', source: 'https://x' },
+    });
+
+    expect(await screen.findByTestId('plant-photo')).toBeOnTheScreen();
+    expect(screen.queryByText(/Jane Doe/)).not.toBeOnTheScreen();
   });
 
   it('shows no credit for an illustration', async () => {

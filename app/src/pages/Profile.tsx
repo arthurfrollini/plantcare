@@ -60,6 +60,7 @@ export interface ProfileViewProps {
   onSelectLanguage: (language: Language) => void;
   onChangePassword: (current: string, next: string) => Promise<void>;
   onSignIn: () => void;
+  onPhotoCredits: () => void;
   onSignOut: () => void;
   onDeleteAccount: () => Promise<void>;
 }
@@ -220,6 +221,19 @@ export function ProfileView(props: ProfileViewProps) {
             </View>
           </>
         )}
+
+        <Text style={[styles.sectionTitle, styles.section]}>{t('profile.about')}</Text>
+        <View style={styles.options}>
+          <TouchableOpacity
+            style={styles.option}
+            onPress={props.onPhotoCredits}
+            accessibilityRole="button"
+            activeOpacity={0.7}
+          >
+            <Text style={styles.optionText}>{t('profile.photoCredits')}</Text>
+            <Feather name="chevron-right" size={20} color={colors.body_dark} />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Stays until the next save, so it takes its own room instead of covering the content. */}
@@ -417,6 +431,7 @@ export function Profile() {
       onSelectLanguage={(language) => void handleSelectLanguage(language)}
       onChangePassword={handleChangePassword}
       onSignIn={() => navigation.navigate('Auth', { mode: 'signIn' })}
+      onPhotoCredits={() => navigation.navigate('PhotoCredits')}
       onSignOut={() => void handleSignOut()}
       onDeleteAccount={handleDeleteAccount}
     />

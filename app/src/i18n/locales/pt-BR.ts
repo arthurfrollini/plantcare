@@ -76,6 +76,12 @@ const ptBR: typeof en = {
       unknown: 'Algo deu errado. Tente de novo.',
     },
   },
+  photoCredits: {
+    title: 'Créditos das fotos',
+    text: 'Fotos do Wikimedia Commons e do iNaturalist, sob licenças livres. Toque num crédito para ver a original.',
+    back: 'Voltar',
+    empty: 'Nenhuma foto com crédito ainda.',
+  },
   credit: {
     photo: 'Foto: {{author}} · {{license}}',
     cropped: '{{credit}} (recortada)',
@@ -279,6 +285,8 @@ const ptBR: typeof en = {
     title: 'Perfil',
     language: 'Idioma',
     account: 'Conta',
+    about: 'Sobre',
+    photoCredits: 'Créditos das fotos',
     signIn: 'Entrar',
     signOut: 'Sair',
     signOutError: 'Não foi possível sair. Tente de novo.',

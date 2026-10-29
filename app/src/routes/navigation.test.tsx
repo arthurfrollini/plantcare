@@ -71,6 +71,24 @@ describe('navigation', () => {
     await waitFor(() => expect(screen.getByText('Monstera deliciosa')).toBeOnTheScreen());
   }, 20000);
 
+  it('opens the photo credits from Profile and comes back', async () => {
+    await signedInWithOnePlant();
+    mock.onGet('/plants/credits').reply(200, []);
+    renderApp();
+    fireEvent.press(await screen.findByLabelText('Get started'));
+    await screen.findByText('Monstera deliciosa', undefined, { timeout: 5000 });
+    fireEvent.press(screen.getByRole('button', { name: 'Open profile' }));
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Photo credits' }));
+    expect(await screen.findByText('Photo credits', { exact: true })).toBeOnTheScreen();
+    expect(screen.getByText(/Photos from Wikimedia Commons and iNaturalist/)).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() =>
+      expect(screen.queryByText(/Photos from Wikimedia Commons/)).not.toBeOnTheScreen(),
+    );
+  }, 20000);
+
   it('opens the catalog from + and comes back', async () => {
     await signedInWithOnePlant();
     renderApp();

@@ -97,6 +97,14 @@ describe('Profile signed out', () => {
     expect(mockNavigate).toHaveBeenCalledWith('Auth', { mode: 'signIn' });
   });
 
+  it('opens the photo credits, signed out', async () => {
+    renderProfile();
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Photo credits' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('PhotoCredits');
+  });
+
   it('changes the language locally, without calling the API', async () => {
     renderProfile();
     await screen.findByText('Sign in');
@@ -134,6 +142,14 @@ describe('Profile signed in', () => {
     expect(screen.getByText('Delete account')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Edit photo' })).toBeOnTheScreen();
     expect(screen.queryByText('Sign in')).not.toBeOnTheScreen();
+  });
+
+  it('opens the photo credits, signed in', async () => {
+    await renderSignedIn();
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Photo credits' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith('PhotoCredits');
   });
 
   it('hides Change password for an account without a password', async () => {

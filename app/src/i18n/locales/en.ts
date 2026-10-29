@@ -74,6 +74,12 @@ const en = {
       unknown: 'Something went wrong. Try again.',
     },
   },
+  photoCredits: {
+    title: 'Photo credits',
+    text: 'Photos from Wikimedia Commons and iNaturalist, under free licences. Tap a credit to see the original.',
+    back: 'Back',
+    empty: 'No credited photos yet.',
+  },
   credit: {
     photo: 'Photo: {{author}} · {{license}}',
     cropped: '{{credit}} (cropped)',
@@ -280,6 +286,8 @@ const en = {
     title: 'Profile',
     language: 'Language',
     account: 'Account',
+    about: 'About',
+    photoCredits: 'Photo credits',
     signIn: 'Sign in',
     signOut: 'Sign out',
     signOutError: "Couldn't sign out. Try again.",
