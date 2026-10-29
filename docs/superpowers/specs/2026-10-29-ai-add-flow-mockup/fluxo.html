@@ -1,0 +1,170 @@
+<style>
+  .flow { display: flex; gap: 22px; overflow-x: auto; padding: 8px 2px 18px; align-items: flex-start; }
+  .step { flex: 0 0 auto; width: 250px; }
+  .step-label { font: 600 13px/1.3 system-ui; color: #52665A; margin: 0 0 8px; }
+  .step-label b { display: inline-block; width: 20px; height: 20px; border-radius: 10px; background: #32B768; color: #fff; text-align: center; line-height: 20px; margin-right: 6px; font-size: 12px; }
+  .phone { position: relative; width: 250px; height: 520px; border-radius: 34px; background: #fff; border: 8px solid #1e1e1e; overflow: hidden; font-family: 'Jost', system-ui, sans-serif; color: #52665A; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+  .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 90px; height: 22px; background: #1e1e1e; border-radius: 0 0 14px 14px; z-index: 5; }
+  .scr { padding: 34px 16px 16px; height: 100%; box-sizing: border-box; }
+  .tabs { display: flex; gap: 14px; font-size: 13px; border-bottom: 1px solid #F0F0F0; margin: 4px 0 14px; }
+  .tabs span { padding-bottom: 6px; color: #AAB2AD; }
+  .tabs .on { color: #2B7A4B; border-bottom: 2px solid #32B768; font-weight: 600; }
+  .h { font-weight: 600; font-size: 16px; margin: 0 0 4px; }
+  .t { font-size: 11.5px; line-height: 1.45; color: #738078; margin: 0; }
+  .input { display: flex; gap: 6px; margin-top: 12px; }
+  .input div:first-child { flex: 1; height: 36px; border-radius: 10px; background: #F0F0F0; font-size: 11px; color: #AAB2AD; padding: 0 10px; display: flex; align-items: center; }
+  .input div:last-child { width: 36px; height: 36px; border-radius: 10px; background: #32B768; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .or { text-align: center; font-size: 11px; color: #AAB2AD; margin: 10px 0; }
+  .pbtns { display: flex; gap: 8px; }
+  .pbtns div { flex: 1; background: #DAF2E4; border-radius: 14px; padding: 14px 0; text-align: center; font-size: 11px; font-weight: 600; color: #2B7A4B; }
+  .pbtns .tap { outline: 2px solid #32B768; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; }
+  .ring { width: 120px; height: 120px; border-radius: 60px; overflow: hidden; border: 4px solid #fff; box-shadow: 0 0 0 6px #DAF2E4, 0 6px 16px rgba(0,0,0,.15); }
+  .ring img { width: 100%; height: 100%; object-fit: cover; }
+  .dots { margin-top: 18px; font-size: 13px; font-weight: 600; }
+  .sub { font-size: 11px; color: #738078; margin-top: 6px; line-height: 1.4; }
+  .stages { margin-top: 16px; text-align: left; font-size: 11px; line-height: 1.9; }
+  .stages .ok { color: #2B7A4B; } .stages .wait { color: #AAB2AD; }
+  .dim { position: absolute; inset: 0; background: rgba(0,0,0,.42); backdrop-filter: blur(2px); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 22px 22px 0 0; padding: 12px 14px 14px; }
+  .grab { width: 34px; height: 4px; border-radius: 2px; background: #CFCFCF; margin: 0 auto 10px; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  .badge { font-size: 10px; font-weight: 600; background: #DAF2E4; color: #2B7A4B; border-radius: 6px; padding: 3px 7px; }
+  .x { width: 24px; height: 24px; border-radius: 12px; background: #F0F0F0; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .photos { display: flex; gap: 6px; margin-top: 10px; }
+  .ph { flex: 1; }
+  .ph .img { height: 104px; border-radius: 12px; overflow: hidden; background: #F0F0F0; position: relative; }
+  .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ph .cap { font-size: 9.5px; color: #738078; margin-top: 3px; }
+  .one .img { height: 140px; }
+  .credit { font-size: 8.5px; color: #AAB2AD; margin-top: 2px; }
+  .shimmer { position: absolute; inset: 0; background: linear-gradient(100deg, #F0F0F0 30%, #fafafa 50%, #F0F0F0 70%); background-size: 200% 100%; animation: sh 1.3s infinite linear; display: flex; align-items: center; justify-content: center; font-size: 9.5px; color: #738078; text-align: center; padding: 0 8px; }
+  @keyframes sh { to { background-position: -200% 0; } }
+  .name { font-weight: 600; font-size: 17px; margin-top: 10px; }
+  .sci { font-style: italic; font-size: 11px; color: #738078; }
+  .about { font-size: 10.5px; color: #738078; line-height: 1.4; margin: 6px 0; }
+  .tiles { display: flex; gap: 5px; margin: 6px 0 10px; }
+  .tiles div { flex: 1; background: #F0F0F0; border-radius: 8px; font-size: 9px; padding: 6px 4px; text-align: center; }
+  .btn { height: 38px; border-radius: 12px; background: #32B768; color: #fff; font-weight: 600; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .btn.off { opacity: .45; }
+  .link { text-align: center; font-weight: 600; font-size: 11.5px; margin-top: 8px; }
+  .conf .ring { width: 130px; height: 130px; border-radius: 65px; }
+  .chip { display: inline-block; margin-top: 10px; font-size: 10.5px; font-weight: 600; background: #DAF2E4; color: #2B7A4B; border-radius: 12px; padding: 5px 10px; }
+  .msg { margin-top: 14px; background: #EBF6FF; color: #3D7199; border-radius: 10px; padding: 8px 10px; font-size: 10.5px; line-height: 1.4; }
+  .note { font: 12px/1.5 system-ui; color: #738078; margin-top: 8px; }
+  .row2 { display: flex; gap: 22px; flex-wrap: wrap; }
+</style>
+
+<h2>Adicionar com IA: passo a passo novo</h2>
+<p class="subtitle">Caminho pela foto da galeria. Role para o lado. Embaixo, uma escolha sobre a espera.</p>
+
+<div class="flow">
+  <div class="step">
+    <p class="step-label"><b>1</b>Escolhe nome ou foto (igual hoje)</p>
+    <div class="phone"><div class="notch"></div><div class="scr">
+      <div class="tabs"><span>Catálogo</span><span class="on">Adicionar com IA</span></div>
+      <p class="h">Adicionar com IA</p>
+      <p class="t">Digite o nome de uma planta ou tire uma foto. A gente encontra a espécie e como cuidar dela.</p>
+      <div class="input"><div>ex.: zamioculca, lírio-da-paz</div><div>⌕</div></div>
+      <div class="or">ou</div>
+      <div class="pbtns"><div>📷<br>Tirar foto</div><div class="tap">🖼️<br>Escolher foto</div></div>
+    </div></div>
+  </div>
+
+  <div class="step">
+    <p class="step-label"><b>2</b>Procurando: a foto dela no centro</p>
+    <div class="phone"><div class="notch"></div><div class="scr center">
+      <div class="ring"><img src="./mine.jpg"></div>
+      <div class="dots">Identificando sua planta…</div>
+      <div class="sub">Leva alguns segundos.</div>
+      <div class="stages">
+        <div class="ok">✓ Olhando a foto</div>
+        <div class="ok">✓ Achamos: Copo-de-leite</div>
+        <div class="wait">◌ Buscando foto de referência</div>
+      </div>
+    </div></div>
+    <p class="note">A tela inteira vira o "procurando". Quem digitou o nome vê um ícone de lupa no lugar da foto.</p>
+  </div>
+
+  <div class="step">
+    <p class="step-label"><b>3</b>Modal: compara as duas fotos</p>
+    <div class="phone"><div class="notch"></div><div class="scr"></div>
+      <div class="dim"></div>
+      <div class="sheet"><div class="grab"></div>
+        <div class="top"><span class="badge">✨ Nova no catálogo</span><span class="x">✕</span></div>
+        <div class="photos">
+          <div class="ph"><div class="img"><img src="./mine.jpg"></div><div class="cap">Sua foto</div></div>
+          <div class="ph"><div class="img"><img src="./calla.webp"></div><div class="cap">Referência</div><div class="credit">Rotational · domínio público</div></div>
+        </div>
+        <div class="name">Copo-de-leite</div>
+        <div class="sci">Zantedeschia aethiopica</div>
+        <div class="about">Flores brancas em forma de funil, folhas grandes. Gosta de solo úmido e luz indireta.</div>
+        <div class="tiles"><div>💧 2x/sem.</div><div>⛅ Meia-sombra</div><div>🙂 Fácil</div></div>
+        <div class="btn">É essa! Adicionar ao jardim</div>
+        <div class="link">Não é essa planta</div>
+      </div>
+    </div>
+    <p class="note">"Não é essa" volta ao passo 1 com uma dica. O ✕ só fecha. Nos dois casos nada é salvo.</p>
+  </div>
+
+  <div class="step">
+    <p class="step-label"><b>4</b>Pronto: sem toast, a notícia fica na tela</p>
+    <div class="phone conf"><div class="notch"></div><div class="scr center">
+      <div class="ring"><img src="./mine.jpg"></div>
+      <div class="dots" style="font-size:16px;margin-top:20px">Copo-de-leite está no seu jardim</div>
+      <div class="sub">Vamos te lembrar de regar. Os horários podem ser trocados no detalhe da planta.</div>
+      <div class="chip">✨ Também entrou no catálogo</div>
+      <div style="width:100%;margin-top:26px"><div class="btn">Ver minhas plantas</div></div>
+    </div></div>
+    <p class="note">A foto no círculo é a que vai para o jardim. O aviso de "entrou no catálogo" vira um selo fixo; não some e não fica embaixo do notch.</p>
+  </div>
+</div>
+
+<h3>Variações</h3>
+<div class="row2">
+  <div class="step">
+    <p class="step-label">3b · Pelo nome: só a referência</p>
+    <div class="phone"><div class="notch"></div><div class="scr"></div>
+      <div class="dim"></div>
+      <div class="sheet"><div class="grab"></div>
+        <div class="top"><span class="badge">✨ Nova no catálogo</span><span class="x">✕</span></div>
+        <div class="photos one"><div class="ph"><div class="img"><img src="./calla.webp"></div><div class="credit">Foto: Rotational · domínio público</div></div></div>
+        <div class="name">Copo-de-leite</div>
+        <div class="sci">Zantedeschia aethiopica</div>
+        <div class="tiles"><div>💧 2x/sem.</div><div>⛅ Meia-sombra</div><div>🙂 Fácil</div></div>
+        <div class="btn">É essa! Adicionar ao jardim</div>
+        <div class="link">Não é essa planta</div>
+      </div>
+    </div>
+  </div>
+  <div class="step">
+    <p class="step-label">1b · Depois de "Não é essa"</p>
+    <div class="phone"><div class="notch"></div><div class="scr">
+      <div class="tabs"><span>Catálogo</span><span class="on">Adicionar com IA</span></div>
+      <p class="h">Adicionar com IA</p>
+      <div class="input"><div>ex.: zamioculca, lírio-da-paz</div><div>⌕</div></div>
+      <div class="or">ou</div>
+      <div class="pbtns"><div>📷<br>Tirar foto</div><div>🖼️<br>Escolher foto</div></div>
+      <div class="msg">Tudo bem! Tente uma foto mais de perto, com a folha ou a flor bem visível, ou digite o nome se souber.</div>
+    </div></div>
+  </div>
+</div>
+
+<h3>A espera: onde ela fica?</h3>
+<p class="subtitle">Buscar e conferir a foto de referência leva uns 3–5 s a mais. Clique na que preferir.</p>
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Espera tudo no passo 2</h3>
+      <p>A tela "Identificando…" segura até ter espécie e foto (≈5–8 s no total, com as etapas marcando ✓). O modal abre já completo. Mais simples.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Modal abre logo, foto chega depois</h3>
+      <p>O modal abre assim que a IA acha a espécie (≈2–3 s). O quadro da referência pisca "Buscando foto…" e se preenche sozinho; o botão de adicionar espera a foto. Parece mais rápido; mais peças móveis.</p>
+    </div>
+  </div>
+</div>
