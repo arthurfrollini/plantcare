@@ -245,6 +245,28 @@
         "license": "CC0",
         "source": "https://commons.wikimedia.org/wiki/File:Calathea_orbiculata_-_Begonia_House_-_Wellington_Botanic_Garden_-_Wellington,_NZ_-_DSC09392.jpg"
       }
+    },
+    {
+      "id": "inat-monstera-whole-plant",
+      "photo": "photos/monstera-whole-plant-inat.jpg",
+      "species": "Monstera deliciosa",
+      "suitable": true,
+      "credit": {
+        "author": "Cris Lemes",
+        "license": "CC BY",
+        "source": "https://www.inaturalist.org/photos/694051074"
+      }
+    },
+    {
+      "id": "inat-monstera-fruit-only",
+      "photo": "photos/monstera-fruit-only-inat.jpg",
+      "species": "Monstera deliciosa",
+      "suitable": false,
+      "credit": {
+        "author": "garywwilson",
+        "license": "CC BY",
+        "source": "https://www.inaturalist.org/photos/194608424"
+      }
     }
   ]
 }
