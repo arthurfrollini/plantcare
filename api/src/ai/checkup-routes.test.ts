@@ -9,6 +9,7 @@ import { createTestApp, resetDb } from '../../test/helpers';
 import { JPEG, multipart } from '../../test/multipart';
 import type { PrismaClient } from '../generated/prisma/client';
 import { createDiskStorage } from '../storage';
+import { AiAnswerError } from './anthropic-plant-ai';
 import { createFakePlantAi } from './plant-ai';
 import type { AiConfig } from './usage';
 
@@ -40,7 +41,10 @@ describe('AI check-ups', () => {
     return res.json<{ accessToken: string }>().accessToken;
   }
 
-  async function start(checkup: CheckupAdvice[], config: AiConfig = on) {
+  async function start(
+    checkup: Parameters<typeof createFakePlantAi>[0]['checkup'] = [],
+    config: AiConfig = on,
+  ) {
     if (app) await app.close();
     ai = createFakePlantAi({ checkup });
     ({ app, prisma } = await createTestApp({
@@ -179,6 +183,101 @@ describe('AI check-ups', () => {
     const body = healed.json<{ status: string; healedAt: string | null }>();
     expect(body.status).toBe('healed');
     expect(body.healedAt).not.toBeNull();
+  });
+
+  it('Mark as healed closes every open check-up of the plant', async () => {
+    await start([advice, advice]);
+    const first = (await ask({})).json<{ id: string }>();
+    const second = (await ask({})).json<{ id: string }>();
+
+    await app.inject({
+      method: 'PATCH',
+      url: `/me/plants/${plantId}/checkups/${second.id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: 'healed' },
+    });
+
+    const plant = await app.inject({
+      method: 'GET',
+      url: '/me/plants',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(plant.json<{ openCheckup: unknown }[]>()[0]?.openCheckup).toBeNull();
+    expect((await list()).json<{ id: string; status: string }[]>()).toEqual([
+      expect.objectContaining({ id: second.id, status: 'healed' }),
+      expect.objectContaining({ id: first.id, status: 'healed' }),
+    ]);
+  });
+
+  it('counts a paid check-up the AI could not use', async () => {
+    await start([
+      new AiAnswerError(
+        { inputTokens: 1000, outputTokens: 200 },
+        new Error('bad'),
+      ),
+    ]);
+    expect((await ask({})).statusCode).toBe(502);
+    const status = await app.inject({
+      method: 'GET',
+      url: '/ai/status',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(status.json()).toMatchObject({ checkupLeft: 4 });
+  });
+
+  it('removes check-up photos with the plant, and every AI photo with the account', async () => {
+    await start([advice, advice]);
+    const first = (await ask({})).json<{ id: string }>();
+    const storage = createDiskStorage(dir);
+    const firstKey = (
+      await prisma.checkup.findUniqueOrThrow({ where: { id: first.id } })
+    ).photoKey;
+    expect(await storage.read(firstKey)).not.toBeNull();
+
+    await app.inject({
+      method: 'DELETE',
+      url: `/me/plants/${plantId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(await storage.read(firstKey)).toBeNull();
+
+    // A new plant with a check-up, and a pending proposal with its photo.
+    const zz = await prisma.plant.findUniqueOrThrow({
+      where: { scientificName: 'Zamioculcas zamiifolia' },
+    });
+    const created = await app.inject({
+      method: 'POST',
+      url: '/me/plants',
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        catalogPlantId: zz.id,
+        reminderTime: '08:00',
+        timeZone: 'America/Sao_Paulo',
+      },
+    });
+    plantId = created.json<{ id: string }>().id;
+    const second = (await ask({})).json<{ id: string }>();
+    const secondKey = (
+      await prisma.checkup.findUniqueOrThrow({ where: { id: second.id } })
+    ).photoKey;
+    const user = await prisma.user.findFirstOrThrow();
+    const proposal = await prisma.aiProposal.create({
+      data: {
+        userId: user.id,
+        payload: {},
+        photoKey: 'proposals/pending.jpg',
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    await storage.save('proposals/pending.jpg', JPEG);
+
+    await app.inject({
+      method: 'DELETE',
+      url: '/me',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(await storage.read(secondKey)).toBeNull();
+    expect(await storage.read(proposal.photoKey ?? '')).toBeNull();
   });
 
   it('serves the check-up photo to its owner only', async () => {

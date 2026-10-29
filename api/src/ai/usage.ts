@@ -2,6 +2,7 @@ import type { AiStatus } from '@plantcare/shared';
 import { env } from '../env';
 import { AppError } from '../errors';
 import type { PrismaClient } from '../generated/prisma/client';
+import { AiAnswerError } from './anthropic-plant-ai';
 import { costUsd, type AiUsageTokens } from './cost';
 
 export type AiKind = 'identify' | 'checkup';
@@ -105,4 +106,21 @@ export async function recordAiUsage(
     create: { userId, day, kind, count: 1, costUsd: cost },
     update: { count: { increment: 1 }, costUsd: { increment: cost } },
   });
+}
+
+/** Waits for a model call; a paid answer the AI could not use still counts towards the limits. */
+export async function countFailedAnswer<T>(
+  prisma: PrismaClient,
+  userId: string,
+  kind: AiKind,
+  call: Promise<T>,
+): Promise<T> {
+  try {
+    return await call;
+  } catch (error) {
+    if (error instanceof AiAnswerError && error.usage) {
+      await recordAiUsage(prisma, userId, kind, error.usage);
+    }
+    throw error;
+  }
 }

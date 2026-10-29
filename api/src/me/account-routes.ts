@@ -86,13 +86,25 @@ export function accountRoutes(
         where: { id: request.userId },
         select: {
           avatarPath: true,
-          plants: { select: { photoPath: true } },
+          plants: {
+            select: {
+              photoPath: true,
+              checkups: { select: { photoKey: true } },
+            },
+          },
+          aiProposals: { select: { photoKey: true } },
         },
       });
       if (!user) throw unauthorized();
       const keys: string[] = [];
       for (const plant of user.plants) {
         if (plant.photoPath !== null) keys.push(plant.photoPath);
+        for (const checkup of plant.checkups) {
+          if (checkup.photoKey) keys.push(checkup.photoKey);
+        }
+      }
+      for (const proposal of user.aiProposals) {
+        if (proposal.photoKey !== null) keys.push(proposal.photoKey);
       }
       if (user.avatarPath !== null) keys.push(user.avatarPath);
 

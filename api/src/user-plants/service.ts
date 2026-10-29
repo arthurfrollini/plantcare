@@ -324,11 +324,19 @@ export async function deleteUserPlant(
   id: string,
 ): Promise<void> {
   const photoKey = await getPhotoKey(prisma, userId, id);
+  // Check-ups cascade with the plant; their photos have to go by hand.
+  const checkups = await prisma.checkup.findMany({
+    where: { userPlantId: id },
+    select: { photoKey: true },
+  });
   const { count } = await prisma.userPlant.deleteMany({
     where: { id, userId },
   });
   if (count === 0) throw notFound();
   if (photoKey !== null) await storage.remove(photoKey);
+  for (const checkup of checkups) {
+    if (checkup.photoKey) await storage.remove(checkup.photoKey);
+  }
 }
 
 const MAX_DAYS_OFF = 1;

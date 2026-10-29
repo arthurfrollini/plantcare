@@ -1,11 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import {
-  checkupAdviceSchema,
-  identificationSchema,
-  type CheckupAdvice,
-  type Identification,
-} from '@plantcare/shared';
-import type { z } from 'zod';
+import { checkupAdviceSchema, identificationSchema } from '@plantcare/shared';
+import { z } from 'zod';
 import { AppError } from '../errors';
 import { detectPhotoType, type PhotoType } from '../user-plants/photo';
 import type { AiUsageTokens } from './cost';
@@ -65,36 +60,59 @@ function jsonText(content: Awaited<ReturnType<CreateFn>>['content']): unknown {
   }
 }
 
-async function run<T>(
+/**
+ * The model could not give a usable answer. Carries the tokens a paid answer used (null when the
+ * call itself failed), so they still count towards the limits, and the original error as cause.
+ */
+export class AiAnswerError extends AppError {
+  constructor(
+    readonly usage: AiUsageTokens | null,
+    cause: unknown,
+  ) {
+    super(502, 'ai_unavailable', 'The AI could not answer');
+    this.cause = cause;
+  }
+}
+
+const notAPlantSchema = z.object({ isPlant: z.literal(false) });
+const otherSpeciesSchema = z.object({
+  isPlant: z.literal(true),
+  matchesSpecies: z.literal(false),
+});
+
+async function run<T, F>(
   create: CreateFn,
   params: CreateParams,
   schema: z.ZodType<T>,
-): Promise<{ result: T; usage: AiUsageTokens }> {
+  fallback: z.ZodType<F>,
+): Promise<{ result: T | F; usage: AiUsageTokens }> {
   let response: Awaited<ReturnType<CreateFn>>;
   try {
     response = await create(params);
-  } catch {
-    throw new AppError(
-      502,
-      'ai_unavailable',
-      'The AI is unavailable right now',
-    );
+  } catch (error) {
+    throw new AiAnswerError(null, error);
   }
-  const parsed = schema.safeParse(jsonText(response.content));
-  if (response.stop_reason === 'refusal' || !parsed.success) {
-    throw new AppError(502, 'ai_unavailable', 'The AI could not answer');
-  }
-  return {
-    result: parsed.data,
-    usage: {
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-    },
+  const usage = {
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
   };
+  if (response.stop_reason === 'refusal') {
+    throw new AiAnswerError(usage, new Error('The model refused'));
+  }
+  const json = jsonText(response.content);
+  const parsed = schema.safeParse(json);
+  if (parsed.success) return { result: parsed.data, usage };
+  // "Not a plant" with broken placeholders is still a clear answer.
+  const short = fallback.safeParse(json);
+  if (short.success) return { result: short.data, usage };
+  throw new AiAnswerError(usage, parsed.error);
 }
 
+/** Gives up before the app's 60 s timeout, so a retry from the app never races a late answer. */
+export const ANTHROPIC_CLIENT_OPTIONS = { timeout: 45_000, maxRetries: 1 };
+
 function sdkCreate(apiKey: string | undefined): CreateFn {
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, ...ANTHROPIC_CLIENT_OPTIONS });
   return (params) => client.messages.create(params);
 }
 
@@ -110,7 +128,7 @@ export function createAnthropicPlantAi(options: {
       const content: Anthropic.ContentBlockParam[] = photo
         ? [imageBlock(photo), { type: 'text', text: identifyPrompt(undefined) }]
         : [{ type: 'text', text: identifyPrompt(name) }];
-      return run<Identification>(
+      return run(
         create,
         {
           model: options.model,
@@ -127,10 +145,11 @@ export function createAnthropicPlantAi(options: {
           messages: [{ role: 'user', content }],
         },
         identificationSchema,
+        notAPlantSchema,
       );
     },
     checkup({ photo, species, description, locale }) {
-      return run<CheckupAdvice>(
+      return run(
         create,
         {
           model: options.model,
@@ -155,6 +174,7 @@ export function createAnthropicPlantAi(options: {
           ],
         },
         checkupAdviceSchema,
+        z.union([notAPlantSchema, otherSpeciesSchema]),
       );
     },
   };

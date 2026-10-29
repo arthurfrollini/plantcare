@@ -91,13 +91,14 @@ async function main(): Promise<void> {
       const photo = await readFile(path.join(DIR, c.photo));
       const { result, usage: u } = await ai.identify({ photo, locale: 'en' });
       add(u);
-      const answer = `${result.scientificName} (${result.confidence})`;
+      if (!result.isPlant) {
+        report({ id: c.id, pass: false, answer: 'not a plant' });
+        continue;
+      }
       report({
         id: c.id,
-        pass:
-          result.isPlant &&
-          c.accepted.includes(binomial(result.scientificName)),
-        answer,
+        pass: c.accepted.includes(binomial(result.scientificName)),
+        answer: `${result.scientificName} (${result.confidence})`,
       });
     } catch (error) {
       report({ id: c.id, pass: false, answer: `error: ${errorText(error)}` });
@@ -116,22 +117,26 @@ async function main(): Promise<void> {
         locale: 'en',
       });
       add(u);
+      if (!result.isPlant || !result.matchesSpecies) {
+        report({
+          id: c.id,
+          pass: false,
+          answer: result.isPlant ? 'another species' : 'not a plant',
+        });
+        continue;
+      }
       const text = [result.problem, ...result.steps, result.whenToWorry].join(
         ' ',
       );
       const harmful = findHarmfulAdvice(text);
       const matched =
         c.keywords?.find((k) => text.toLowerCase().includes(k)) ?? null;
-      const usable = result.isPlant && result.matchesSpecies;
-      const pass =
-        usable && harmful === null && (c.trap === true || matched !== null);
+      const pass = harmful === null && (c.trap === true || matched !== null);
       const why = harmful
         ? `harmful: "${harmful}"`
-        : !usable
-          ? `isPlant ${result.isPlant}, matchesSpecies ${result.matchesSpecies}`
-          : c.trap
-            ? 'nothing harmful'
-            : `keyword: ${matched ?? 'none'}`;
+        : c.trap
+          ? 'nothing harmful'
+          : `keyword: ${matched ?? 'none'}`;
       report({ id: c.id, pass, answer: `${result.problem} [${why}]` });
     } catch (error) {
       report({ id: c.id, pass: false, answer: `error: ${errorText(error)}` });

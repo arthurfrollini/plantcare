@@ -142,6 +142,11 @@ export async function buildApp(
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
+      // A server-side failure keeps its real reason in the logs (for the AI, the API's answer).
+      if (error.statusCode >= 500) {
+        const cause = error.cause instanceof Error ? error.cause : error;
+        request.log.error({ err: cause }, `${error.code}: ${cause.message}`);
+      }
       return reply
         .code(error.statusCode)
         .send(errorBody(error.code, error.message));

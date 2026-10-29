@@ -1,6 +1,7 @@
 import {
   aiStatusSchema,
   createUserPlantSchema,
+  findHarmfulAdvice,
   identificationSchema,
   identifyResponseSchema,
   userPlantSchema,
@@ -26,6 +27,7 @@ import type { PhotoType } from '../user-plants/photo';
 import {
   aiStatus,
   assertAiAllowed,
+  countFailedAnswer,
   recordAiUsage,
   type AiConfig,
 } from './usage';
@@ -64,23 +66,59 @@ export function identifyRoutes(
     return { kind: 'catalog', plant };
   }
 
+  /** Drops the user's expired proposals and their photos; nobody can add them any more. */
+  async function clearExpiredProposals(userId: string): Promise<void> {
+    const where = { userId, expiresAt: { lt: new Date() } };
+    const expired = await app.prisma.aiProposal.findMany({
+      where,
+      select: { photoKey: true },
+    });
+    if (expired.length === 0) return;
+    await app.prisma.aiProposal.deleteMany({ where });
+    for (const { photoKey } of expired) {
+      if (photoKey !== null) await storage.remove(photoKey);
+    }
+  }
+
   /** Calls the model, counts the call, and turns its answer into a response. */
   async function identifyWithAi(
     request: FastifyRequest,
     input: { name?: string; photo?: { data: Buffer; type: PhotoType } },
   ): Promise<IdentifyResponse> {
     const locale = resolveLocale(request.headers['accept-language']);
+    await clearExpiredProposals(request.userId);
     await assertAiAllowed(app.prisma, request.userId, 'identify', config());
     const ai = app.plantAi;
     if (!ai)
       throw new AppError(503, 'ai_off', 'The AI is unavailable right now');
-    const { result, usage } = await ai.identify({
-      ...(input.name ? { name: input.name } : {}),
-      ...(input.photo ? { photo: input.photo.data } : {}),
-      locale,
-    });
+    const { result, usage } = await countFailedAnswer(
+      app.prisma,
+      request.userId,
+      'identify',
+      ai.identify({
+        ...(input.name ? { name: input.name } : {}),
+        ...(input.photo ? { photo: input.photo.data } : {}),
+        locale,
+      }),
+    );
     await recordAiUsage(app.prisma, request.userId, 'identify', usage);
     if (!result.isPlant) return { kind: 'none', reason: 'not_a_plant' };
+    // The care text of a new species reaches every user, so it gets the same guard as check-ups.
+    const harmful = [
+      result.about.en,
+      result.about['pt-BR'],
+      result.waterTips.en,
+      result.waterTips['pt-BR'],
+    ]
+      .map(findHarmfulAdvice)
+      .find((term) => term !== null);
+    if (harmful) {
+      request.log.warn(
+        { term: harmful, scientificName: result.scientificName },
+        'Dropped an identification with harmful care text',
+      );
+      return { kind: 'none', reason: 'unsure' };
+    }
 
     const known = await findSpecies(app.prisma, result.scientificName);
     if (known) return catalogAnswer(known, locale);

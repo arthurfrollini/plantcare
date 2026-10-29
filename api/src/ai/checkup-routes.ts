@@ -14,7 +14,12 @@ import type { PhotoStorage } from '../storage';
 import { contentTypeForKey } from '../user-plants/photo';
 import { readPhotoUpload } from '../user-plants/photo-upload';
 import { toCheckupDto } from './checkup-dto';
-import { assertAiAllowed, recordAiUsage, type AiConfig } from './usage';
+import {
+  assertAiAllowed,
+  countFailedAnswer,
+  recordAiUsage,
+  type AiConfig,
+} from './usage';
 
 const MAX_DESCRIPTION = 500;
 
@@ -128,12 +133,17 @@ export function checkupRoutes(
       const species = name
         ? `${name} (${plant.catalogPlant.scientificName})`
         : plant.catalogPlant.scientificName;
-      const { result, usage } = await ai.checkup({
-        photo: data,
-        species,
-        ...(description ? { description } : {}),
-        locale,
-      });
+      const { result, usage } = await countFailedAnswer(
+        app.prisma,
+        request.userId,
+        'checkup',
+        ai.checkup({
+          photo: data,
+          species,
+          ...(description ? { description } : {}),
+          locale,
+        }),
+      );
       await recordAiUsage(app.prisma, request.userId, 'checkup', usage);
 
       if (!result.isPlant) {
@@ -214,9 +224,13 @@ export function checkupRoutes(
     async (request) => {
       const { id, checkupId } = request.params;
       const checkup = await ownCheckup(request.userId, id, checkupId);
-      const saved = await app.prisma.checkup.update({
+      // The plant is healed, so every check-up still open on it closes, not just this one.
+      await app.prisma.checkup.updateMany({
+        where: { userPlantId: checkup.userPlantId, status: 'open' },
+        data: { status: 'healed', healedAt: new Date() },
+      });
+      const saved = await app.prisma.checkup.findUniqueOrThrow({
         where: { id: checkup.id },
-        data: { status: 'healed', healedAt: checkup.healedAt ?? new Date() },
       });
       return toCheckupDto(saved);
     },

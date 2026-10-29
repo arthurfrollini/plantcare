@@ -1,9 +1,23 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from 'vitest';
 import { createTestApp } from '../test/helpers';
+import { AiAnswerError } from './ai/anthropic-plant-ai';
 import type { PrismaClient } from './generated/prisma/client';
 
 type ErrorBody = { error: { code: string; message: string } };
+
+const aiFailure = new Error(
+  '400 output_config.format.schema: oneOf is not supported',
+);
+const logged: MockInstance[] = [];
 
 describe('error handler', () => {
   let app: FastifyInstance;
@@ -16,6 +30,10 @@ describe('error handler', () => {
           throw new Error('secret database detail');
         });
         instance.post('/echo', (request) => ({ ok: request.body }));
+        instance.get('/ai-boom', (request) => {
+          logged.push(vi.spyOn(request.log, 'error'));
+          throw new AiAnswerError(null, aiFailure);
+        });
       },
     }));
   });
@@ -93,6 +111,15 @@ describe('error handler', () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json<ErrorBody>().error.code).toBe('bad_request');
+  });
+  it('logs why the AI failed, while the client only sees ai_unavailable', async () => {
+    const res = await app.inject({ method: 'GET', url: '/ai-boom' });
+
+    expect(res.statusCode).toBe(502);
+    expect(res.json<ErrorBody>().error.code).toBe('ai_unavailable');
+    expect(JSON.stringify(logged[0]?.mock.calls)).toContain(
+      'oneOf is not supported',
+    );
   });
 });
 

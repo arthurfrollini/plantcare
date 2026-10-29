@@ -9,6 +9,7 @@ import { createTestApp, resetDb } from '../../test/helpers';
 import { JPEG, multipart } from '../../test/multipart';
 import type { PrismaClient } from '../generated/prisma/client';
 import { createDiskStorage } from '../storage';
+import { AiAnswerError } from './anthropic-plant-ai';
 import { createFakePlantAi } from './plant-ai';
 import type { AiConfig } from './usage';
 
@@ -256,6 +257,64 @@ describe('AI identification', () => {
     expect((await byPhoto()).statusCode).toBe(503);
     // A catalog hit still works with the AI off.
     expect((await byName('zamioculca')).statusCode).toBe(200);
+  });
+
+  it('counts a paid answer the AI could not use', async () => {
+    await start({
+      identify: [
+        new AiAnswerError(
+          { inputTokens: 1000, outputTokens: 200 },
+          new Error('bad'),
+        ),
+      ],
+    });
+    expect((await byName('costela')).statusCode).toBe(502);
+    const status = await app.inject({
+      method: 'GET',
+      url: '/ai/status',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(status.json()).toMatchObject({ identifyLeft: 9 });
+  });
+
+  it('keeps care text that names something harmful out of the catalog', async () => {
+    await start({
+      identify: [
+        {
+          ...monstera,
+          waterTips: { en: 'Add a pinch of salt.', 'pt-BR': 'Coloque sal.' },
+        },
+      ],
+    });
+    expect((await byName('costela')).json()).toEqual({
+      kind: 'none',
+      reason: 'unsure',
+    });
+    expect(await prisma.aiProposal.count()).toBe(0);
+  });
+
+  it('clears expired proposals and their photos on the next identification', async () => {
+    await start({ identify: [monstera] });
+    const user = await prisma.user.findFirstOrThrow();
+    const storage = createDiskStorage(dir);
+    await storage.save('proposals/old.jpg', JPEG);
+    await prisma.aiProposal.create({
+      data: {
+        userId: user.id,
+        payload: {},
+        photoKey: 'proposals/old.jpg',
+        expiresAt: new Date(Date.now() - 1000),
+      },
+    });
+
+    await byName('costela');
+
+    expect(await storage.read('proposals/old.jpg')).toBeNull();
+    expect(
+      await prisma.aiProposal.count({
+        where: { expiresAt: { lt: new Date() } },
+      }),
+    ).toBe(0);
   });
 
   it('reports the status', async () => {

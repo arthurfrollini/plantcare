@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppError } from '../errors';
 import {
+  ANTHROPIC_CLIENT_OPTIONS,
   createAnthropicPlantAi,
   type CreateFn,
   type CreateParams,
@@ -58,7 +59,7 @@ describe('createAnthropicPlantAi', () => {
       locale: 'pt-BR',
     });
 
-    expect(result.scientificName).toBe('Zamioculcas zamiifolia');
+    expect(result).toMatchObject({ scientificName: 'Zamioculcas zamiifolia' });
     expect(usage).toEqual({ inputTokens: 1500, outputTokens: 300 });
     const params = firstParams(parse);
     expect(params.model).toBe('claude-haiku-5-5');
@@ -147,5 +148,86 @@ describe('createAnthropicPlantAi', () => {
     await expect(
       ai.identify({ name: 'x', locale: 'en' }),
     ).rejects.toBeInstanceOf(AppError);
+  });
+
+  it('reads an answer with broken placeholders as "not a plant" when it says so', async () => {
+    const ai = createAnthropicPlantAi({
+      model: 'claude-haiku-5-5',
+      create: stub({
+        isPlant: false,
+        confidence: 'low',
+        scientificName: '',
+        names: { en: '', 'pt-BR': '' },
+        about: { en: '', 'pt-BR': '' },
+        waterTips: { en: '', 'pt-BR': '' },
+        light: 'shade',
+        difficulty: 'easy',
+        frequency: { times: 0, per: 'week' },
+      }),
+    });
+
+    const { result, usage } = await ai.identify({ photo: jpeg, locale: 'en' });
+
+    expect(result.isPlant).toBe(false);
+    expect(usage).toEqual({ inputTokens: 1500, outputTokens: 300 });
+  });
+
+  it('reads a check-up with empty steps as "another species" when it says so', async () => {
+    const ai = createAnthropicPlantAi({
+      model: 'claude-haiku-5-5',
+      create: stub({
+        isPlant: true,
+        matchesSpecies: false,
+        problem: '',
+        steps: [],
+        whenToWorry: '',
+      }),
+    });
+
+    const { result } = await ai.checkup({
+      photo: jpeg,
+      species: 'Zamioculcas zamiifolia',
+      locale: 'en',
+    });
+
+    expect(result).toMatchObject({ isPlant: true, matchesSpecies: false });
+  });
+
+  it('keeps the tokens of a paid answer it cannot use, so they still count', async () => {
+    const ai = createAnthropicPlantAi({
+      model: 'claude-haiku-5-5',
+      create: stub({ isPlant: 'yes' }),
+    });
+
+    await expect(
+      ai.identify({ name: 'x', locale: 'en' }),
+    ).rejects.toMatchObject({
+      code: 'ai_unavailable',
+      usage: { inputTokens: 1500, outputTokens: 300 },
+    });
+  });
+
+  it('keeps the API error as the cause, for the logs', async () => {
+    const failure = new Error(
+      '400 output_config.format.schema: oneOf is not supported',
+    );
+    const ai = createAnthropicPlantAi({
+      model: 'claude-haiku-5-5',
+      create: vi.fn<CreateFn>(() => Promise.reject(failure)),
+    });
+
+    await expect(
+      ai.identify({ name: 'x', locale: 'en' }),
+    ).rejects.toMatchObject({
+      cause: failure,
+      usage: null,
+    });
+  });
+
+  it('gives up on the API before the app does, and retries once', () => {
+    expect(ANTHROPIC_CLIENT_OPTIONS).toEqual({
+      timeout: 45_000,
+      maxRetries: 1,
+    });
   });
 });
