@@ -200,23 +200,53 @@ export function toSpeciesWebp(original: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-/** Stores a species photo, already cropped by toSpeciesWebp, with its credit. */
+/**
+ * Stores a species photo, already cropped by toSpeciesWebp, with its credit. Only a species with
+ * no photo gets one, claimed in the same write that checks, so two adds at once can't mix one's
+ * file with the other's credit; `replace` swaps an existing photo on purpose. Says whether it
+ * stored the photo.
+ */
 export async function storeSpeciesPhoto(
   prisma: PrismaClient,
   storage: PhotoStorage,
   plantId: string,
   photo: SourcePhoto,
   webp: Buffer,
-): Promise<void> {
+  options: { replace?: boolean } = {},
+): Promise<boolean> {
   const key = `species/${plantId}.webp`;
-  await storage.save(key, webp);
-  await prisma.plant.update({
-    where: { id: plantId },
-    data: {
-      imageKey: key,
-      imageAuthor: photo.author,
-      imageLicense: photo.license,
-      imageSource: photo.source,
-    },
+  const credit = {
+    imageAuthor: photo.author,
+    imageLicense: photo.license,
+    imageSource: photo.source,
+  };
+  if (options.replace) {
+    await storage.save(key, webp);
+    await prisma.plant.update({
+      where: { id: plantId },
+      data: { imageKey: key, ...credit },
+    });
+    return true;
+  }
+  const claimed = await prisma.plant.updateMany({
+    where: { id: plantId, imageKey: null },
+    data: { imageKey: key, ...credit },
   });
+  if (claimed.count === 0) return false;
+  try {
+    await storage.save(key, webp);
+  } catch (error) {
+    // Give the claim back, so the species doesn't point at a file that isn't there.
+    await prisma.plant.updateMany({
+      where: { id: plantId, imageKey: key, imageSource: photo.source },
+      data: {
+        imageKey: null,
+        imageAuthor: null,
+        imageLicense: null,
+        imageSource: null,
+      },
+    });
+    throw error;
+  }
+  return true;
 }

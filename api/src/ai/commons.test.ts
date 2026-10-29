@@ -8,6 +8,7 @@ import { prisma } from '../db';
 import { createDiskStorage } from '../storage';
 import { resetDb } from '../../test/helpers';
 import {
+  storeSpeciesPhoto,
   findCommonsPhotoByTitle,
   findCommonsPhotos,
   isFreeLicense,
@@ -292,6 +293,57 @@ describe('attachSpeciesPhoto', () => {
 
     expect(check).toHaveBeenCalledTimes(2);
     expect((await stored()).imageKey).toBeNull();
+  });
+
+  it('never replaces a photo the species already has, unless asked to', async () => {
+    const storage = createDiskStorage(dir);
+    await prisma.plant.update({
+      where: { id: plantId },
+      data: {
+        imageKey: `species/${plantId}.webp`,
+        imageAuthor: 'First',
+        imageLicense: 'CC0',
+        imageSource: 'https://first',
+      },
+    });
+    await storage.save(`species/${plantId}.webp`, Buffer.from('first'));
+    const late = {
+      url: '',
+      author: 'Late',
+      license: 'CC BY',
+      source: 'https://late',
+    };
+
+    expect(
+      await storeSpeciesPhoto(
+        prisma,
+        storage,
+        plantId,
+        late,
+        Buffer.from('late'),
+      ),
+    ).toBe(false);
+    expect((await stored()).imageAuthor).toBe('First');
+    expect(await storage.read(`species/${plantId}.webp`)).toEqual(
+      Buffer.from('first'),
+    );
+
+    expect(
+      await storeSpeciesPhoto(
+        prisma,
+        storage,
+        plantId,
+        late,
+        Buffer.from('late'),
+        {
+          replace: true,
+        },
+      ),
+    ).toBe(true);
+    expect((await stored()).imageAuthor).toBe('Late');
+    expect(await storage.read(`species/${plantId}.webp`)).toEqual(
+      Buffer.from('late'),
+    );
   });
 
   it('leaves the species alone when the download fails or times out', async () => {

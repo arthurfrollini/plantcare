@@ -51,6 +51,7 @@ export async function findReferencePhoto(options: {
   );
   const beforeDeadline = <T>(work: Promise<T>) => Promise.race([work, expired]);
 
+  let started = 0;
   let checks = 0;
   // A source or a download that failed, or the deadline: the answer may be different later.
   let failed = false;
@@ -66,7 +67,7 @@ export async function findReferencePhoto(options: {
         continue;
       }
       for (const photo of photos) {
-        if (checks >= MAX_CHECKS) break;
+        if (started >= MAX_CHECKS) break;
         const original = await beforeDeadline(downloadPhoto(photo, fetchImpl));
         if (original === EXPIRED) return ended();
         if (original === null) {
@@ -75,7 +76,7 @@ export async function findReferencePhoto(options: {
         }
         const { width = 0, height = 0 } = await sharp(original).metadata();
         if (Math.min(width, height) < MIN_SHORT_SIDE) continue;
-        checks++;
+        started++;
         const approved = await beforeDeadline(
           photoForCheck(original)
             .then(check)
@@ -85,6 +86,8 @@ export async function findReferencePhoto(options: {
             }),
         );
         if (approved === EXPIRED) return ended();
+        // Counted once answered: a check cut off by the deadline rejected nothing.
+        checks++;
         if (approved) {
           return {
             status: 'found',
@@ -121,6 +124,8 @@ export async function attachSpeciesPhoto(options: {
   check: CheckSpeciesPhoto;
   fetchImpl?: typeof fetch;
   log?: (message: string, error?: unknown) => void;
+  /** Swap a photo the species already has, e.g. a poor automatic pick. */
+  replace?: boolean;
 }): Promise<void> {
   const { scientificName, log = () => {} } = options;
   try {
@@ -135,6 +140,7 @@ export async function attachSpeciesPhoto(options: {
       options.plantId,
       found.photo,
       found.webp,
+      { replace: options.replace ?? false },
     );
   } catch (error) {
     log(`Could not attach a photo to ${scientificName}`, error);

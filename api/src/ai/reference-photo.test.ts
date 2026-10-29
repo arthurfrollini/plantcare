@@ -152,10 +152,11 @@ describe('findReferencePhoto', () => {
   });
 
   it('stops at the deadline', async () => {
+    // A check that never answered rejected nothing: a later search may still find a photo.
     const hanging = vi.fn<CheckSpeciesPhoto>(() => new Promise(() => {}));
     const started = Date.now();
     expect(await find(sources('fixture', 'fixture'), hanging, 100)).toEqual({
-      status: 'notFound',
+      status: 'unavailable',
     });
     expect(Date.now() - started).toBeLessThan(1000);
 

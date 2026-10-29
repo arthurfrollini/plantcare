@@ -10,7 +10,7 @@ import { seed } from '../../prisma/seed';
 import { createTestApp, resetDb } from '../../test/helpers';
 import { JPEG, multipart } from '../../test/multipart';
 import type { PrismaClient } from '../generated/prisma/client';
-import { createDiskStorage } from '../storage';
+import { createDiskStorage, type PhotoStorage } from '../storage';
 import { AiAnswerError } from './anthropic-plant-ai';
 import { createFakePlantAi } from './plant-ai';
 import type { AiConfig } from './usage';
@@ -60,13 +60,14 @@ describe('AI identification', () => {
     script: Parameters<typeof createFakePlantAi>[0],
     config: AiConfig = on,
     commonsFetch?: typeof fetch,
+    storage: PhotoStorage = createDiskStorage(dir),
   ) {
     if (app) await app.close();
     ai = createFakePlantAi(script);
     ({ app, prisma } = await createTestApp({
       plantAi: ai,
       aiConfig: config,
-      photoStorage: createDiskStorage(dir),
+      photoStorage: storage,
       speciesPhotoWaitMs: 500,
       ...(commonsFetch ? { commonsFetch } : {}),
     }));
@@ -491,6 +492,67 @@ describe('AI identification', () => {
       const used = await proposalFor('outra');
       expect((await add(used)).statusCode).toBe(201);
       expect((await referencePhoto(used)).statusCode).toBe(409);
+    });
+
+    it('does not let another user join a search that is still running', async () => {
+      const photo = await sharp({
+        create: { width: 1000, height: 1000, channels: 3, background: '#3a7' },
+      })
+        .jpeg()
+        .toBuffer();
+      let release: () => void = () => undefined;
+      const downloads = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+        const url = typeof input === 'string' ? input : '';
+        if (url.startsWith('https://commons.wikimedia.org/'))
+          return new Response(JSON.stringify(commonsSearch), { status: 200 });
+        if (url.startsWith('https://api.inaturalist.org/'))
+          return new Response(JSON.stringify({ results: [] }), { status: 200 });
+        await downloads;
+        return new Response(photo, { status: 200 });
+      });
+      await start(
+        { identify: [monstera], speciesPhoto: [approved] },
+        on,
+        fetchImpl,
+      );
+      const proposalId = await proposalFor();
+      const bia = await register('bia@example.com');
+
+      const ana = referencePhoto(proposalId);
+      await vi.waitFor(() =>
+        expect(fetchImpl.mock.calls.length).toBeGreaterThan(1),
+      );
+      const other = referencePhoto(proposalId, bia);
+      release();
+
+      expect((await other).statusCode).toBe(404);
+      expect((await ana).json()).toHaveProperty('photo.url');
+    });
+
+    it('still adds the plant when the reference file cannot be read', async () => {
+      const disk = createDiskStorage(dir);
+      const broken: PhotoStorage = {
+        ...disk,
+        read: (key) =>
+          key.endsWith('-ref.webp')
+            ? Promise.reject(new Error('disk failure'))
+            : disk.read(key),
+      };
+      await start(
+        { identify: [monstera], speciesPhoto: [approved] },
+        on,
+        await sources('fixture'),
+        broken,
+      );
+      const proposalId = await proposalFor();
+      await referencePhoto(proposalId);
+
+      const res = await add(proposalId);
+
+      expect(res.statusCode).toBe(201);
     });
 
     it('carries the stored photo into the catalog on add, without searching again', async () => {

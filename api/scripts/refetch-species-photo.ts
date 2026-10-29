@@ -42,6 +42,7 @@ async function main(): Promise<void> {
       plant.id,
       photo,
       await toSpeciesWebp(original),
+      { replace: true },
     );
   } else {
     if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
         return result.suitable;
       },
       log: (message, error) => console.log(message, error ?? ''),
+      replace: true,
     });
   }
 

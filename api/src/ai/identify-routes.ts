@@ -245,6 +245,46 @@ export function identifyRoutes(
     return { kind: 'proposal', proposalId: proposal.id, proposal: result };
   }
 
+  /**
+   * Gives a new species the photo the user saw in the preview, or, when the proposal was never
+   * searched (an old app, or every source was down), waits briefly for a fresh search; a slow
+   * search still finishes later.
+   */
+  async function giveSpeciesItsPhoto(
+    proposal: {
+      referenceStatus: string;
+      referenceKey: string | null;
+      referenceAuthor: string | null;
+      referenceLicense: string | null;
+      referenceSource: string | null;
+    },
+    speciesId: string,
+    scientificName: string,
+    userId: string,
+  ): Promise<void> {
+    if (proposal.referenceStatus === 'found' && proposal.referenceKey) {
+      const reference = await storage.read(proposal.referenceKey);
+      if (!reference) return;
+      await storeSpeciesPhoto(
+        app.prisma,
+        storage,
+        speciesId,
+        {
+          url: '',
+          author: proposal.referenceAuthor ?? 'Unknown',
+          license: proposal.referenceLicense ?? '',
+          source: proposal.referenceSource ?? '',
+        },
+        reference,
+      );
+    } else if (proposal.referenceStatus === 'none') {
+      await Promise.race([
+        attachSpeciesPhoto(speciesId, scientificName, userId),
+        setTimeout(speciesPhotoWaitMs, undefined, { ref: false }),
+      ]);
+    }
+  }
+
   typed.get(
     '/ai/status',
     {
@@ -324,12 +364,14 @@ export function identifyRoutes(
     },
     async (request) => {
       const { id } = request.params;
-      const running = searches.get(id);
+      // Keyed by user too: another user's call must still get the owner check's 404.
+      const key = `${request.userId}:${id}`;
+      const running = searches.get(key);
       if (running) return running;
       const search = searchReference(id, request.userId).finally(() =>
-        searches.delete(id),
+        searches.delete(key),
       );
-      searches.set(id, search);
+      searches.set(key, search);
       return search;
     },
   );
@@ -412,38 +454,21 @@ export function identifyRoutes(
         const species = await app.prisma.plant.findUniqueOrThrow({
           where: { id: speciesId },
         });
-        const reference = proposal.referenceKey
-          ? await storage.read(proposal.referenceKey)
-          : null;
-        if (species.source === 'ai' && !species.imageKey && reference) {
-          // The photo the user saw in the preview becomes the catalog's.
-          await storeSpeciesPhoto(
-            app.prisma,
-            storage,
-            speciesId,
-            {
-              url: '',
-              author: proposal.referenceAuthor ?? 'Unknown',
-              license: proposal.referenceLicense ?? '',
-              source: proposal.referenceSource ?? '',
-            },
-            reference,
-          );
-        } else if (
-          species.source === 'ai' &&
-          !species.imageKey &&
-          proposal.referenceStatus === 'none'
-        ) {
-          // Never searched (or every source was down): wait briefly, so the garden shows the photo
-          // at once; a slow search still finishes later.
-          await Promise.race([
-            attachSpeciesPhoto(
+        if (species.source === 'ai' && !species.imageKey) {
+          try {
+            await giveSpeciesItsPhoto(
+              proposal,
               speciesId,
               species.scientificName,
               request.userId,
-            ),
-            setTimeout(speciesPhotoWaitMs, undefined, { ref: false }),
-          ]);
+            );
+          } catch (error) {
+            // The photo is a bonus: the plant is added without it.
+            request.log.warn(
+              { err: error },
+              'Could not give the new species its photo',
+            );
+          }
         }
         let plant = await createUserPlant(app.prisma, request.userId, locale, {
           ...request.body,
@@ -465,7 +490,16 @@ export function identifyRoutes(
             await storage.remove(proposal.photoKey);
           }
         }
-        if (proposal.referenceKey) await storage.remove(proposal.referenceKey);
+        if (proposal.referenceKey) {
+          await storage
+            .remove(proposal.referenceKey)
+            .catch((error: unknown) => {
+              request.log.warn(
+                { err: error },
+                'Could not remove a reference photo',
+              );
+            });
+        }
         return reply.code(201).send(plant);
       } catch (error) {
         // Let the user try again when the add itself failed.
