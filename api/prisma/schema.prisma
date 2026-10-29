@@ -123,14 +123,21 @@ model Watering {
 
 /// A species the model proposed, held until the user confirms it (24 h).
 model AiProposal {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payload   Json
-  photoKey  String?
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payload          Json
+  photoKey         String?
+  /// The species photo search: none (not yet, or every source failed), found, notFound.
+  referenceStatus  String    @default("none")
+  /// The checked photo, cropped like a species photo, and its credit; set when found.
+  referenceKey     String?
+  referenceAuthor  String?
+  referenceLicense String?
+  referenceSource  String?
+  expiresAt        DateTime
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
 
   @@index([userId])
 }

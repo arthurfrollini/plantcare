@@ -4,6 +4,7 @@ import {
   findHarmfulAdvice,
   identificationSchema,
   identifyResponseSchema,
+  referencePhotoResponseSchema,
 } from './ai';
 
 const identification = {
@@ -101,5 +102,21 @@ describe('identifyResponseSchema', () => {
       identifyResponseSchema.parse({ kind: 'none', reason: 'not_a_plant' })
         .kind,
     ).toBe('none');
+  });
+});
+
+describe('referencePhotoResponseSchema', () => {
+  it('reads a photo with its credit, or none', () => {
+    const photo = {
+      url: '/ai/proposals/p1/reference-photo/image',
+      credit: { author: 'Jo', license: 'CC BY-SA 4.0', source: 'https://x' },
+    };
+    expect(referencePhotoResponseSchema.parse({ photo })).toEqual({ photo });
+    expect(referencePhotoResponseSchema.parse({ photo: null })).toEqual({
+      photo: null,
+    });
+    expect(() =>
+      referencePhotoResponseSchema.parse({ photo: { url: '/x' } }),
+    ).toThrow();
   });
 });

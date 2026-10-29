@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   catalogPlantSchema,
+  imageCreditSchema,
   difficultySchema,
   frequencySchema,
   lightSchema,
@@ -48,6 +49,14 @@ export const identifyResponseSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 export type IdentifyResponse = z.infer<typeof identifyResponseSchema>;
+
+/** The checked photo found for a proposal's species, shown in the preview and given to the catalog. */
+export const referencePhotoResponseSchema = z.object({
+  photo: z.object({ url: z.string(), credit: imageCreditSchema }).nullable(),
+});
+export type ReferencePhotoResponse = z.infer<
+  typeof referencePhotoResponseSchema
+>;
 
 export const aiStatusSchema = z.object({
   enabled: z.boolean(),

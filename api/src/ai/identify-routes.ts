@@ -4,10 +4,12 @@ import {
   findHarmfulAdvice,
   identificationSchema,
   identifyResponseSchema,
+  referencePhotoResponseSchema,
   userPlantSchema,
   type Identification,
   type IdentifyResponse,
   type Locale,
+  type ReferencePhotoResponse,
 } from '@plantcare/shared';
 import { setTimeout } from 'node:timers/promises';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -16,6 +18,8 @@ import { z } from 'zod';
 import { AppError } from '../errors';
 import { resolveLocale } from '../i18n';
 import { getCatalogPlant } from '../plants/service';
+import { storeSpeciesPhoto } from './commons';
+import type { ReferenceSearch } from './reference-photo';
 import type { PhotoStorage } from '../storage';
 import { readPhotoUpload } from '../user-plants/photo-upload';
 import { createUserPlant, setUserPlantPhoto } from '../user-plants/service';
@@ -42,13 +46,32 @@ export type AttachSpeciesPhoto = (
   userId: string,
 ) => Promise<void>;
 
+/** Searches a checked photo for a species, at the cost of the user who asked; never rejects. */
+export type FindReferencePhoto = (
+  scientificName: string,
+  userId: string,
+) => Promise<ReferenceSearch>;
+
+export type SpeciesPhotos = {
+  attach: AttachSpeciesPhoto;
+  findReference: FindReferencePhoto;
+};
+
+const noPhotos: SpeciesPhotos = {
+  attach: () => Promise.resolve(),
+  findReference: () => Promise.resolve({ status: 'unavailable' }),
+};
+
 export function identifyRoutes(
   app: FastifyInstance,
   storage: PhotoStorage,
-  attachSpeciesPhoto: AttachSpeciesPhoto = () => Promise.resolve(),
+  photos: SpeciesPhotos = noPhotos,
   /** How long an add waits for the species photo before answering without it. */
   speciesPhotoWaitMs = 10_000,
 ): void {
+  const attachSpeciesPhoto = photos.attach;
+  // One search per proposal at a time: a second call waits for the first one's answer.
+  const searches = new Map<string, Promise<ReferencePhotoResponse>>();
   const typed = app.withTypeProvider<ZodTypeProvider>();
   const security = [{ bearerAuth: [] }];
   const tags = ['ai'];
@@ -75,13 +98,90 @@ export function identifyRoutes(
     const where = { userId, expiresAt: { lt: new Date() } };
     const expired = await app.prisma.aiProposal.findMany({
       where,
-      select: { photoKey: true },
+      select: { photoKey: true, referenceKey: true },
     });
     if (expired.length === 0) return;
     await app.prisma.aiProposal.deleteMany({ where });
-    for (const { photoKey } of expired) {
+    for (const { photoKey, referenceKey } of expired) {
       if (photoKey !== null) await storage.remove(photoKey);
+      if (referenceKey !== null) await storage.remove(referenceKey);
     }
+  }
+
+  /** The user's proposal that can still be added, or the reason it can't. */
+  async function openProposal(id: string, userId: string) {
+    const proposal = await app.prisma.aiProposal.findFirst({
+      where: { id, userId },
+    });
+    if (!proposal)
+      throw new AppError(404, 'proposal_not_found', 'Proposal not found');
+    if (proposal.usedAt)
+      throw new AppError(409, 'proposal_used', 'Already added');
+    if (proposal.expiresAt <= new Date())
+      throw new AppError(410, 'proposal_expired', 'Proposal expired');
+    return proposal;
+  }
+
+  function referenceAnswer(proposal: {
+    id: string;
+    referenceStatus: string;
+    referenceKey: string | null;
+    referenceAuthor: string | null;
+    referenceLicense: string | null;
+    referenceSource: string | null;
+  }): ReferencePhotoResponse {
+    const { referenceAuthor, referenceLicense, referenceSource } = proposal;
+    if (
+      proposal.referenceStatus !== 'found' ||
+      !proposal.referenceKey ||
+      !referenceAuthor ||
+      !referenceLicense ||
+      !referenceSource
+    ) {
+      return { photo: null };
+    }
+    return {
+      photo: {
+        url: `/ai/proposals/${proposal.id}/reference-photo/image`,
+        credit: {
+          author: referenceAuthor,
+          license: referenceLicense,
+          source: referenceSource,
+        },
+      },
+    };
+  }
+
+  /** Finds and stores the proposal's reference photo once; later calls get what was stored. */
+  async function searchReference(
+    id: string,
+    userId: string,
+  ): Promise<ReferencePhotoResponse> {
+    const proposal = await openProposal(id, userId);
+    if (proposal.referenceStatus !== 'none') return referenceAnswer(proposal);
+    const { scientificName } = identificationSchema.parse(proposal.payload);
+    const found = await photos.findReference(scientificName, userId);
+    if (found.status === 'unavailable') return { photo: null };
+    if (found.status === 'notFound') {
+      await app.prisma.aiProposal.update({
+        where: { id },
+        data: { referenceStatus: 'notFound' },
+      });
+      return { photo: null };
+    }
+    const referenceKey = `proposals/${id}-ref.webp`;
+    await storage.save(referenceKey, found.webp);
+    const stored = await app.prisma.aiProposal.update({
+      where: { id },
+      data: {
+        referenceStatus: 'found',
+        referenceKey,
+        referenceAuthor: found.photo.author,
+        referenceLicense: found.photo.license,
+        referenceSource: found.photo.source,
+      },
+    });
+    return referenceAnswer(stored);
   }
 
   /** Calls the model, counts the call, and turns its answer into a response. */
@@ -208,6 +308,60 @@ export function identifyRoutes(
   );
 
   typed.post(
+    '/ai/proposals/:id/reference-photo',
+    {
+      onRequest: app.authenticate,
+      config: { rateLimit },
+      schema: {
+        tags,
+        summary: "Find a checked photo of a proposal's species",
+        description:
+          'Searches Wikimedia Commons, then iNaturalist, and has the AI check each candidate. The answer is stored: later calls return it without searching, except after every source failed.',
+        security,
+        params: z.object({ id: z.string() }),
+        response: { 200: referencePhotoResponseSchema },
+      },
+    },
+    async (request) => {
+      const { id } = request.params;
+      const running = searches.get(id);
+      if (running) return running;
+      const search = searchReference(id, request.userId).finally(() =>
+        searches.delete(id),
+      );
+      searches.set(id, search);
+      return search;
+    },
+  );
+
+  typed.get(
+    '/ai/proposals/:id/reference-photo/image',
+    {
+      onRequest: app.authenticate,
+      schema: {
+        tags,
+        summary: "The proposal's reference photo",
+        security,
+        params: z.object({ id: z.string() }),
+      },
+    },
+    async (request, reply) => {
+      const proposal = await app.prisma.aiProposal.findFirst({
+        where: { id: request.params.id, userId: request.userId },
+        select: { referenceKey: true },
+      });
+      const data = proposal?.referenceKey
+        ? await storage.read(proposal.referenceKey)
+        : null;
+      if (!data) throw new AppError(404, 'not_found', 'Image not found');
+      return reply
+        .header('content-type', 'image/webp')
+        .header('cache-control', 'private, max-age=86400')
+        .send(data);
+    },
+  );
+
+  typed.post(
     '/ai/proposals/:id/add',
     {
       onRequest: app.authenticate,
@@ -258,8 +412,30 @@ export function identifyRoutes(
         const species = await app.prisma.plant.findUniqueOrThrow({
           where: { id: speciesId },
         });
-        if (species.source === 'ai' && !species.imageKey) {
-          // Waits briefly, so the garden shows the photo at once; a slow Commons still finishes later.
+        const reference = proposal.referenceKey
+          ? await storage.read(proposal.referenceKey)
+          : null;
+        if (species.source === 'ai' && !species.imageKey && reference) {
+          // The photo the user saw in the preview becomes the catalog's.
+          await storeSpeciesPhoto(
+            app.prisma,
+            storage,
+            speciesId,
+            {
+              url: '',
+              author: proposal.referenceAuthor ?? 'Unknown',
+              license: proposal.referenceLicense ?? '',
+              source: proposal.referenceSource ?? '',
+            },
+            reference,
+          );
+        } else if (
+          species.source === 'ai' &&
+          !species.imageKey &&
+          proposal.referenceStatus === 'none'
+        ) {
+          // Never searched (or every source was down): wait briefly, so the garden shows the photo
+          // at once; a slow search still finishes later.
           await Promise.race([
             attachSpeciesPhoto(
               speciesId,
@@ -289,6 +465,7 @@ export function identifyRoutes(
             await storage.remove(proposal.photoKey);
           }
         }
+        if (proposal.referenceKey) await storage.remove(proposal.referenceKey);
         return reply.code(201).send(plant);
       } catch (error) {
         // Let the user try again when the add itself failed.

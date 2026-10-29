@@ -313,6 +313,298 @@ describe('AI identification', () => {
     expect(species.imageKey).toBeNull();
   });
 
+  type Answer = 'fixture' | 'empty' | 'down';
+
+  /** Commons and iNaturalist answering as asked, with a real photo for every download. */
+  async function sources(commons: Answer, inat: Answer = 'empty') {
+    const photo = await sharp({
+      create: { width: 1000, height: 1000, channels: 3, background: '#3a7' },
+    })
+      .jpeg()
+      .toBuffer();
+    return vi.fn<typeof fetch>((input) => {
+      const url = typeof input === 'string' ? input : '';
+      const answer = (kind: Answer, body: unknown, empty: unknown) =>
+        Promise.resolve(
+          kind === 'down'
+            ? new Response('', { status: 503 })
+            : new Response(JSON.stringify(kind === 'fixture' ? body : empty), {
+                status: 200,
+              }),
+        );
+      if (url.startsWith('https://commons.wikimedia.org/'))
+        return answer(commons, commonsSearch, { batchcomplete: '' });
+      if (url.startsWith('https://api.inaturalist.org/'))
+        return answer(inat, { results: [] }, { results: [] });
+      return Promise.resolve(new Response(photo, { status: 200 }));
+    });
+  }
+
+  const referencePhoto = (proposalId: string, as = token) =>
+    app.inject({
+      method: 'POST',
+      url: `/ai/proposals/${proposalId}/reference-photo`,
+      headers: { authorization: `Bearer ${as}` },
+    });
+
+  const referenceImage = (proposalId: string, as = token) =>
+    app.inject({
+      method: 'GET',
+      url: `/ai/proposals/${proposalId}/reference-photo/image`,
+      headers: { authorization: `Bearer ${as}` },
+    });
+
+  async function proposalFor(name = 'costela', as = token): Promise<string> {
+    return (await byName(name, as)).json<{ proposalId: string }>().proposalId;
+  }
+
+  describe('reference photo', () => {
+    it('finds a checked photo with its credit and serves it, counted as a species photo check', async () => {
+      await start(
+        { identify: [monstera], speciesPhoto: [approved] },
+        on,
+        await sources('fixture'),
+      );
+      const proposalId = await proposalFor();
+
+      const res = await referencePhoto(proposalId);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({
+        photo: {
+          url: `/ai/proposals/${proposalId}/reference-photo/image`,
+          credit: {
+            license: 'CC BY-SA 3.0',
+            source:
+              'https://commons.wikimedia.org/wiki/File:Zamioculcas_zamiifolia_1.jpg',
+          },
+        },
+      });
+      const image = await referenceImage(proposalId);
+      expect(image.statusCode).toBe(200);
+      expect(image.headers['content-type']).toBe('image/webp');
+      const meta = await sharp(image.rawPayload).metadata();
+      expect([meta.width, meta.height]).toEqual([800, 800]);
+      const usage = await prisma.aiUsage.findMany({ orderBy: { kind: 'asc' } });
+      expect(usage.map((row) => [row.kind, row.count])).toEqual([
+        ['identify', 1],
+        ['speciesPhoto', 1],
+      ]);
+      const status = await app.inject({
+        method: 'GET',
+        url: '/ai/status',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(status.json()).toMatchObject({ identifyLeft: 9 });
+    });
+
+    it('answers again from what it stored, without searching', async () => {
+      const fetchImpl = await sources('fixture');
+      await start(
+        { identify: [monstera], speciesPhoto: [approved] },
+        on,
+        fetchImpl,
+      );
+      const proposalId = await proposalFor();
+      const first = (await referencePhoto(proposalId)).json<unknown>();
+      expect(first).toHaveProperty('photo.url');
+      const calls = [ai.calls.length, fetchImpl.mock.calls.length];
+
+      const again = await referencePhoto(proposalId);
+
+      expect(again.json()).toEqual(first);
+      expect([ai.calls.length, fetchImpl.mock.calls.length]).toEqual(calls);
+    });
+
+    it('searches once when asked twice at the same time', async () => {
+      await start(
+        { identify: [monstera], speciesPhoto: [approved, approved] },
+        on,
+        await sources('fixture'),
+      );
+      const proposalId = await proposalFor();
+      const before = ai.calls.length;
+
+      const [a, b] = await Promise.all([
+        referencePhoto(proposalId),
+        referencePhoto(proposalId),
+      ]);
+
+      expect(a.json()).toEqual(b.json());
+      expect(ai.calls.length - before).toBe(1);
+    });
+
+    it('stores that no photo passed, and does not search again', async () => {
+      const fetchImpl = await sources('fixture');
+      await start(
+        { identify: [monstera], speciesPhoto: [rejected, rejected] },
+        on,
+        fetchImpl,
+      );
+      const proposalId = await proposalFor();
+
+      expect((await referencePhoto(proposalId)).json()).toEqual({
+        photo: null,
+      });
+      const calls = fetchImpl.mock.calls.length;
+      expect((await referencePhoto(proposalId)).json()).toEqual({
+        photo: null,
+      });
+      expect(fetchImpl.mock.calls.length).toBe(calls);
+      expect((await referenceImage(proposalId)).statusCode).toBe(404);
+    });
+
+    it('stores nothing when the sources are down, so a later call searches again', async () => {
+      const fetchImpl = await sources('down', 'down');
+      await start({ identify: [monstera] }, on, fetchImpl);
+      const proposalId = await proposalFor();
+
+      expect((await referencePhoto(proposalId)).json()).toEqual({
+        photo: null,
+      });
+      const proposal = await prisma.aiProposal.findUniqueOrThrow({
+        where: { id: proposalId },
+      });
+      expect(proposal.referenceStatus).toBe('none');
+      const calls = fetchImpl.mock.calls.length;
+      await referencePhoto(proposalId);
+      expect(fetchImpl.mock.calls.length).toBeGreaterThan(calls);
+    });
+
+    it("hides another user's proposal, and refuses a used or expired one", async () => {
+      await start(
+        { identify: [monstera, monstera] },
+        on,
+        await sources('empty'),
+      );
+      const proposalId = await proposalFor();
+      const other = await register('bia@example.com');
+      expect((await referencePhoto(proposalId, other)).statusCode).toBe(404);
+      expect((await referenceImage(proposalId, other)).statusCode).toBe(404);
+
+      await prisma.aiProposal.update({
+        where: { id: proposalId },
+        data: { expiresAt: new Date(0) },
+      });
+      expect((await referencePhoto(proposalId)).statusCode).toBe(410);
+
+      const used = await proposalFor('outra');
+      expect((await add(used)).statusCode).toBe(201);
+      expect((await referencePhoto(used)).statusCode).toBe(409);
+    });
+
+    it('carries the stored photo into the catalog on add, without searching again', async () => {
+      const fetchImpl = await sources('fixture');
+      await start(
+        { identify: [monstera], speciesPhoto: [approved] },
+        on,
+        fetchImpl,
+      );
+      const proposalId = await proposalFor();
+      await referencePhoto(proposalId);
+      const shown = (await referenceImage(proposalId)).rawPayload;
+      const calls = [ai.calls.length, fetchImpl.mock.calls.length];
+
+      const res = await add(proposalId);
+
+      expect(res.statusCode).toBe(201);
+      expect([ai.calls.length, fetchImpl.mock.calls.length]).toEqual(calls);
+      const species = await prisma.plant.findUniqueOrThrow({
+        where: { scientificName: 'Monstera deliciosa' },
+      });
+      expect(species).toMatchObject({
+        imageKey: `species/${species.id}.webp`,
+        imageLicense: 'CC BY-SA 3.0',
+      });
+      const storage = createDiskStorage(dir);
+      expect(await storage.read(`species/${species.id}.webp`)).toEqual(shown);
+      expect(await storage.read(`proposals/${proposalId}-ref.webp`)).toBeNull();
+    });
+
+    it('adds without a photo, and without searching, when none passed', async () => {
+      const fetchImpl = await sources('fixture');
+      await start(
+        { identify: [monstera], speciesPhoto: [rejected, rejected] },
+        on,
+        fetchImpl,
+      );
+      const proposalId = await proposalFor();
+      await referencePhoto(proposalId);
+      const calls = fetchImpl.mock.calls.length;
+
+      const res = await add(proposalId);
+
+      expect(res.json()).toMatchObject({ imageUrl: null });
+      expect(fetchImpl.mock.calls.length).toBe(calls);
+    });
+
+    it("leaves another user's species photo alone and drops the reference", async () => {
+      await start(
+        { identify: [monstera, monstera], speciesPhoto: [approved, approved] },
+        on,
+        await sources('fixture'),
+      );
+      const first = await proposalFor();
+      await referencePhoto(first);
+      await add(first);
+      const species = await prisma.plant.findUniqueOrThrow({
+        where: { scientificName: 'Monstera deliciosa' },
+      });
+      const storage = createDiskStorage(dir);
+      const image = await storage.read(`species/${species.id}.webp`);
+      // Bia's identification came in before Ana's add, as a proposal of her own.
+      const bia = await register('bia@example.com');
+      const second = (
+        await prisma.aiProposal.create({
+          data: {
+            userId: (
+              await prisma.user.findUniqueOrThrow({
+                where: { email: 'bia@example.com' },
+              })
+            ).id,
+            payload: monstera,
+            expiresAt: new Date(Date.now() + 60_000),
+            referenceStatus: 'found',
+            referenceKey: 'proposals/bia-ref.webp',
+            referenceAuthor: 'Someone else',
+            referenceLicense: 'CC0',
+            referenceSource: 'https://example.com/other',
+          },
+        })
+      ).id;
+      await storage.save('proposals/bia-ref.webp', Buffer.from('other'));
+
+      expect((await add(second, bia)).statusCode).toBe(201);
+
+      expect(await storage.read(`species/${species.id}.webp`)).toEqual(image);
+      expect(
+        (await prisma.plant.findUniqueOrThrow({ where: { id: species.id } }))
+          .imageAuthor,
+      ).not.toBe('Someone else');
+      expect(await storage.read('proposals/bia-ref.webp')).toBeNull();
+    });
+
+    it('drops the reference photo of an expired proposal on the next identification', async () => {
+      await start({ identify: [monstera] }, on, await sources('empty'));
+      const user = await prisma.user.findFirstOrThrow();
+      const storage = createDiskStorage(dir);
+      await storage.save('proposals/old-ref.webp', JPEG);
+      await prisma.aiProposal.create({
+        data: {
+          userId: user.id,
+          payload: {},
+          referenceStatus: 'found',
+          referenceKey: 'proposals/old-ref.webp',
+          expiresAt: new Date(Date.now() - 1000),
+        },
+      });
+
+      await byName('costela');
+
+      expect(await storage.read('proposals/old-ref.webp')).toBeNull();
+    });
+  });
+
   it('adds a proposal once, even with two taps at the same time', async () => {
     await start({ identify: [monstera] });
     const { proposalId } = (await byName('costela')).json<{

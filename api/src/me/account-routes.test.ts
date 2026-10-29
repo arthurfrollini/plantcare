@@ -227,6 +227,33 @@ describe('account routes', () => {
       expect((await getMe(b.accessToken)).statusCode).toBe(200);
     });
 
+    it('removes the photos of pending AI proposals', async () => {
+      const a = await register('ana@example.com');
+      for (const key of ['proposals/x.jpg', 'proposals/x-ref.webp']) {
+        await storage.save(key, Buffer.from('x'));
+      }
+      await prisma.aiProposal.create({
+        data: {
+          userId: a.userId,
+          payload: {},
+          photoKey: 'proposals/x.jpg',
+          referenceStatus: 'found',
+          referenceKey: 'proposals/x-ref.webp',
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      });
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/me',
+        headers: { authorization: `Bearer ${a.accessToken}` },
+      });
+
+      expect(res.statusCode).toBe(204);
+      expect(await storage.read('proposals/x.jpg')).toBeNull();
+      expect(await storage.read('proposals/x-ref.webp')).toBeNull();
+    });
+
     it('succeeds when a file is already missing', async () => {
       const a = await register('ana@example.com');
       await prisma.user.update({
